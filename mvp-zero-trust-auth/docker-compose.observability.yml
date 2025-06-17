@@ -1,0 +1,9 @@
+version: '3.8'
+services:
+  # Add your observability services here
+  # Example:
+  # prometheus:
+  #   image: prom/prometheus
+  #   ports:
+  #     - "9090:9090"
+  pass:

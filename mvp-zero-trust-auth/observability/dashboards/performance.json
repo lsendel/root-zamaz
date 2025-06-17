@@ -1,0 +1,20 @@
+{
+  "dashboard": {
+    "title": "Performance Dashboard",
+    "panels": [
+      // Add your performance-related panels here
+      // Example:
+      // {
+      //   "type": "graph",
+      //   "title": "API Request Latency",
+      //   "datasource": "Prometheus",
+      //   "targets": [
+      //     {
+      //       "expr": "histogram_quantile(0.99, sum(rate(api_request_latency_seconds_bucket[5m])) by (le, route))"
+      //     }
+      //   ]
+      // }
+    ]
+  },
+  "message": "Initial performance dashboard configuration"
+}

@@ -1,0 +1,20 @@
+{
+  "dashboard": {
+    "title": "Security Dashboard",
+    "panels": [
+      // Add your security-related panels here
+      // Example:
+      // {
+      //   "type": "graph",
+      //   "title": "Authentication Attempts",
+      //   "datasource": "Prometheus",
+      //   "targets": [
+      //     {
+      //       "expr": "sum(rate(auth_attempts_total[5m])) by (status)"
+      //     }
+      //   ]
+      // }
+    ]
+  },
+  "message": "Initial security dashboard configuration"
+}

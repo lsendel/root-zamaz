@@ -1,0 +1,20 @@
+{
+  "dashboard": {
+    "title": "Business Dashboard",
+    "panels": [
+      // Add your business-related panels here
+      // Example:
+      // {
+      //   "type": "singlestat",
+      //   "title": "Active Users",
+      //   "datasource": "Prometheus",
+      //   "targets": [
+      //     {
+      //       "expr": "active_users_count"
+      //     }
+      //   ]
+      // }
+    ]
+  },
+  "message": "Initial business dashboard configuration"
+}
