@@ -1,0 +1,97 @@
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
+go.work.sum
+
+# Build artifacts
+/build/
+/dist/
+/bin/
+
+# Test and coverage
+*.test
+*.out
+coverage.html
+coverage.out
+*.prof
+*.coverprofile
+.coverage/
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+tmp/
+temp/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+*.env
+
+# Certificates and keys
+*.pem
+*.key
+*.crt
+*.csr
+*.p12
+*.pfx
+
+# Frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Kubernetes
+*.kubeconfig
+kubeconfig
+
+# SPIRE
+spire-data/
+.spire/
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Database
+*.sqlite
+*.sqlite3
+*.db
+
+# Monitoring and observability
+prometheus-data/
+grafana-data/
+jaeger-data/
+
+# k6 test results
+k6-results/

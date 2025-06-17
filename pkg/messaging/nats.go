@@ -1,3 +1,37 @@
+// Package messaging provides distributed messaging capabilities for the MVP Zero Trust Auth system.
+// It wraps NATS JetStream to provide reliable, persistent messaging with observability support.
+//
+// The package offers:
+//   - Reliable message publishing with acknowledgments
+//   - Stream-based message consumption with at-least-once delivery
+//   - Automatic distributed tracing integration
+//   - Connection resilience with automatic reconnection
+//   - JSON message serialization/deserialization
+//
+// Example usage:
+//
+//   cfg := messaging.Config{
+//       URL: "nats://localhost:4222",
+//       ClusterName: "mvp-cluster",
+//       ClientID: "auth-service",
+//   }
+//   
+//   client, err := messaging.NewClient(cfg, tracer)
+//   if err != nil {
+//       log.Fatal(err)
+//   }
+//   defer client.Close()
+//   
+//   // Publish a message
+//   msg := UserEvent{UserID: "123", Action: "login"}
+//   if err := client.Publish(ctx, "user.events", msg); err != nil {
+//       log.Error(err)
+//   }
+//   
+//   // Subscribe to messages
+//   if err := client.Subscribe(ctx, "user.events", "auth-processor", handleUserEvent); err != nil {
+//       log.Error(err)
+//   }
 package messaging
 
 import (
@@ -12,18 +46,61 @@ import (
     "go.opentelemetry.io/otel/trace"
 )
 
+// Config holds configuration for NATS messaging client.
+// It supports environment variable overrides for flexible deployment.
 type Config struct {
+    // URL is the NATS server connection string
     URL         string `env:"NATS_URL" envDefault:"nats://localhost:4222"`
+    
+    // ClusterName identifies the NATS cluster for JetStream
     ClusterName string `env:"NATS_CLUSTER" envDefault:"mvp-cluster"`
+    
+    // ClientID uniquely identifies this client instance (auto-generated if empty)
     ClientID    string `env:"NATS_CLIENT_ID"`
 }
 
+// Client provides a high-level interface for NATS JetStream messaging.
+// It wraps the NATS connection and JetStream context with observability support.
 type Client struct {
+    // conn is the underlying NATS connection
     conn   *nats.Conn
+    
+    // js provides JetStream operations for reliable messaging
     js     nats.JetStreamContext
+    
+    // tracer enables distributed tracing for message operations
     tracer trace.Tracer
 }
 
+// NewClient creates and initializes a new NATS messaging client.
+// It establishes a connection to the NATS server and sets up JetStream context
+// for reliable messaging operations.
+//
+// The client is configured with automatic reconnection capabilities:
+//   - Reconnect wait time: 2 seconds
+//   - Max reconnects: unlimited (-1)
+//   - Auto-generated client ID if not provided
+//
+// Parameters:
+//   cfg - Configuration for NATS connection
+//   tracer - OpenTelemetry tracer for distributed tracing
+//
+// Returns:
+//   A configured Client instance ready for messaging operations
+//
+// Example:
+//   cfg := Config{
+//       URL: "nats://localhost:4222",
+//       ClusterName: "mvp-cluster",
+//   }
+//   client, err := NewClient(cfg, tracer)
+//   if err != nil {
+//       return fmt.Errorf("failed to create messaging client: %w", err)
+//   }
+//   defer client.Close()
+//
+// The client automatically generates a unique ClientID if none is provided,
+// ensuring each instance can be distinguished in NATS monitoring.
 func NewClient(cfg Config, tracer trace.Tracer) (*Client, error) {
     if cfg.ClientID == "" {
         cfg.ClientID = fmt.Sprintf("client-%s", uuid.New().String()[:8])

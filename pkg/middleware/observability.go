@@ -1,3 +1,26 @@
+// Package middleware provides HTTP middleware functions for the MVP Zero Trust Auth system.
+// It includes observability, security, and request processing middleware that integrates
+// with the Fiber web framework.
+//
+// The package provides:
+//   - Request/response observability with structured logging and metrics
+//   - Distributed tracing integration with automatic span creation
+//   - Correlation ID handling for request tracing across services
+//   - Tenant context extraction and propagation
+//   - Security metrics collection for authentication and authorization events
+//
+// Example usage:
+//
+//   app := fiber.New()
+//   
+//   // Add observability middleware
+//   app.Use(middleware.ObservabilityMiddleware(obs, securityMetrics))
+//   
+//   // Add correlation ID middleware
+//   app.Use(middleware.CorrelationIDMiddleware())
+//   
+//   // Add tenant context middleware
+//   app.Use(middleware.TenantMiddleware())
 package middleware
 
 import (
@@ -13,10 +36,43 @@ import (
 )
 
 const (
+	// CorrelationIDHeader is the HTTP header name for request correlation IDs
 	CorrelationIDHeader = "X-Correlation-ID"
+	
+	// TenantIDHeader is the HTTP header name for tenant identification
 	TenantIDHeader      = "X-Tenant-ID"
 )
 
+// ObservabilityMiddleware provides comprehensive request/response observability.
+// It instruments HTTP requests with structured logging, distributed tracing,
+// and metrics collection for monitoring and debugging purposes.
+//
+// The middleware performs the following operations:
+//   - Measures request latency and records metrics
+//   - Extracts correlation IDs and tenant context from headers/locals
+//   - Creates structured log entries with request/response details
+//   - Integrates with distributed tracing to capture trace/span IDs
+//   - Records security-related metrics for authentication events
+//
+// Parameters:
+//   obs - Observability instance for logging and tracing
+//   metrics - SecurityMetrics instance for recording security events
+//
+// Returns:
+//   A Fiber middleware handler function
+//
+// Example:
+//   app.Use(ObservabilityMiddleware(observability, securityMetrics))
+//
+// The middleware automatically captures:
+//   - HTTP method, path, status code, and response time
+//   - Correlation ID from headers or generates one if missing
+//   - Tenant ID from headers for multi-tenant applications
+//   - Trace ID from OpenTelemetry span context
+//   - User agent and other relevant request metadata
+//
+// All request data is logged in structured JSON format for easy parsing
+// and analysis by log aggregation systems.
 func ObservabilityMiddleware(obs *observability.Observability, metrics *observability.SecurityMetrics) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		start := time.Now()

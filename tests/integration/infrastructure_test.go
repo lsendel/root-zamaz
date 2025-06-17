@@ -1,14 +1,21 @@
+// Package integration provides integration tests for the MVP Zero Trust Auth system.
+// These tests verify connectivity and basic functionality of external dependencies
+// including PostgreSQL, Redis, NATS, and the observability stack.
 package integration
 
 import (
     "context"
+    "database/sql"
+    "net/http"
     "testing"
     "time"
 
     "github.com/stretchr/testify/assert"
     "github.com/stretchr/testify/require"
-    "github.com/testcontainers/testcontainers-go"
     "github.com/testcontainers/testcontainers-go/modules/compose"
+    "github.com/nats-io/nats.go"
+    _ "github.com/lib/pq" // PostgreSQL driver
+    "github.com/redis/go-redis/v9"
 )
 
 func TestInfrastructureIntegration(t *testing.T) {
@@ -87,4 +94,67 @@ func TestInfrastructureIntegration(t *testing.T) {
         assert.NoError(t, err)
         assert.Equal(t, 200, resp.StatusCode)
     })
+}
+
+// Helper functions
+
+func setupTestDB(t *testing.T) *sql.DB {
+    t.Helper()
+    
+    // Connection string for the PostgreSQL container
+    connStr := "host=localhost port=5432 user=mvp_user password=mvp_pass dbname=mvp_db sslmode=disable"
+    
+    db, err := sql.Open("postgres", connStr)
+    if err != nil {
+        t.Fatalf("Failed to connect to database: %v", err)
+    }
+    
+    // Test the connection
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+    
+    if err := db.PingContext(ctx); err != nil {
+        t.Fatalf("Failed to ping database: %v", err)
+    }
+    
+    return db
+}
+
+func setupTestRedis(t *testing.T) *redis.Client {
+    t.Helper()
+    
+    client := redis.NewClient(&redis.Options{
+        Addr:     "localhost:6379",
+        Password: "", // no password
+        DB:       0,  // default DB
+    })
+    
+    // Test the connection
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+    
+    if err := client.Ping(ctx).Err(); err != nil {
+        t.Fatalf("Failed to connect to Redis: %v", err)
+    }
+    
+    return client
+}
+
+func setupTestNATS(t *testing.T) *nats.Conn {
+    t.Helper()
+    
+    nc, err := nats.Connect("nats://localhost:4222")
+    if err != nil {
+        t.Fatalf("Failed to connect to NATS: %v", err)
+    }
+    
+    return nc
+}
+
+func httpGet(url string) (*http.Response, error) {
+    client := &http.Client{
+        Timeout: 10 * time.Second,
+    }
+    
+    return client.Get(url)
 }
