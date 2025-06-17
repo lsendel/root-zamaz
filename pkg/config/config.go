@@ -54,7 +54,7 @@ type DatabaseConfig struct {
 	Port            int           `yaml:"port" env:"DB_PORT" default:"5432"`
 	Database        string        `yaml:"database" env:"DB_NAME" default:"mvp_db"`
 	Username        string        `yaml:"username" env:"DB_USER" default:"mvp_user"`
-	Password        string        `yaml:"password" env:"DB_PASSWORD" default:"mvp_pass"`
+	Password        string        `yaml:"password" env:"DB_PASSWORD" default:"mvp_password"`
 	SSLMode         string        `yaml:"ssl_mode" env:"DB_SSL_MODE" default:"disable"`
 	MaxConnections  int           `yaml:"max_connections" env:"DB_MAX_CONNECTIONS" default:"25"`
 	MaxIdleConns    int           `yaml:"max_idle_conns" env:"DB_MAX_IDLE_CONNS" default:"5"`
@@ -224,7 +224,7 @@ func loadFromEnv(config *Config) error {
 	config.Database.Port = getEnvIntWithDefault("DB_PORT", 5432)
 	config.Database.Database = getEnvWithDefault("DB_NAME", "mvp_db")
 	config.Database.Username = getEnvWithDefault("DB_USER", "mvp_user")
-	config.Database.Password = getEnvWithDefault("DB_PASSWORD", "mvp_pass")
+	config.Database.Password = getEnvWithDefault("DB_PASSWORD", "mvp_password")
 	config.Database.SSLMode = getEnvWithDefault("DB_SSL_MODE", "disable")
 	config.Database.MaxConnections = getEnvIntWithDefault("DB_MAX_CONNECTIONS", 25)
 	config.Database.MaxIdleConns = getEnvIntWithDefault("DB_MAX_IDLE_CONNS", 5)

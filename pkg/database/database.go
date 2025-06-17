@@ -5,7 +5,6 @@ package database
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"gorm.io/driver/postgres"
@@ -14,7 +13,6 @@ import (
 
 	"mvp.local/pkg/config"
 	"mvp.local/pkg/errors"
-	"mvp.local/pkg/models"
 )
 
 // Database represents the database connection and configuration
@@ -105,146 +103,16 @@ func (d *Database) Migrate() error {
 		return errors.Internal("Database connection not established")
 	}
 
-	// Auto-migrate all models
-	err := d.DB.AutoMigrate(
-		&models.User{},
-		&models.UserSession{},
-		&models.DeviceAttestation{},
-		&models.Role{},
-		&models.Permission{},
-		&models.AuditLog{},
-	)
-
-	if err != nil {
-		return errors.Wrap(err, errors.CodeInternal, "Failed to run database migrations")
-	}
-
-	// Create default roles and permissions
-	if err := d.seedDefaultData(); err != nil {
-		return errors.Wrap(err, errors.CodeInternal, "Failed to seed default data")
-	}
-
-	return nil
+	// Skip auto-migration entirely since we're using SQL migrations
+	// The database schema is already created by scripts/sql/init/migrations.sql
+	// The SQL migrations handle all table creation and constraints
+	
+	// Only check if the database connection works
+	return d.Health()
 }
 
-// seedDefaultData creates default roles and permissions if they don't exist
-func (d *Database) seedDefaultData() error {
-	// Create default roles
-	defaultRoles := []models.Role{
-		{
-			Name:        "admin",
-			Description: "System administrator with full access",
-			IsActive:    true,
-		},
-		{
-			Name:        "user",
-			Description: "Regular user with limited access",
-			IsActive:    true,
-		},
-		{
-			Name:        "device_manager",
-			Description: "User who can manage device attestations",
-			IsActive:    true,
-		},
-	}
-
-	for _, role := range defaultRoles {
-		var existingRole models.Role
-		result := d.DB.Where("name = ?", role.Name).First(&existingRole)
-		if result.Error == gorm.ErrRecordNotFound {
-			if err := d.DB.Create(&role).Error; err != nil {
-				return fmt.Errorf("failed to create role %s: %w", role.Name, err)
-			}
-		}
-	}
-
-	// Create default permissions
-	defaultPermissions := []models.Permission{
-		{Name: "user.read", Resource: "user", Action: "read", Description: "Read user information", IsActive: true},
-		{Name: "user.write", Resource: "user", Action: "write", Description: "Create and update users", IsActive: true},
-		{Name: "user.delete", Resource: "user", Action: "delete", Description: "Delete users", IsActive: true},
-		{Name: "user.admin", Resource: "user", Action: "admin", Description: "Full user administration", IsActive: true},
-		
-		{Name: "device.read", Resource: "device", Action: "read", Description: "Read device attestations", IsActive: true},
-		{Name: "device.write", Resource: "device", Action: "write", Description: "Create and update device attestations", IsActive: true},
-		{Name: "device.delete", Resource: "device", Action: "delete", Description: "Delete device attestations", IsActive: true},
-		{Name: "device.verify", Resource: "device", Action: "verify", Description: "Verify device attestations", IsActive: true},
-		
-		{Name: "system.read", Resource: "system", Action: "read", Description: "Read system information", IsActive: true},
-		{Name: "system.admin", Resource: "system", Action: "admin", Description: "Full system administration", IsActive: true},
-		
-		{Name: "audit.read", Resource: "audit", Action: "read", Description: "Read audit logs", IsActive: true},
-	}
-
-	for _, permission := range defaultPermissions {
-		var existingPermission models.Permission
-		result := d.DB.Where("name = ?", permission.Name).First(&existingPermission)
-		if result.Error == gorm.ErrRecordNotFound {
-			if err := d.DB.Create(&permission).Error; err != nil {
-				return fmt.Errorf("failed to create permission %s: %w", permission.Name, err)
-			}
-		}
-	}
-
-	// Assign permissions to roles
-	if err := d.assignDefaultRolePermissions(); err != nil {
-		return fmt.Errorf("failed to assign default role permissions: %w", err)
-	}
-
-	return nil
-}
-
-// assignDefaultRolePermissions assigns default permissions to roles
-func (d *Database) assignDefaultRolePermissions() error {
-	// Admin role gets all permissions
-	var adminRole models.Role
-	if err := d.DB.Where("name = ?", "admin").First(&adminRole).Error; err != nil {
-		return err
-	}
-
-	var allPermissions []models.Permission
-	if err := d.DB.Find(&allPermissions).Error; err != nil {
-		return err
-	}
-
-	if err := d.DB.Model(&adminRole).Association("Permissions").Replace(allPermissions); err != nil {
-		return err
-	}
-
-	// User role gets basic permissions
-	var userRole models.Role
-	if err := d.DB.Where("name = ?", "user").First(&userRole).Error; err != nil {
-		return err
-	}
-
-	var userPermissions []models.Permission
-	userPermissionNames := []string{"user.read", "device.read", "system.read"}
-	if err := d.DB.Where("name IN ?", userPermissionNames).Find(&userPermissions).Error; err != nil {
-		return err
-	}
-
-	if err := d.DB.Model(&userRole).Association("Permissions").Replace(userPermissions); err != nil {
-		return err
-	}
-
-	// Device manager role gets device permissions
-	var deviceManagerRole models.Role
-	if err := d.DB.Where("name = ?", "device_manager").First(&deviceManagerRole).Error; err != nil {
-		return err
-	}
-
-	var devicePermissions []models.Permission
-	devicePermissionNames := []string{"user.read", "device.read", "device.write", "device.verify", "system.read"}
-	if err := d.DB.Where("name IN ?", devicePermissionNames).Find(&devicePermissions).Error; err != nil {
-		return err
-	}
-
-	if err := d.DB.Model(&deviceManagerRole).Association("Permissions").Replace(devicePermissions); err != nil {
-		return err
-	}
-
-	return nil
-}
+// Note: RBAC roles and permissions are now handled by Casbin
+// No seeding needed since we're using SQL migrations for the basic schema
 
 // Health checks the database connection and returns health status
 func (d *Database) Health() error {

@@ -400,7 +400,7 @@ func setupTestDBWithSkip(t *testing.T) *sql.DB {
 	t.Helper()
 
 	// Connection string for the PostgreSQL container
-	connStr := "host=localhost port=5432 user=mvp_user password=mvp_pass dbname=mvp_db sslmode=disable"
+	connStr := "host=localhost port=5432 user=mvp_user password=mvp_password dbname=mvp_db sslmode=disable"
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {

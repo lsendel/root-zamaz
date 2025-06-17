@@ -23,10 +23,7 @@ Tests the observability system integration:
 ## Running Tests
 
 ### Prerequisites
-For infrastructure tests, the full Docker Compose environment must be running:
-```bash
-make dev-up
-```
+Docker must be running on your machine. The infrastructure tests will automatically spin up and tear down a full Docker Compose environment via Testcontainers.
 
 For observability tests, no external dependencies are required (they run in isolation).
 
@@ -37,11 +34,11 @@ make test-integration
 
 ### Running Specific Test Suites
 ```bash
-# Run only observability tests (no external dependencies)
-go test -tags=integration -v ./tests/integration/... -run TestObservabilityIntegration
+# Run only observability tests (no Docker dependencies)
+go test -v ./tests/integration/... -run TestObservabilityIntegration
 
-# Run only infrastructure tests (requires Docker environment)
-go test -tags=integration -v ./tests/integration/... -run TestInfrastructureIntegration
+# Run only infrastructure tests (requires Docker)
+go test -v ./tests/integration/... -run TestInfrastructureIntegration
 ```
 
 ### Running in Short Mode
@@ -65,6 +62,18 @@ The integration tests require these additional Go modules:
 - `github.com/lib/pq` - PostgreSQL driver
 - `github.com/redis/go-redis/v9` - Redis client
 - `github.com/testcontainers/testcontainers-go/modules/compose` - Docker Compose integration
+
+## Database Configuration
+
+The integration tests expect the following PostgreSQL configuration:
+- **Host**: localhost
+- **Port**: 5432
+- **Database**: mvp_db
+- **Username**: mvp_user
+- **Password**: mvp_password
+- **SSL Mode**: disable
+
+These values must match the configuration in `docker-compose.yml` and `.env` files.
 
 ## Notes
 

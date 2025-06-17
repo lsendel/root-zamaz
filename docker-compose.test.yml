@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB: mvp_db
       POSTGRES_USER: mvp_user
-      POSTGRES_PASSWORD: mvp_pass
+      POSTGRES_PASSWORD: mvp_password
     ports:
       - "5432:5432"
     command: ["postgres", "-c", "log_statement=all"]

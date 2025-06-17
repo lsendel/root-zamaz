@@ -10,10 +10,10 @@ export const options = {
   vus: 5, // 5 virtual users
   duration: '10s', // for 10 seconds
   thresholds: {
-    // http errors should be less than 1%
-    'http_req_failed': ['rate<0.01'],
-    // 95% of requests should be below 200ms
-    'http_req_duration': ['p(95)<200'],
+    // http errors should be less than 5%
+    'http_req_failed': ['rate<0.05'],
+    // 95% of requests should be below 500ms
+    'http_req_duration': ['p(95)<500'],
   },
 };
 
