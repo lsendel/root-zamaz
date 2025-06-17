@@ -13,15 +13,15 @@ type ErrorCode string
 
 const (
 	// Core error codes for different failure categories
-	CodeInternal      ErrorCode = "INTERNAL_ERROR"
-	CodeValidation    ErrorCode = "VALIDATION_ERROR" 
+	CodeInternal       ErrorCode = "INTERNAL_ERROR"
+	CodeValidation     ErrorCode = "VALIDATION_ERROR"
 	CodeAuthentication ErrorCode = "AUTHENTICATION_ERROR"
-	CodeAuthorization ErrorCode = "AUTHORIZATION_ERROR"
-	CodeNotFound      ErrorCode = "NOT_FOUND"
-	CodeConflict      ErrorCode = "CONFLICT"
-	CodeTimeout       ErrorCode = "TIMEOUT"
-	CodeUnavailable   ErrorCode = "SERVICE_UNAVAILABLE"
-	CodeRateLimit     ErrorCode = "RATE_LIMIT_EXCEEDED"
+	CodeAuthorization  ErrorCode = "AUTHORIZATION_ERROR"
+	CodeNotFound       ErrorCode = "NOT_FOUND"
+	CodeConflict       ErrorCode = "CONFLICT"
+	CodeTimeout        ErrorCode = "TIMEOUT"
+	CodeUnavailable    ErrorCode = "SERVICE_UNAVAILABLE"
+	CodeRateLimit      ErrorCode = "RATE_LIMIT_EXCEEDED"
 )
 
 // AppError represents a structured application error with context
@@ -53,11 +53,11 @@ func (e *AppError) Is(target error) bool {
 	if target == nil {
 		return false
 	}
-	
+
 	if appErr, ok := target.(*AppError); ok {
 		return e.Code == appErr.Code
 	}
-	
+
 	return false
 }
 
@@ -75,7 +75,7 @@ func Wrap(err error, code ErrorCode, message string) *AppError {
 	if err == nil {
 		return nil
 	}
-	
+
 	// If it's already an AppError, preserve the original code but update message
 	if appErr, ok := err.(*AppError); ok {
 		return &AppError{
@@ -88,7 +88,7 @@ func Wrap(err error, code ErrorCode, message string) *AppError {
 			RequestID: appErr.RequestID,
 		}
 	}
-	
+
 	return &AppError{
 		Code:    code,
 		Message: message,
@@ -141,7 +141,7 @@ func Authentication(message string) *AppError {
 	return NewAppError(CodeAuthentication, message)
 }
 
-// Authorization creates an authorization error  
+// Authorization creates an authorization error
 func Authorization(message string) *AppError {
 	return NewAppError(CodeAuthorization, message)
 }

@@ -11,9 +11,10 @@ COMPOSE_FILE ?= docker-compose.yml
 ENV_FILE ?= .env
 
 .PHONY: help dev-up dev-down build test clean logs deploy-local \
-        build-frontend test-coverage test-integration test-load \
+        build-frontend test-coverage check-coverage test-integration test-load \
         db-migrate certs-generate monitoring-setup dev-setup \
-        lint fmt check-deps security-scan
+        lint fmt check-deps security-scan quality-check ci-build pre-commit \
+        db-reset
 
 # Default target
 help: ## Show this help message
@@ -80,6 +81,17 @@ test-coverage: ## Run tests with coverage report
 	@go tool cover -html=coverage.out -o coverage.html
 	@echo "✅ Coverage report generated: coverage.html"
 
+check-coverage: ## Check if coverage meets threshold
+	@echo "📊 Checking coverage threshold..."
+	@if [ ! -f coverage.out ]; then echo "❌ No coverage file found. Run 'make test-coverage' first" && exit 1; fi
+	@coverage=$$(go tool cover -func=coverage.out | grep total | awk '{print $$3}' | sed 's/%//'); \
+	echo "Coverage: $$coverage%"; \
+	if [ $$(echo "$$coverage < 80" | bc -l 2>/dev/null || echo "1") -eq 1 ]; then \
+		echo "❌ Coverage $$coverage% is below 80% threshold"; \
+		exit 1; \
+	fi; \
+	echo "✅ Coverage $$coverage% meets threshold"
+
 test-integration: ## Run integration tests (requires services)
 	@echo "🧪 Running integration tests..."
 	@echo "📝 Starting test infrastructure..."
@@ -110,7 +122,11 @@ fmt: ## Format Go code
 
 check-deps: ## Check for dependency vulnerabilities
 	@echo "🔍 Checking dependencies for vulnerabilities..."
-	@go list -json -deps ./... | nancy sleuth || (echo "❌ Vulnerability check failed" && exit 1)
+	@echo "Running govulncheck..."
+	@command -v govulncheck >/dev/null 2>&1 || (echo "Installing govulncheck..." && go install golang.org/x/vuln/cmd/govulncheck@latest)
+	@govulncheck ./... || (echo "❌ Vulnerability check failed" && exit 1)
+	@echo "Running nancy for dependency scanning..."
+	@go list -json -deps ./... | docker run --rm -i sonatypecorp/nancy:latest sleuth || (echo "❌ Nancy vulnerability check failed" && exit 1)
 	@echo "✅ Dependency check completed"
 
 security-scan: ## Run security scan on codebase
@@ -159,3 +175,27 @@ monitoring-setup: ## Set up monitoring dashboards
 	@echo "📊 Setting up monitoring dashboards..."
 	@./scripts/setup-monitoring.sh || (echo "❌ Monitoring setup failed" && exit 1)
 	@echo "✅ Monitoring setup completed"
+
+# Quality gates
+quality-check: ## Run all quality checks (coverage, lint, security)
+	@echo "🔍 Running comprehensive quality checks..."
+	@$(MAKE) test-coverage
+	@$(MAKE) check-coverage
+	@$(MAKE) lint
+	@$(MAKE) check-deps
+	@$(MAKE) security-scan
+	@echo "✅ All quality checks passed"
+
+ci-build: ## Complete CI build pipeline
+	@echo "🏗️ Running CI build pipeline..."
+	@$(MAKE) fmt
+	@$(MAKE) quality-check
+	@$(MAKE) build
+	@echo "✅ CI build pipeline completed"
+
+pre-commit: ## Run pre-commit checks
+	@echo "🔄 Running pre-commit checks..."
+	@$(MAKE) fmt
+	@$(MAKE) lint
+	@$(MAKE) test
+	@echo "✅ Pre-commit checks completed"

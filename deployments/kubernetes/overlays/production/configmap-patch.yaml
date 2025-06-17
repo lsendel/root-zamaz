@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zamaz-config
+data:
+  # Production-specific configuration
+  api.url: "https://api.zamaz.com"
+  
+  # Database configuration
+  database.host: "postgres-primary.rds.amazonaws.com"
+  database.name: "zamaz_production"
+  database.ssl.mode: "require"
+  database.pool.size: "50"
+  
+  # Redis configuration
+  redis.host: "redis-cluster.cache.amazonaws.com"
+  redis.tls.enabled: "true"
+  
+  # NATS configuration
+  nats.url: "nats://nats-cluster:4222"
+  nats.cluster.enabled: "true"
+  
+  # Observability configuration
+  tracing.sampling.rate: "0.1"  # 10% sampling for production
+  log.format: "json"
+  metrics.retention: "30d"

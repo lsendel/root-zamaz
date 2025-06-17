@@ -114,13 +114,13 @@ func TestObservability_Start(t *testing.T) {
 func TestObservability_WithCorrelationID(t *testing.T) {
 	var buf bytes.Buffer
 	logger := zerolog.New(&buf).With().Timestamp().Logger()
-	
+
 	obs := &Observability{Logger: logger}
 	correlationID := "test-correlation-123"
-	
+
 	newLogger := obs.WithCorrelationID(correlationID)
 	newLogger.Info().Msg("test message")
-	
+
 	output := buf.String()
 	assert.Contains(t, output, correlationID)
 	assert.Contains(t, output, "test message")
@@ -146,14 +146,14 @@ func TestObservability_CreateSpan(t *testing.T) {
 	// Check recorded spans
 	spans := spanRecorder.Ended()
 	require.Len(t, spans, 1)
-	
+
 	recordedSpan := spans[0]
 	assert.Equal(t, "test-operation", recordedSpan.Name())
-	
+
 	// Check attributes
 	attrs := recordedSpan.Attributes()
 	assert.Len(t, attrs, 2)
-	
+
 	// Verify attributes
 	foundKey := false
 	foundNumber := false

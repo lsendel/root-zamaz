@@ -1,0 +1,263 @@
+name: Deploy to Kubernetes
+
+on:
+  push:
+    branches:
+      - main      # Deploy to staging
+      - release/* # Deploy to production
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      image_tag:
+        description: 'Image tag to deploy (default: latest commit SHA)'
+        required: false
+        type: string
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  determine-environment:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.env.outputs.environment }}
+      image_tag: ${{ steps.env.outputs.image_tag }}
+    steps:
+      - name: Determine deployment environment
+        id: env
+        run: |
+          if [[ "${{ github.event.inputs.environment }}" != "" ]]; then
+            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "environment=staging" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == refs/heads/release/* ]]; then
+            echo "environment=production" >> $GITHUB_OUTPUT
+          else
+            echo "environment=staging" >> $GITHUB_OUTPUT
+          fi
+          
+          if [[ "${{ github.event.inputs.image_tag }}" != "" ]]; then
+            echo "image_tag=${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "image_tag=${{ github.sha }}" >> $GITHUB_OUTPUT
+          fi
+
+  deploy-staging:
+    needs: determine-environment
+    if: needs.determine-environment.outputs.environment == 'staging'
+    runs-on: ubuntu-latest
+    environment: 
+      name: staging
+      url: https://staging.mvp-auth.example.com
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+
+      - name: Set up Kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Configure Kubernetes context
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 --decode > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Verify cluster connection
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
+          echo "✅ Connected to staging cluster"
+
+      - name: Update image tags in manifests
+        run: |
+          cd deployments/kubernetes/staging
+          kustomize edit set image auth-service=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/auth-service:${{ needs.determine-environment.outputs.image_tag }}
+          kustomize edit set image frontend=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend:${{ needs.determine-environment.outputs.image_tag }}
+
+      - name: Validate manifests
+        run: |
+          kustomize build deployments/kubernetes/staging | kubectl apply --dry-run=client -f -
+          echo "✅ Manifests validation passed"
+
+      - name: Deploy to staging
+        run: |
+          echo "🚀 Deploying to staging environment..."
+          ./scripts/deploy-k8s.sh staging
+        env:
+          IMAGE_TAG: ${{ needs.determine-environment.outputs.image_tag }}
+
+      - name: Wait for deployment
+        run: |
+          echo "⏳ Waiting for deployments to be ready..."
+          kubectl wait --for=condition=available --timeout=300s deployment/auth-service -n staging
+          kubectl wait --for=condition=available --timeout=300s deployment/frontend -n staging
+          echo "✅ All deployments are ready"
+
+      - name: Run smoke tests
+        run: |
+          echo "🧪 Running smoke tests..."
+          
+          # Test auth service health
+          kubectl run smoke-test-auth --image=curlimages/curl:latest --rm -it --restart=Never -- \
+            curl -f http://auth-service.staging.svc.cluster.local:8080/health || exit 1
+          
+          # Test frontend accessibility
+          kubectl run smoke-test-frontend --image=curlimages/curl:latest --rm -it --restart=Never -- \
+            curl -f http://frontend.staging.svc.cluster.local:3000/ || exit 1
+          
+          echo "✅ Smoke tests passed"
+
+      - name: Get deployment status
+        run: |
+          echo "📊 Deployment Status:"
+          kubectl get pods -n staging
+          kubectl get services -n staging
+          kubectl get ingress -n staging
+
+  deploy-production:
+    needs: determine-environment
+    if: needs.determine-environment.outputs.environment == 'production'
+    runs-on: ubuntu-latest
+    environment: 
+      name: production
+      url: https://mvp-auth.example.com
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+
+      - name: Set up Kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Configure Kubernetes context
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 --decode > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Verify cluster connection
+        run: |
+          kubectl cluster-info
+          kubectl get nodes
+          echo "✅ Connected to production cluster"
+
+      - name: Pre-deployment backup
+        run: |
+          echo "💾 Creating backup of current deployment..."
+          kubectl get deployment auth-service -n production -o yaml > backup-auth-deployment.yaml
+          kubectl get deployment frontend -n production -o yaml > backup-frontend-deployment.yaml
+          echo "✅ Backup created"
+
+      - name: Update image tags in manifests
+        run: |
+          cd deployments/kubernetes/production
+          kustomize edit set image auth-service=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/auth-service:${{ needs.determine-environment.outputs.image_tag }}
+          kustomize edit set image frontend=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend:${{ needs.determine-environment.outputs.image_tag }}
+
+      - name: Validate manifests
+        run: |
+          kustomize build deployments/kubernetes/production | kubectl apply --dry-run=client -f -
+          echo "✅ Manifests validation passed"
+
+      - name: Deploy to production
+        run: |
+          echo "🚀 Deploying to production environment..."
+          ./scripts/deploy-k8s.sh production
+        env:
+          IMAGE_TAG: ${{ needs.determine-environment.outputs.image_tag }}
+
+      - name: Wait for deployment with extended timeout
+        run: |
+          echo "⏳ Waiting for deployments to be ready..."
+          kubectl wait --for=condition=available --timeout=600s deployment/auth-service -n production
+          kubectl wait --for=condition=available --timeout=600s deployment/frontend -n production
+          echo "✅ All deployments are ready"
+
+      - name: Run comprehensive health checks
+        run: |
+          echo "🧪 Running comprehensive health checks..."
+          
+          # Test auth service health
+          kubectl run health-check-auth --image=curlimages/curl:latest --rm -it --restart=Never -- \
+            curl -f http://auth-service.production.svc.cluster.local:8080/health || exit 1
+          
+          # Test frontend accessibility
+          kubectl run health-check-frontend --image=curlimages/curl:latest --rm -it --restart=Never -- \
+            curl -f http://frontend.production.svc.cluster.local:3000/ || exit 1
+          
+          # Test metrics endpoints
+          kubectl run health-check-metrics --image=curlimages/curl:latest --rm -it --restart=Never -- \
+            curl -f http://auth-service.production.svc.cluster.local:9000/metrics || exit 1
+          
+          echo "✅ All health checks passed"
+
+      - name: Verify HPA and scaling
+        run: |
+          echo "📊 Checking Horizontal Pod Autoscaler..."
+          kubectl get hpa -n production
+          kubectl top nodes
+          kubectl top pods -n production
+
+      - name: Post-deployment verification
+        run: |
+          echo "🔍 Final deployment verification:"
+          kubectl get pods -n production
+          kubectl get services -n production
+          kubectl get ingress -n production
+          kubectl get hpa -n production
+          
+          # Check that all pods are running
+          failed_pods=$(kubectl get pods -n production --field-selector=status.phase!=Running --no-headers | wc -l)
+          if [ $failed_pods -ne 0 ]; then
+            echo "❌ Some pods are not running"
+            kubectl get pods -n production
+            exit 1
+          fi
+          
+          echo "✅ Production deployment successful!"
+
+      - name: Notify deployment success
+        if: success()
+        run: |
+          echo "🎉 Production deployment completed successfully!"
+          echo "📊 Deployment Summary:"
+          echo "- Environment: production"
+          echo "- Image Tag: ${{ needs.determine-environment.outputs.image_tag }}"
+          echo "- Commit: ${{ github.sha }}"
+          echo "- Actor: ${{ github.actor }}"
+
+  rollback:
+    if: failure()
+    needs: [determine-environment, deploy-staging, deploy-production]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Rollback deployment
+        run: |
+          echo "🔄 Rolling back deployment..."
+          # This would contain rollback logic
+          # For now, just log the failure
+          echo "❌ Deployment failed. Manual intervention required."
+          echo "Environment: ${{ needs.determine-environment.outputs.environment }}"
+          echo "Image Tag: ${{ needs.determine-environment.outputs.image_tag }}"

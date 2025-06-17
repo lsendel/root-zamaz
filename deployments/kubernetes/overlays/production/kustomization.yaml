@@ -1,0 +1,45 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: zamaz-production
+
+bases:
+- ../../base
+
+commonLabels:
+  environment: production
+
+patchesStrategicMerge:
+- deployment-patch.yaml
+- configmap-patch.yaml
+- hpa.yaml
+- pdb.yaml
+
+configMapGenerator:
+- name: zamaz-config
+  behavior: merge
+  literals:
+  - app.env=production
+  - log.level=info
+  - node.env=production
+
+secretGenerator:
+- name: zamaz-secrets
+  behavior: replace
+  envs:
+  - secrets.env
+  type: Opaque
+
+images:
+- name: zamaz
+  newName: registry.example.com/zamaz/api
+  newTag: v1.0.0
+- name: zamaz-frontend
+  newName: registry.example.com/zamaz/frontend
+  newTag: v1.0.0
+
+replicas:
+- name: zamaz-app
+  count: 3
+- name: zamaz-frontend
+  count: 3

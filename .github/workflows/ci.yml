@@ -69,6 +69,16 @@ jobs:
         REDIS_URL: redis://localhost:6379
         NATS_URL: nats://localhost:4222
 
+    - name: Check code coverage threshold
+      run: |
+        coverage=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+        echo "Coverage: $coverage%"
+        if (( $(echo "$coverage < 80" | bc -l) )); then
+          echo "❌ Coverage $coverage% is below 80% threshold"
+          exit 1
+        fi
+        echo "✅ Coverage $coverage% meets threshold"
+
     - name: Run integration tests
       run: make test-integration
       env:

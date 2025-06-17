@@ -1,0 +1,43 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: zamaz-staging
+
+bases:
+- ../../base
+
+commonLabels:
+  environment: staging
+
+patchesStrategicMerge:
+- deployment-patch.yaml
+- configmap-patch.yaml
+
+configMapGenerator:
+- name: zamaz-config
+  behavior: merge
+  literals:
+  - app.env=staging
+  - log.level=debug
+  - node.env=staging
+
+secretGenerator:
+- name: zamaz-secrets
+  behavior: replace
+  literals:
+  - database.url=postgresql://zamaz_staging:staging_pass@postgres-staging:5432/zamaz_staging
+  type: Opaque
+
+images:
+- name: zamaz
+  newName: registry.example.com/zamaz/api
+  newTag: staging
+- name: zamaz-frontend
+  newName: registry.example.com/zamaz/frontend
+  newTag: staging
+
+replicas:
+- name: zamaz-app
+  count: 1
+- name: zamaz-frontend
+  count: 1

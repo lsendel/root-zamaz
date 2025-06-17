@@ -118,11 +118,11 @@ func TestConfig_Validation(t *testing.T) {
 
 func TestClient_TraceContext(t *testing.T) {
 	tracer := noop.NewTracerProvider().Tracer("test")
-	
+
 	// Test that client can be created with a tracer
 	client := &Client{
 		tracer: tracer,
 	}
-	
+
 	assert.NotNil(t, client.tracer)
 }

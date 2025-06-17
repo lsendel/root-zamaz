@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zamaz-config
+data:
+  # Staging-specific configuration
+  api.url: "http://zamaz-api-staging.example.com"
+  
+  # Database configuration
+  database.host: "postgres-staging"
+  database.name: "zamaz_staging"
+  
+  # Redis configuration
+  redis.host: "redis-staging"
+  
+  # NATS configuration
+  nats.url: "nats://nats-staging:4222"
+  
+  # Observability configuration
+  tracing.sampling.rate: "1.0"  # 100% sampling for staging
+  log.format: "json"

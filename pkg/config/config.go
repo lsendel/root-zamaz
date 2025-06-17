@@ -75,30 +75,30 @@ type RedisConfig struct {
 
 // NATSConfig contains NATS messaging configuration
 type NATSConfig struct {
-	URL             string        `yaml:"url" env:"NATS_URL" default:"nats://localhost:4222"`
-	ClientID        string        `yaml:"client_id" env:"NATS_CLIENT_ID"`
-	ClusterID       string        `yaml:"cluster_id" env:"NATS_CLUSTER_ID" default:"mvp-cluster"`
-	MaxReconnects   int           `yaml:"max_reconnects" env:"NATS_MAX_RECONNECTS" default:"5"`
-	ReconnectWait   time.Duration `yaml:"reconnect_wait" env:"NATS_RECONNECT_WAIT" default:"2s"`
-	ConnectionName  string        `yaml:"connection_name" env:"NATS_CONNECTION_NAME" default:"mvp-service"`
-	PingInterval    time.Duration `yaml:"ping_interval" env:"NATS_PING_INTERVAL" default:"120s"`
-	MaxPingsOut     int           `yaml:"max_pings_out" env:"NATS_MAX_PINGS_OUT" default:"2"`
+	URL            string        `yaml:"url" env:"NATS_URL" default:"nats://localhost:4222"`
+	ClientID       string        `yaml:"client_id" env:"NATS_CLIENT_ID"`
+	ClusterID      string        `yaml:"cluster_id" env:"NATS_CLUSTER_ID" default:"mvp-cluster"`
+	MaxReconnects  int           `yaml:"max_reconnects" env:"NATS_MAX_RECONNECTS" default:"5"`
+	ReconnectWait  time.Duration `yaml:"reconnect_wait" env:"NATS_RECONNECT_WAIT" default:"2s"`
+	ConnectionName string        `yaml:"connection_name" env:"NATS_CONNECTION_NAME" default:"mvp-service"`
+	PingInterval   time.Duration `yaml:"ping_interval" env:"NATS_PING_INTERVAL" default:"120s"`
+	MaxPingsOut    int           `yaml:"max_pings_out" env:"NATS_MAX_PINGS_OUT" default:"2"`
 }
 
 // ObservabilityConfig contains observability and monitoring settings
 type ObservabilityConfig struct {
-	ServiceName     string        `yaml:"service_name" env:"SERVICE_NAME" default:"mvp-zero-trust-auth"`
-	ServiceVersion  string        `yaml:"service_version" env:"SERVICE_VERSION" default:"dev"`
-	Environment     string        `yaml:"environment" env:"OBSERVABILITY_ENVIRONMENT" default:"development"`
-	LogLevel        string        `yaml:"log_level" env:"LOG_LEVEL" default:"info"`
-	LogFormat       string        `yaml:"log_format" env:"LOG_FORMAT" default:"json"`
-	PrometheusPort  int           `yaml:"prometheus_port" env:"PROMETHEUS_PORT" default:"9090"`
-	JaegerEndpoint  string        `yaml:"jaeger_endpoint" env:"JAEGER_ENDPOINT" default:"http://localhost:14268/api/traces"`
-	SamplingRatio   float64       `yaml:"sampling_ratio" env:"TRACING_SAMPLING_RATIO" default:"1.0"`
-	MetricsPath     string        `yaml:"metrics_path" env:"METRICS_PATH" default:"/metrics"`
-	HealthPath      string        `yaml:"health_path" env:"HEALTH_PATH" default:"/health"`
-	BatchTimeout    time.Duration `yaml:"batch_timeout" env:"TRACING_BATCH_TIMEOUT" default:"1s"`
-	ExportTimeout   time.Duration `yaml:"export_timeout" env:"TRACING_EXPORT_TIMEOUT" default:"30s"`
+	ServiceName    string        `yaml:"service_name" env:"SERVICE_NAME" default:"mvp-zero-trust-auth"`
+	ServiceVersion string        `yaml:"service_version" env:"SERVICE_VERSION" default:"dev"`
+	Environment    string        `yaml:"environment" env:"OBSERVABILITY_ENVIRONMENT" default:"development"`
+	LogLevel       string        `yaml:"log_level" env:"LOG_LEVEL" default:"info"`
+	LogFormat      string        `yaml:"log_format" env:"LOG_FORMAT" default:"json"`
+	PrometheusPort int           `yaml:"prometheus_port" env:"PROMETHEUS_PORT" default:"9090"`
+	JaegerEndpoint string        `yaml:"jaeger_endpoint" env:"JAEGER_ENDPOINT" default:"http://localhost:14268/api/traces"`
+	SamplingRatio  float64       `yaml:"sampling_ratio" env:"TRACING_SAMPLING_RATIO" default:"1.0"`
+	MetricsPath    string        `yaml:"metrics_path" env:"METRICS_PATH" default:"/metrics"`
+	HealthPath     string        `yaml:"health_path" env:"HEALTH_PATH" default:"/health"`
+	BatchTimeout   time.Duration `yaml:"batch_timeout" env:"TRACING_BATCH_TIMEOUT" default:"1s"`
+	ExportTimeout  time.Duration `yaml:"export_timeout" env:"TRACING_EXPORT_TIMEOUT" default:"30s"`
 }
 
 // SecurityConfig contains security-related settings
@@ -115,15 +115,15 @@ type SecurityConfig struct {
 
 // SPIREConfig contains SPIRE workload identity settings
 type SPIREConfig struct {
-	SocketPath      string        `yaml:"socket_path" env:"SPIRE_SOCKET_PATH" default:"/tmp/spire-agent/public/api.sock"`
-	ServerAddress   string        `yaml:"server_address" env:"SPIRE_SERVER_ADDRESS" default:"unix:///tmp/spire-server/private/api.sock"`
-	TrustDomain     string        `yaml:"trust_domain" env:"SPIRE_TRUST_DOMAIN" default:"example.org"`
-	DefaultSVID     string        `yaml:"default_svid" env:"SPIRE_DEFAULT_SVID"`
-	FetchTimeout    time.Duration `yaml:"fetch_timeout" env:"SPIRE_FETCH_TIMEOUT" default:"30s"`
-	RefreshHint     time.Duration `yaml:"refresh_hint" env:"SPIRE_REFRESH_HINT" default:"30s"`
+	SocketPath    string        `yaml:"socket_path" env:"SPIRE_SOCKET_PATH" default:"/tmp/spire-agent/public/api.sock"`
+	ServerAddress string        `yaml:"server_address" env:"SPIRE_SERVER_ADDRESS" default:"unix:///tmp/spire-server/private/api.sock"`
+	TrustDomain   string        `yaml:"trust_domain" env:"SPIRE_TRUST_DOMAIN" default:"example.org"`
+	DefaultSVID   string        `yaml:"default_svid" env:"SPIRE_DEFAULT_SVID"`
+	FetchTimeout  time.Duration `yaml:"fetch_timeout" env:"SPIRE_FETCH_TIMEOUT" default:"30s"`
+	RefreshHint   time.Duration `yaml:"refresh_hint" env:"SPIRE_REFRESH_HINT" default:"30s"`
 }
 
-// JWTConfig contains JWT token settings  
+// JWTConfig contains JWT token settings
 type JWTConfig struct {
 	Secret         string        `yaml:"secret" env:"JWT_SECRET"`
 	Issuer         string        `yaml:"issuer" env:"JWT_ISSUER" default:"mvp-zero-trust-auth"`
@@ -156,15 +156,15 @@ type RateLimitConfig struct {
 // Load loads configuration from environment variables with defaults
 func Load() (*Config, error) {
 	config := &Config{}
-	
+
 	if err := loadFromEnv(config); err != nil {
 		return nil, errors.Wrap(err, errors.CodeInternal, "Failed to load configuration")
 	}
-	
+
 	if err := validateConfig(config); err != nil {
 		return nil, errors.Wrap(err, errors.CodeValidation, "Configuration validation failed")
 	}
-	
+
 	return config, nil
 }
 
@@ -206,19 +206,19 @@ func loadFromEnv(config *Config) error {
 	config.App.Version = getEnvWithDefault("APP_VERSION", "dev")
 	config.App.Environment = getEnvWithDefault("ENVIRONMENT", "development")
 	config.App.Debug = getEnvBoolWithDefault("DEBUG", false)
-	
+
 	// Set HTTP config
 	config.HTTP.Port = getEnvIntWithDefault("HTTP_PORT", 8080)
 	config.HTTP.Host = getEnvWithDefault("HTTP_HOST", "0.0.0.0")
 	config.HTTP.ReadTimeout = getEnvDurationWithDefault("HTTP_READ_TIMEOUT", 30*time.Second)
 	config.HTTP.WriteTimeout = getEnvDurationWithDefault("HTTP_WRITE_TIMEOUT", 30*time.Second)
 	config.HTTP.IdleTimeout = getEnvDurationWithDefault("HTTP_IDLE_TIMEOUT", 120*time.Second)
-	
+
 	// Set TLS config
 	config.HTTP.TLS.Enabled = getEnvBoolWithDefault("TLS_ENABLED", false)
 	config.HTTP.TLS.CertFile = getEnvWithDefault("TLS_CERT_FILE", "")
 	config.HTTP.TLS.KeyFile = getEnvWithDefault("TLS_KEY_FILE", "")
-	
+
 	// Set Database config
 	config.Database.Host = getEnvWithDefault("DB_HOST", "localhost")
 	config.Database.Port = getEnvIntWithDefault("DB_PORT", 5432)
@@ -229,7 +229,7 @@ func loadFromEnv(config *Config) error {
 	config.Database.MaxConnections = getEnvIntWithDefault("DB_MAX_CONNECTIONS", 25)
 	config.Database.MaxIdleConns = getEnvIntWithDefault("DB_MAX_IDLE_CONNS", 5)
 	config.Database.ConnMaxLifetime = getEnvDurationWithDefault("DB_CONN_MAX_LIFETIME", 300*time.Second)
-	
+
 	// Set Redis config
 	config.Redis.Host = getEnvWithDefault("REDIS_HOST", "localhost")
 	config.Redis.Port = getEnvIntWithDefault("REDIS_PORT", 6379)
@@ -239,7 +239,7 @@ func loadFromEnv(config *Config) error {
 	config.Redis.DialTimeout = getEnvDurationWithDefault("REDIS_DIAL_TIMEOUT", 5*time.Second)
 	config.Redis.ReadTimeout = getEnvDurationWithDefault("REDIS_READ_TIMEOUT", 3*time.Second)
 	config.Redis.WriteTimeout = getEnvDurationWithDefault("REDIS_WRITE_TIMEOUT", 3*time.Second)
-	
+
 	// Set NATS config
 	config.NATS.URL = getEnvWithDefault("NATS_URL", "nats://localhost:4222")
 	config.NATS.ClientID = getEnvWithDefault("NATS_CLIENT_ID", "")
@@ -249,7 +249,7 @@ func loadFromEnv(config *Config) error {
 	config.NATS.ConnectionName = getEnvWithDefault("NATS_CONNECTION_NAME", "mvp-service")
 	config.NATS.PingInterval = getEnvDurationWithDefault("NATS_PING_INTERVAL", 120*time.Second)
 	config.NATS.MaxPingsOut = getEnvIntWithDefault("NATS_MAX_PINGS_OUT", 2)
-	
+
 	// Set Observability config
 	config.Observability.ServiceName = getEnvWithDefault("SERVICE_NAME", "mvp-zero-trust-auth")
 	config.Observability.ServiceVersion = getEnvWithDefault("SERVICE_VERSION", "dev")
@@ -263,13 +263,13 @@ func loadFromEnv(config *Config) error {
 	config.Observability.HealthPath = getEnvWithDefault("HEALTH_PATH", "/health")
 	config.Observability.BatchTimeout = getEnvDurationWithDefault("TRACING_BATCH_TIMEOUT", 1*time.Second)
 	config.Observability.ExportTimeout = getEnvDurationWithDefault("TRACING_EXPORT_TIMEOUT", 30*time.Second)
-	
-	// Set Security config  
+
+	// Set Security config
 	config.Security.SecureHeaders = getEnvBoolWithDefault("SECURE_HEADERS", true)
 	config.Security.ContentTypeNosniff = getEnvBoolWithDefault("CONTENT_TYPE_NOSNIFF", true)
 	config.Security.TrustedProxies = getEnvSliceWithDefault("TRUSTED_PROXIES", []string{})
 	config.Security.AllowedOrigins = getEnvSliceWithDefault("ALLOWED_ORIGINS", []string{})
-	
+
 	// Set SPIRE config
 	config.Security.SPIRE.SocketPath = getEnvWithDefault("SPIRE_SOCKET_PATH", "/tmp/spire-agent/public/api.sock")
 	config.Security.SPIRE.ServerAddress = getEnvWithDefault("SPIRE_SERVER_ADDRESS", "unix:///tmp/spire-server/private/api.sock")
@@ -277,14 +277,14 @@ func loadFromEnv(config *Config) error {
 	config.Security.SPIRE.DefaultSVID = getEnvWithDefault("SPIRE_DEFAULT_SVID", "")
 	config.Security.SPIRE.FetchTimeout = getEnvDurationWithDefault("SPIRE_FETCH_TIMEOUT", 30*time.Second)
 	config.Security.SPIRE.RefreshHint = getEnvDurationWithDefault("SPIRE_REFRESH_HINT", 30*time.Second)
-	
+
 	// Set JWT config
 	config.Security.JWT.Secret = getEnvWithDefault("JWT_SECRET", "")
 	config.Security.JWT.Issuer = getEnvWithDefault("JWT_ISSUER", "mvp-zero-trust-auth")
 	config.Security.JWT.Audience = getEnvWithDefault("JWT_AUDIENCE", "mvp-services")
 	config.Security.JWT.ExpiryDuration = getEnvDurationWithDefault("JWT_EXPIRY_DURATION", 24*time.Hour)
 	config.Security.JWT.Algorithm = getEnvWithDefault("JWT_ALGORITHM", "HS256")
-	
+
 	// Set CORS config
 	config.Security.CORS.Enabled = getEnvBoolWithDefault("CORS_ENABLED", true)
 	config.Security.CORS.AllowedOrigins = getEnvSliceWithDefault("CORS_ALLOWED_ORIGINS", []string{"*"})
@@ -293,7 +293,7 @@ func loadFromEnv(config *Config) error {
 	config.Security.CORS.ExposedHeaders = getEnvSliceWithDefault("CORS_EXPOSED_HEADERS", []string{})
 	config.Security.CORS.AllowCredentials = getEnvBoolWithDefault("CORS_ALLOW_CREDENTIALS", false)
 	config.Security.CORS.MaxAge = getEnvIntWithDefault("CORS_MAX_AGE", 86400)
-	
+
 	// Set Rate Limit config
 	config.Security.RateLimit.Enabled = getEnvBoolWithDefault("RATE_LIMIT_ENABLED", true)
 	config.Security.RateLimit.Requests = getEnvIntWithDefault("RATE_LIMIT_REQUESTS", 100)
@@ -301,7 +301,7 @@ func loadFromEnv(config *Config) error {
 	config.Security.RateLimit.SkipPaths = getEnvSliceWithDefault("RATE_LIMIT_SKIP_PATHS", []string{"/health", "/metrics"})
 	config.Security.RateLimit.SkipIPs = getEnvSliceWithDefault("RATE_LIMIT_SKIP_IPS", []string{})
 	config.Security.RateLimit.StatusCode = getEnvIntWithDefault("RATE_LIMIT_STATUS_CODE", 429)
-	
+
 	return nil
 }
 
@@ -311,42 +311,42 @@ func validateConfig(config *Config) error {
 	if config.App.Name == "" {
 		return errors.Validation("app.name is required")
 	}
-	
+
 	if config.HTTP.Port <= 0 || config.HTTP.Port > 65535 {
 		return errors.Validation("http.port must be between 1 and 65535")
 	}
-	
+
 	if config.Database.Host == "" {
 		return errors.Validation("database.host is required")
 	}
-	
+
 	if config.Database.Database == "" {
 		return errors.Validation("database.database is required")
 	}
-	
+
 	if config.Database.Username == "" {
 		return errors.Validation("database.username is required")
 	}
-	
+
 	if config.Security.JWT.Secret == "" && config.App.IsProduction() {
 		return errors.Validation("jwt.secret is required in production")
 	}
-	
+
 	// Validate observability settings
 	validLogLevels := []string{"debug", "info", "warn", "error"}
 	if !contains(validLogLevels, config.Observability.LogLevel) {
 		return errors.Validation("observability.log_level must be one of: debug, info, warn, error")
 	}
-	
+
 	validLogFormats := []string{"json", "console"}
 	if !contains(validLogFormats, config.Observability.LogFormat) {
 		return errors.Validation("observability.log_format must be one of: json, console")
 	}
-	
+
 	if config.Observability.SamplingRatio < 0 || config.Observability.SamplingRatio > 1 {
 		return errors.Validation("observability.sampling_ratio must be between 0 and 1")
 	}
-	
+
 	// Validate TLS configuration
 	if config.HTTP.TLS.Enabled {
 		if config.HTTP.TLS.CertFile == "" {
@@ -356,7 +356,7 @@ func validateConfig(config *Config) error {
 			return errors.Validation("tls.key_file is required when TLS is enabled")
 		}
 	}
-	
+
 	return nil
 }
 

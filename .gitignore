@@ -69,6 +69,7 @@ docker-compose.override.yml
 # Kubernetes
 *.kubeconfig
 kubeconfig
+deployments/kubernetes/overlays/*/secrets.env
 
 # SPIRE
 spire-data/

@@ -10,11 +10,11 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	oteltrace "go.opentelemetry.io/otel/trace"
-	"go.opentelemetry.io/otel"
 )
 
 // Helper to create a new Fiber app for testing
@@ -31,19 +31,19 @@ func newTestApp() *fiber.App {
 // --- CorrelationIDMiddleware Tests ---
 func TestCorrelationIDMiddleware_Fiber(t *testing.T) {
 	tests := []struct {
-		name               string
-		incomingHeader     string
-		expectedGenerated  bool
+		name              string
+		incomingHeader    string
+		expectedGenerated bool
 	}{
 		{
-			name:               "uses existing correlation ID from header",
-			incomingHeader:     "test-correlation-id",
-			expectedGenerated:  false,
+			name:              "uses existing correlation ID from header",
+			incomingHeader:    "test-correlation-id",
+			expectedGenerated: false,
 		},
 		{
-			name:               "generates new correlation ID when missing",
-			incomingHeader:     "",
-			expectedGenerated:  true,
+			name:              "generates new correlation ID when missing",
+			incomingHeader:    "",
+			expectedGenerated: true,
 		},
 	}
 
@@ -168,7 +168,7 @@ func TestObservabilityMiddleware_TracingAndMetrics(t *testing.T) {
 	app.Use(func(c *fiber.Ctx) error {
 		// Simplified version of ObservabilityMiddleware for testing
 		ctx := c.UserContext()
-		
+
 		// Start span
 		ctx, span := obs.Tracer.Start(ctx, "http.request",
 			oteltrace.WithAttributes(
@@ -177,18 +177,18 @@ func TestObservabilityMiddleware_TracingAndMetrics(t *testing.T) {
 			),
 		)
 		defer span.End()
-		
+
 		// Update context
 		c.SetUserContext(ctx)
-		
+
 		// Continue
 		err := c.Next()
-		
+
 		// Set span status based on response
 		if err != nil || c.Response().StatusCode() >= 400 {
 			span.SetAttributes(attribute.Bool("error", true))
 		}
-		
+
 		return err
 	})
 
@@ -214,10 +214,10 @@ func TestObservabilityMiddleware_TracingAndMetrics(t *testing.T) {
 		// Check spans
 		spans := spanRecorder.Ended()
 		require.GreaterOrEqual(t, len(spans), 1)
-		
+
 		span := spans[len(spans)-1]
 		assert.Equal(t, "http.request", span.Name())
-		
+
 		attrs := span.Attributes()
 		hasMethod := false
 		hasRoute := false
@@ -236,7 +236,7 @@ func TestObservabilityMiddleware_TracingAndMetrics(t *testing.T) {
 	// Test error request
 	t.Run("error request", func(t *testing.T) {
 		spanRecorder.Reset() // Clear previous spans
-		
+
 		req := httptest.NewRequest("GET", "/error", nil)
 		resp, err := app.Test(req)
 		require.NoError(t, err)
@@ -245,9 +245,9 @@ func TestObservabilityMiddleware_TracingAndMetrics(t *testing.T) {
 		// Check spans
 		spans := spanRecorder.Ended()
 		require.GreaterOrEqual(t, len(spans), 1)
-		
+
 		span := spans[len(spans)-1]
-		
+
 		// Check for error attribute
 		attrs := span.Attributes()
 		hasError := false
@@ -260,4 +260,3 @@ func TestObservabilityMiddleware_TracingAndMetrics(t *testing.T) {
 		assert.True(t, hasError, "Missing error attribute on failed request")
 	})
 }
-

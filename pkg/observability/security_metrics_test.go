@@ -12,11 +12,11 @@ import (
 
 func TestNewSecurityMetrics(t *testing.T) {
 	meter := otel.Meter("test-meter")
-	
+
 	sm, err := NewSecurityMetrics(meter)
 	require.NoError(t, err)
 	assert.NotNil(t, sm)
-	
+
 	// Verify all metrics are initialized
 	assert.NotNil(t, sm.authzDecisions)
 	assert.NotNil(t, sm.certificateEvents)
@@ -70,7 +70,7 @@ func TestSecurityMetrics_RecordCertificateEvent(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := context.Background()
-	
+
 	// Test different event types
 	events := []struct {
 		tenantID string
@@ -93,7 +93,7 @@ func TestSecurityMetrics_RecordTenantOperation(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := context.Background()
-	
+
 	operations := []struct {
 		tenantID  string
 		operation string
@@ -115,7 +115,7 @@ func TestSecurityMetrics_RecordPolicyEvaluation(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := context.Background()
-	
+
 	evaluations := []struct {
 		tenantID   string
 		policyType string
@@ -137,7 +137,7 @@ func TestSecurityMetrics_RecordMTLSConnection(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := context.Background()
-	
+
 	connections := []struct {
 		tenantID string
 		service  string
@@ -159,7 +159,7 @@ func TestSecurityMetrics_RecordSecurityViolation(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := context.Background()
-	
+
 	violations := []struct {
 		violationType string
 		resource      string
@@ -181,10 +181,10 @@ func TestSecurityMetrics_ConcurrentOperations(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := context.Background()
-	
+
 	// Test concurrent metric recording
 	done := make(chan bool)
-	
+
 	// Start multiple goroutines recording metrics
 	for i := 0; i < 10; i++ {
 		go func(id int) {
@@ -195,7 +195,7 @@ func TestSecurityMetrics_ConcurrentOperations(t *testing.T) {
 			done <- true
 		}(i)
 	}
-	
+
 	// Wait for all goroutines to complete
 	for i := 0; i < 10; i++ {
 		<-done

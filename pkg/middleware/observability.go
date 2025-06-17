@@ -11,16 +11,16 @@
 //
 // Example usage:
 //
-//   app := fiber.New()
-//   
-//   // Add observability middleware
-//   app.Use(middleware.ObservabilityMiddleware(obs, securityMetrics))
-//   
-//   // Add correlation ID middleware
-//   app.Use(middleware.CorrelationIDMiddleware())
-//   
-//   // Add tenant context middleware
-//   app.Use(middleware.TenantMiddleware())
+//	app := fiber.New()
+//
+//	// Add observability middleware
+//	app.Use(middleware.ObservabilityMiddleware(obs, securityMetrics))
+//
+//	// Add correlation ID middleware
+//	app.Use(middleware.CorrelationIDMiddleware())
+//
+//	// Add tenant context middleware
+//	app.Use(middleware.TenantMiddleware())
 package middleware
 
 import (
@@ -38,9 +38,9 @@ import (
 const (
 	// CorrelationIDHeader is the HTTP header name for request correlation IDs
 	CorrelationIDHeader = "X-Correlation-ID"
-	
+
 	// TenantIDHeader is the HTTP header name for tenant identification
-	TenantIDHeader      = "X-Tenant-ID"
+	TenantIDHeader = "X-Tenant-ID"
 )
 
 // ObservabilityMiddleware provides comprehensive request/response observability.
@@ -55,14 +55,17 @@ const (
 //   - Records security-related metrics for authentication events
 //
 // Parameters:
-//   obs - Observability instance for logging and tracing
-//   metrics - SecurityMetrics instance for recording security events
+//
+//	obs - Observability instance for logging and tracing
+//	metrics - SecurityMetrics instance for recording security events
 //
 // Returns:
-//   A Fiber middleware handler function
+//
+//	A Fiber middleware handler function
 //
 // Example:
-//   app.Use(ObservabilityMiddleware(observability, securityMetrics))
+//
+//	app.Use(ObservabilityMiddleware(observability, securityMetrics))
 //
 // The middleware automatically captures:
 //   - HTTP method, path, status code, and response time
@@ -160,7 +163,7 @@ func CorrelationIDMiddleware() fiber.Handler {
 
 func TracingMiddleware(tracer trace.Tracer) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		userCtx := c.UserContext() // Get context from Fiber
+		userCtx := c.UserContext()                   // Get context from Fiber
 		ctx, span := tracer.Start(userCtx, c.Path(), // Use c.Path() for span name, or c.Route().Path for matched route path
 			trace.WithAttributes(
 				attribute.String("http.method", c.Method()),

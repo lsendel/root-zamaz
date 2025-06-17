@@ -96,9 +96,9 @@ func TestWrap(t *testing.T) {
 
 func TestAppError_WithContext(t *testing.T) {
 	err := NewAppError(CodeValidation, "test error")
-	
+
 	result := err.WithContext("user_id", "123").WithContext("action", "create")
-	
+
 	assert.Equal(t, "123", result.Context["user_id"])
 	assert.Equal(t, "create", result.Context["action"])
 }
@@ -106,30 +106,30 @@ func TestAppError_WithContext(t *testing.T) {
 func TestAppError_WithTenant(t *testing.T) {
 	err := NewAppError(CodeValidation, "test error")
 	result := err.WithTenant("tenant-123")
-	
+
 	assert.Equal(t, "tenant-123", result.TenantID)
 }
 
 func TestAppError_WithRequest(t *testing.T) {
 	err := NewAppError(CodeValidation, "test error")
 	result := err.WithRequest("req-456")
-	
+
 	assert.Equal(t, "req-456", result.RequestID)
 }
 
 func TestAppError_WithDetails(t *testing.T) {
 	err := NewAppError(CodeValidation, "test error")
 	result := err.WithDetails("additional details")
-	
+
 	assert.Equal(t, "additional details", result.Details)
 }
 
 func TestErrorConstructors(t *testing.T) {
 	tests := []struct {
-		name     string
-		fn       func(string) *AppError
-		code     ErrorCode
-		message  string
+		name    string
+		fn      func(string) *AppError
+		code    ErrorCode
+		message string
 	}{
 		{"Internal", Internal, CodeInternal, "internal error"},
 		{"Validation", Validation, CodeValidation, "validation error"},
@@ -186,10 +186,10 @@ func TestErrorChaining(t *testing.T) {
 	// Test that errors.Is and errors.As work correctly
 	originalErr := errors.New("original")
 	wrappedErr := Wrap(originalErr, CodeInternal, "wrapped")
-	
+
 	// Test errors.Is
 	assert.True(t, errors.Is(wrappedErr, originalErr))
-	
+
 	// Test errors.As
 	var appErr *AppError
 	assert.True(t, errors.As(wrappedErr, &appErr))
@@ -228,7 +228,7 @@ func ExampleAppError() {
 	fmt.Println("Code:", err.Code)
 	fmt.Println("Tenant:", err.TenantID)
 	fmt.Println("Request:", err.RequestID)
-	
+
 	// Output:
 	// Error: VALIDATION_ERROR: Invalid email format
 	// Code: VALIDATION_ERROR
@@ -245,7 +245,7 @@ func ExampleWrap() {
 
 	fmt.Println("Error:", appErr.Error())
 	fmt.Println("Is timeout:", errors.Is(appErr, dbErr))
-	
+
 	// Output:
 	// Error: SERVICE_UNAVAILABLE: Database connection failed (caused by: connection timeout)
 	// Is timeout: true

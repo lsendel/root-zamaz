@@ -1,0 +1,79 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: zamaz-app
+  labels:
+    app: zamaz
+    component: api
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: zamaz-frontend
+  labels:
+    app: zamaz
+    component: frontend
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: zamaz-app
+  labels:
+    app: zamaz
+rules:
+# Allow reading configmaps and secrets in the same namespace
+- apiGroups: [""]
+  resources: ["configmaps", "secrets"]
+  verbs: ["get", "list", "watch"]
+# Allow reading pods for service discovery
+- apiGroups: [""]
+  resources: ["pods", "endpoints", "services"]
+  verbs: ["get", "list", "watch"]
+# Allow updating pod status for leader election if needed
+- apiGroups: [""]
+  resources: ["pods/status"]
+  verbs: ["update", "patch"]
+# Allow creating events for audit logging
+- apiGroups: [""]
+  resources: ["events"]
+  verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: zamaz-app
+  labels:
+    app: zamaz
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: zamaz-app
+subjects:
+- kind: ServiceAccount
+  name: zamaz-app
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: zamaz-frontend
+  labels:
+    app: zamaz
+rules:
+# Minimal permissions for frontend
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: zamaz-frontend
+  labels:
+    app: zamaz
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: zamaz-frontend
+subjects:
+- kind: ServiceAccount
+  name: zamaz-frontend
