@@ -1,16 +1,20 @@
 import { defineConfig } from 'vite'
-// import react from '@vitejs/plugin-react' // Example for React
+import react from '@vitejs/plugin-react'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  // plugins: [react()] // Example for React
+  plugins: [react()],
   server: {
-    port: 3000,
-    // proxy: { // Example proxy configuration
-    //   '/api': {
-    //     target: 'http://localhost:8080', // Your backend API
-    //     changeOrigin: true,
-    //   }
-    // }
+    port: 5173,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      }
+    }
+  },
+  build: {
+    outDir: 'dist',
+    sourcemap: true
   }
 })

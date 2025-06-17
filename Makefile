@@ -10,8 +10,8 @@ REDIS_URL ?= redis://localhost:6379
 COMPOSE_FILE ?= docker-compose.yml
 ENV_FILE ?= .env
 
-.PHONY: help dev-up dev-down build test clean logs deploy-local \
-        build-frontend test-coverage check-coverage test-integration test-load \
+.PHONY: help dev-up dev-down dev-all build build-server run-server test clean logs deploy-local \
+        build-frontend dev-frontend frontend-install test-coverage check-coverage test-integration test-load \
         db-migrate certs-generate monitoring-setup dev-setup \
         lint fmt check-deps security-scan quality-check ci-build pre-commit \
         db-reset
@@ -49,11 +49,19 @@ dev-up: ## Start development environment with Docker Compose
 	@echo "  - Prometheus: http://localhost:9090"
 	@echo "  - Jaeger: http://localhost:16686"
 	@echo "  - Envoy Admin: http://localhost:9901"
+	@echo ""
+	@echo "💡 To start the frontend development server, run:"
+	@echo "   make dev-frontend"
 
 dev-down: ## Stop development environment
 	@echo "🛑 Stopping development environment..."
 	@docker-compose -f $(COMPOSE_FILE) down -v
 	@echo "✅ Development environment stopped"
+
+dev-all: dev-up ## Start both backend services and frontend
+	@echo "🚀 Starting complete development environment..."
+	@echo "⏳ Backend services started. Starting frontend..."
+	@$(MAKE) dev-frontend
 
 logs: ## Show logs from all services
 	@docker-compose -f $(COMPOSE_FILE) logs -f
@@ -64,10 +72,31 @@ build: ## Build all services using build script
 	@./scripts/build.sh || (echo "❌ Build failed" && exit 1)
 	@echo "✅ Build completed successfully"
 
+build-server: ## Build the authentication server
+	@echo "🔨 Building authentication server..."
+	@go build -o bin/server ./cmd/server || (echo "❌ Server build failed" && exit 1)
+	@echo "✅ Server build completed"
+
+run-server: build-server ## Build and run the authentication server
+	@echo "🚀 Starting authentication server..."
+	@./bin/server
+
 build-frontend: ## Build frontend application
 	@echo "🔨 Building frontend..."
 	@cd frontend && npm ci && npm run build || (echo "❌ Frontend build failed" && exit 1)
 	@echo "✅ Frontend build completed"
+
+frontend-install: ## Install frontend dependencies
+	@echo "📦 Installing frontend dependencies..."
+	@cd frontend && npm install || (echo "❌ Frontend install failed" && exit 1)
+	@echo "✅ Frontend dependencies installed"
+
+dev-frontend: frontend-install ## Start frontend in development mode
+	@echo "🚀 Starting frontend development server..."
+	@echo "🌐 Frontend will be available at: http://localhost:5173"
+	@cd frontend && npm run dev
+
+frontend: dev-frontend ## Alias for dev-frontend
 
 # Test targets
 test: ## Run all unit tests with race detection
@@ -154,7 +183,11 @@ deploy-local: ## Deploy to local Kubernetes cluster
 # Database operations
 db-migrate: ## Run database migrations
 	@echo "📊 Running database migrations..."
-	@docker-compose -f $(COMPOSE_FILE) exec postgres psql -U $(DB_USER) -d $(DB_NAME) -f /docker-entrypoint-initdb.d/migrations.sql || (echo "❌ Migration failed" && exit 1)
+	@if [ -f scripts/sql/init/migrations.sql ]; then \
+		docker-compose -f $(COMPOSE_FILE) exec -T postgres psql -U $(DB_USER) -d $(DB_NAME) -f /docker-entrypoint-initdb.d/migrations.sql; \
+	else \
+		echo "⚠️  No migrations.sql found, skipping database migrations"; \
+	fi
 	@echo "✅ Database migrations completed"
 
 db-reset: ## Reset database to clean state

@@ -17,6 +17,8 @@ const (
 	CodeValidation     ErrorCode = "VALIDATION_ERROR"
 	CodeAuthentication ErrorCode = "AUTHENTICATION_ERROR"
 	CodeAuthorization  ErrorCode = "AUTHORIZATION_ERROR"
+	CodeUnauthorized   ErrorCode = "UNAUTHORIZED"
+	CodeForbidden      ErrorCode = "FORBIDDEN"
 	CodeNotFound       ErrorCode = "NOT_FOUND"
 	CodeConflict       ErrorCode = "CONFLICT"
 	CodeTimeout        ErrorCode = "TIMEOUT"
@@ -169,6 +171,16 @@ func Unavailable(message string) *AppError {
 // RateLimit creates a rate limit error
 func RateLimit(message string) *AppError {
 	return NewAppError(CodeRateLimit, message)
+}
+
+// Unauthorized creates an unauthorized error
+func Unauthorized(message string) *AppError {
+	return NewAppError(CodeUnauthorized, message)
+}
+
+// Forbidden creates a forbidden error
+func Forbidden(message string) *AppError {
+	return NewAppError(CodeForbidden, message)
 }
 
 // IsCode checks if an error has a specific error code

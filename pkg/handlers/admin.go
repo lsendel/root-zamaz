@@ -1,0 +1,538 @@
+// Package handlers provides HTTP handlers for the MVP Zero Trust Auth system.
+// This file contains admin endpoints for role and user management.
+package handlers
+
+import (
+	"strconv"
+
+	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
+
+	"mvp.local/pkg/auth"
+	"mvp.local/pkg/models"
+	"mvp.local/pkg/observability"
+)
+
+// AdminHandler handles admin-related HTTP requests for role and user management
+type AdminHandler struct {
+	db           *gorm.DB
+	authzService *auth.AuthorizationService
+	obs          *observability.Observability
+}
+
+// NewAdminHandler creates a new admin handler instance
+func NewAdminHandler(db *gorm.DB, authzService *auth.AuthorizationService, obs *observability.Observability) *AdminHandler {
+	return &AdminHandler{
+		db:           db,
+		authzService: authzService,
+		obs:          obs,
+	}
+}
+
+// GetRoles returns all roles in the system
+func (h *AdminHandler) GetRoles(c *fiber.Ctx) error {
+	var roles []models.Role
+	if err := h.db.Preload("Permissions").Find(&roles).Error; err != nil {
+		h.obs.Logger.Error().Err(err).Msg("Failed to fetch roles")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch roles",
+		})
+	}
+
+	return c.JSON(roles)
+}
+
+// CreateRole creates a new role
+func (h *AdminHandler) CreateRole(c *fiber.Ctx) error {
+	var req struct {
+		Name        string `json:"name" validate:"required,min=1,max=50"`
+		Description string `json:"description" validate:"max=200"`
+	}
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+
+	// Check if role already exists
+	var existingRole models.Role
+	if err := h.db.Where("name = ?", req.Name).First(&existingRole).Error; err == nil {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+			"error": "Role already exists",
+		})
+	}
+
+	role := models.Role{
+		Name:        req.Name,
+		Description: req.Description,
+		IsActive:    true,
+	}
+
+	if err := h.db.Create(&role).Error; err != nil {
+		h.obs.Logger.Error().Err(err).Msg("Failed to create role")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to create role",
+		})
+	}
+
+	h.obs.Logger.Info().Str("role_name", role.Name).Msg("Role created")
+	return c.Status(fiber.StatusCreated).JSON(role)
+}
+
+// UpdateRole updates an existing role
+func (h *AdminHandler) UpdateRole(c *fiber.Ctx) error {
+	roleID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid role ID",
+		})
+	}
+
+	var req struct {
+		Name        *string `json:"name,omitempty" validate:"omitempty,min=1,max=50"`
+		Description *string `json:"description,omitempty" validate:"omitempty,max=200"`
+		IsActive    *bool   `json:"is_active,omitempty"`
+	}
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+
+	var role models.Role
+	if err := h.db.First(&role, uint(roleID)).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "Role not found",
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch role",
+		})
+	}
+
+	// Update fields if provided
+	if req.Name != nil {
+		role.Name = *req.Name
+	}
+	if req.Description != nil {
+		role.Description = *req.Description
+	}
+	if req.IsActive != nil {
+		role.IsActive = *req.IsActive
+	}
+
+	if err := h.db.Save(&role).Error; err != nil {
+		h.obs.Logger.Error().Err(err).Msg("Failed to update role")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to update role",
+		})
+	}
+
+	h.obs.Logger.Info().Str("role_name", role.Name).Uint("role_id", role.ID).Msg("Role updated")
+	return c.JSON(role)
+}
+
+// DeleteRole deletes a role
+func (h *AdminHandler) DeleteRole(c *fiber.Ctx) error {
+	roleID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid role ID",
+		})
+	}
+
+	var role models.Role
+	if err := h.db.First(&role, uint(roleID)).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "Role not found",
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch role",
+		})
+	}
+
+	// Prevent deletion of system roles
+	if role.Name == "admin" || role.Name == "user" {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "Cannot delete system roles",
+		})
+	}
+
+	if err := h.db.Delete(&role).Error; err != nil {
+		h.obs.Logger.Error().Err(err).Msg("Failed to delete role")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to delete role",
+		})
+	}
+
+	h.obs.Logger.Info().Str("role_name", role.Name).Uint("role_id", role.ID).Msg("Role deleted")
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// GetPermissions returns all permissions in the system
+func (h *AdminHandler) GetPermissions(c *fiber.Ctx) error {
+	var permissions []models.Permission
+	if err := h.db.Find(&permissions).Error; err != nil {
+		h.obs.Logger.Error().Err(err).Msg("Failed to fetch permissions")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch permissions",
+		})
+	}
+
+	return c.JSON(permissions)
+}
+
+// AssignPermissionToRole assigns a permission to a role
+func (h *AdminHandler) AssignPermissionToRole(c *fiber.Ctx) error {
+	roleID, err := strconv.ParseUint(c.Params("roleId"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid role ID",
+		})
+	}
+
+	permissionID, err := strconv.ParseUint(c.Params("permissionId"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid permission ID",
+		})
+	}
+
+	// Verify role exists
+	var role models.Role
+	if err := h.db.First(&role, uint(roleID)).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "Role not found",
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch role",
+		})
+	}
+
+	// Verify permission exists
+	var permission models.Permission
+	if err := h.db.First(&permission, uint(permissionID)).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "Permission not found",
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch permission",
+		})
+	}
+
+	// Assign permission to role
+	if err := h.db.Model(&role).Association("Permissions").Append(&permission); err != nil {
+		h.obs.Logger.Error().Err(err).Msg("Failed to assign permission to role")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to assign permission to role",
+		})
+	}
+
+	h.obs.Logger.Info().
+		Str("role_name", role.Name).
+		Str("permission_name", permission.Name).
+		Msg("Permission assigned to role")
+
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// RemovePermissionFromRole removes a permission from a role
+func (h *AdminHandler) RemovePermissionFromRole(c *fiber.Ctx) error {
+	roleID, err := strconv.ParseUint(c.Params("roleId"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid role ID",
+		})
+	}
+
+	permissionID, err := strconv.ParseUint(c.Params("permissionId"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid permission ID",
+		})
+	}
+
+	// Verify role exists
+	var role models.Role
+	if err := h.db.First(&role, uint(roleID)).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "Role not found",
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch role",
+		})
+	}
+
+	// Verify permission exists
+	var permission models.Permission
+	if err := h.db.First(&permission, uint(permissionID)).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "Permission not found",
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch permission",
+		})
+	}
+
+	// Remove permission from role
+	if err := h.db.Model(&role).Association("Permissions").Delete(&permission); err != nil {
+		h.obs.Logger.Error().Err(err).Msg("Failed to remove permission from role")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to remove permission from role",
+		})
+	}
+
+	h.obs.Logger.Info().
+		Str("role_name", role.Name).
+		Str("permission_name", permission.Name).
+		Msg("Permission removed from role")
+
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// GetUsers returns all users with their roles
+func (h *AdminHandler) GetUsers(c *fiber.Ctx) error {
+	var users []models.User
+	if err := h.db.Preload("Roles").Find(&users).Error; err != nil {
+		h.obs.Logger.Error().Err(err).Msg("Failed to fetch users")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch users",
+		})
+	}
+
+	return c.JSON(users)
+}
+
+// GetUserById returns a specific user with their roles
+func (h *AdminHandler) GetUserById(c *fiber.Ctx) error {
+	userID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid user ID",
+		})
+	}
+
+	var user models.User
+	if err := h.db.Preload("Roles").First(&user, uint(userID)).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "User not found",
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch user",
+		})
+	}
+
+	return c.JSON(user)
+}
+
+// UpdateUser updates user information
+func (h *AdminHandler) UpdateUser(c *fiber.Ctx) error {
+	userID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid user ID",
+		})
+	}
+
+	var req struct {
+		Username  *string `json:"username,omitempty" validate:"omitempty,min=1,max=50"`
+		Email     *string `json:"email,omitempty" validate:"omitempty,email,max=100"`
+		FirstName *string `json:"first_name,omitempty" validate:"omitempty,max=50"`
+		LastName  *string `json:"last_name,omitempty" validate:"omitempty,max=50"`
+		IsActive  *bool   `json:"is_active,omitempty"`
+		IsAdmin   *bool   `json:"is_admin,omitempty"`
+	}
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+
+	var user models.User
+	if err := h.db.First(&user, uint(userID)).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "User not found",
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch user",
+		})
+	}
+
+	// Update fields if provided
+	if req.Username != nil {
+		user.Username = *req.Username
+	}
+	if req.Email != nil {
+		user.Email = *req.Email
+	}
+	if req.FirstName != nil {
+		user.FirstName = *req.FirstName
+	}
+	if req.LastName != nil {
+		user.LastName = *req.LastName
+	}
+	if req.IsActive != nil {
+		user.IsActive = *req.IsActive
+	}
+	if req.IsAdmin != nil {
+		user.IsAdmin = *req.IsAdmin
+	}
+
+	if err := h.db.Save(&user).Error; err != nil {
+		h.obs.Logger.Error().Err(err).Msg("Failed to update user")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to update user",
+		})
+	}
+
+	h.obs.Logger.Info().Str("username", user.Username).Uint("user_id", user.ID).Msg("User updated")
+	return c.JSON(user)
+}
+
+// DeleteUser deletes a user
+func (h *AdminHandler) DeleteUser(c *fiber.Ctx) error {
+	userID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid user ID",
+		})
+	}
+
+	// Get current user from context (set by auth middleware)
+	currentUserID := c.Locals("user_id").(uint)
+	if uint(userID) == currentUserID {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "Cannot delete your own user account",
+		})
+	}
+
+	var user models.User
+	if err := h.db.First(&user, uint(userID)).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "User not found",
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch user",
+		})
+	}
+
+	if err := h.db.Delete(&user).Error; err != nil {
+		h.obs.Logger.Error().Err(err).Msg("Failed to delete user")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to delete user",
+		})
+	}
+
+	h.obs.Logger.Info().Str("username", user.Username).Uint("user_id", user.ID).Msg("User deleted")
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// AssignRoleToUser assigns a role to a user
+func (h *AdminHandler) AssignRoleToUser(c *fiber.Ctx) error {
+	userID, err := strconv.ParseUint(c.Params("userId"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid user ID",
+		})
+	}
+
+	roleID, err := strconv.ParseUint(c.Params("roleId"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid role ID",
+		})
+	}
+
+	// Get role name from roleID
+	var role models.Role
+	if err := h.db.First(&role, uint(roleID)).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "Role not found",
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch role",
+		})
+	}
+
+	// Use authorization service to assign role by name
+	if err := h.authzService.AddRoleForUser(uint(userID), role.Name); err != nil {
+		h.obs.Logger.Error().Err(err).Msg("Failed to assign role to user")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to assign role to user",
+		})
+	}
+
+	h.obs.Logger.Info().
+		Uint("user_id", uint(userID)).
+		Str("role_name", role.Name).
+		Msg("Role assigned to user")
+
+	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// RemoveRoleFromUser removes a role from a user
+func (h *AdminHandler) RemoveRoleFromUser(c *fiber.Ctx) error {
+	userID, err := strconv.ParseUint(c.Params("userId"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid user ID",
+		})
+	}
+
+	roleID, err := strconv.ParseUint(c.Params("roleId"), 10, 32)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid role ID",
+		})
+	}
+
+	// Get role name from roleID
+	var role models.Role
+	if err := h.db.First(&role, uint(roleID)).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "Role not found",
+			})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to fetch role",
+		})
+	}
+
+	// Use authorization service to remove role by name
+	if err := h.authzService.RemoveRoleForUser(uint(userID), role.Name); err != nil {
+		h.obs.Logger.Error().Err(err).Msg("Failed to remove role from user")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to remove role from user",
+		})
+	}
+
+	h.obs.Logger.Info().
+		Uint("user_id", uint(userID)).
+		Str("role_name", role.Name).
+		Msg("Role removed from user")
+
+	return c.SendStatus(fiber.StatusNoContent)
+}

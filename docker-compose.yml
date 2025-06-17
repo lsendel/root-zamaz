@@ -1,9 +1,8 @@
-version: '3.8'
-
 services:
   # Core Infrastructure
   envoy:
     image: envoyproxy/envoy:v1.28-latest
+    platform: linux/amd64
     ports:
       - "8080:8080"
       - "8443:8443"
@@ -37,7 +36,6 @@ services:
       - spire-server
     volumes:
       - ./deployments/spire/agent:/opt/spire/conf/agent
-      - /var/run/docker.sock:/var/run/docker.sock
       - spire-agent-socket:/tmp/spire-agent/public
     command: ["-config", "/opt/spire/conf/agent/agent.conf"]
     networks:
@@ -120,8 +118,6 @@ services:
       - '--jetstream'
       - '--store_dir=/data'
       - '--http_port=8222'
-      - '--max_memory=1G'
-      - '--max_file_store=10G'
     volumes:
       - nats-data:/data
     networks:

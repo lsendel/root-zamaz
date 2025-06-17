@@ -1,0 +1,31 @@
+# Role-based access control policies
+# Format: p, role, resource, action
+
+# Admin permissions
+p, admin, user, read
+p, admin, user, write
+p, admin, user, delete
+p, admin, user, admin
+p, admin, device, read
+p, admin, device, write
+p, admin, device, delete
+p, admin, device, verify
+p, admin, system, read
+p, admin, system, admin
+p, admin, audit, read
+
+# User permissions
+p, user, user, read
+p, user, device, read
+p, user, system, read
+
+# Device manager permissions
+p, device_manager, user, read
+p, device_manager, device, read
+p, device_manager, device, write
+p, device_manager, device, verify
+p, device_manager, system, read
+
+# Role inheritance
+# Format: g, user, role
+# These will be managed dynamically through the database

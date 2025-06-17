@@ -35,7 +35,10 @@ fi
 LDFLAGS="-X main.version=${VERSION} -X main.commit=${COMMIT_SHA} -X main.buildTime=${BUILD_TIME}"
 
 # Build auth service (main application)
-if [ -f "cmd/auth-service/main.go" ]; then
+if [ -f "cmd/server/main.go" ]; then
+    echo -e "${BLUE}  Building server...${NC}"
+    go build -ldflags "${LDFLAGS}" -o ${BUILD_DIR}/mvp-auth ./cmd/server
+elif [ -f "cmd/auth-service/main.go" ]; then
     echo -e "${BLUE}  Building auth-service...${NC}"
     go build -ldflags "${LDFLAGS}" -o ${BUILD_DIR}/auth-service ./cmd/auth-service
 elif [ -f "main.go" ]; then
