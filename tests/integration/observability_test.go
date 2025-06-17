@@ -5,6 +5,7 @@ import (
     "testing"
     "time"
 
+    "github.com/nats-io/nats.go"
     "github.com/stretchr/testify/assert"
     "github.com/stretchr/testify/require"
 
@@ -80,6 +81,18 @@ func TestObservabilityIntegration(t *testing.T) {
             t.Skipf("NATS not available, skipping test: %v", err)
         }
         defer natsClient.Close()
+        
+        // Create JetStream stream for testing
+        js := natsClient.JetStream()
+        _, err = js.AddStream(&nats.StreamConfig{
+            Name:      "TEST",
+            Subjects:  []string{"test.*"},
+            Storage:   nats.MemoryStorage,
+            Retention: nats.WorkQueuePolicy,
+        })
+        if err != nil && err.Error() != "stream name already in use" {
+            require.NoError(t, err)
+        }
 
         // Create event
         event := messaging.Event{
@@ -91,7 +104,7 @@ func TestObservabilityIntegration(t *testing.T) {
 
         // Publish event with tracing
         ctx, span := obs.CreateSpan(ctx, "publish-test-event")
-        err = natsClient.PublishEvent(ctx, "test.subject", event)
+        err = natsClient.PublishEvent(ctx, "test.subject", &event)
         span.End()
 
         require.NoError(t, err)

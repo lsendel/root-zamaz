@@ -139,7 +139,7 @@ type Event struct {
     SpanID    string                 `json:"span_id"`
 }
 
-func (c *Client) PublishEvent(ctx context.Context, subject string, event Event) error {
+func (c *Client) PublishEvent(ctx context.Context, subject string, event *Event) error {
     ctx, span := c.tracer.Start(ctx, "nats.publish",
         trace.WithAttributes(
             attribute.String("messaging.destination", subject),
@@ -223,4 +223,9 @@ func (c *Client) Close() {
     if c.conn != nil {
         c.conn.Close()
     }
+}
+
+// JetStream returns the underlying JetStream context for advanced operations
+func (c *Client) JetStream() nats.JetStreamContext {
+    return c.js
 }

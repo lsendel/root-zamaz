@@ -6,9 +6,11 @@ import (
     "testing"
     "time"
 
+    "github.com/nats-io/nats.go"
     "github.com/stretchr/testify/assert"
     "github.com/stretchr/testify/require"
     "go.opentelemetry.io/otel/attribute"
+    _ "github.com/lib/pq" // PostgreSQL driver
 
     "mvp.local/pkg/config"
     "mvp.local/pkg/errors"
@@ -125,7 +127,17 @@ func TestMessagingObservabilityIntegration(t *testing.T) {
     }
 
     t.Run("NATS_With_Distributed_Tracing", func(t *testing.T) {
-        obs := testutil.SetupTestObservability(t)
+        obs, err := observability.New(observability.Config{
+            ServiceName:    "test-service",
+            ServiceVersion: "test",
+            Environment:    "test",
+            LogLevel:       "debug",
+            LogFormat:      "console",
+            PrometheusPort: 0,
+        })
+        require.NoError(t, err)
+        defer obs.Shutdown(context.Background())
+        
         ctx := context.Background()
         
         // Create NATS client with observability
@@ -136,6 +148,20 @@ func TestMessagingObservabilityIntegration(t *testing.T) {
             t.Skipf("NATS not available, skipping test: %v", err)
         }
         defer natsClient.Close()
+        
+        // Create JetStream stream for testing (this is normally done during service setup)
+        js := natsClient.JetStream()
+        
+        // Create test streams
+        _, err = js.AddStream(&nats.StreamConfig{
+            Name:      "EVENTS",
+            Subjects:  []string{"user.events", "email.events"},
+            Storage:   nats.MemoryStorage,
+            Retention: nats.WorkQueuePolicy,
+        })
+        if err != nil && err.Error() != "stream name already in use" {
+            require.NoError(t, err)
+        }
         
         // Start a trace for the entire operation
         ctx, parentSpan := obs.CreateSpan(ctx, "user.registration.flow",
@@ -168,12 +194,12 @@ func TestMessagingObservabilityIntegration(t *testing.T) {
         
         // Publish events within traced operations
         ctx, span1 := obs.CreateSpan(ctx, "publish.user.created")
-        err = natsClient.PublishEvent(ctx, "user.events", userCreatedEvent)
+        err = natsClient.PublishEvent(ctx, "user.events", &userCreatedEvent)
         span1.End()
         require.NoError(t, err)
         
         ctx, span2 := obs.CreateSpan(ctx, "publish.email.send")
-        err = natsClient.PublishEvent(ctx, "email.events", emailEvent)
+        err = natsClient.PublishEvent(ctx, "email.events", &emailEvent)
         span2.End()
         require.NoError(t, err)
         
@@ -337,7 +363,7 @@ func TestEndToEndComponentIntegration(t *testing.T) {
                 },
             }
             
-            err = natsClient.PublishEvent(ctx, "user.events", event)
+            err = natsClient.PublishEvent(ctx, "user.events", &event)
             if err != nil {
                 publishErr := errors.Wrap(err, errors.CodeInternal, "Failed to publish user event").
                     WithContext("event_type", "user.registered").
@@ -367,4 +393,27 @@ func TestEndToEndComponentIntegration(t *testing.T) {
         // Wait for async operations to complete
         time.Sleep(200 * time.Millisecond)
     })
+}
+
+// Helper function for database setup
+func setupTestDB(t *testing.T) *sql.DB {
+    t.Helper()
+    
+    // Connection string for the PostgreSQL container
+    connStr := "host=localhost port=5432 user=mvp_user password=mvp_pass dbname=mvp_db sslmode=disable"
+    
+    db, err := sql.Open("postgres", connStr)
+    if err != nil {
+        t.Skipf("Failed to connect to database (database not available for test): %v", err)
+    }
+    
+    // Test the connection
+    ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+    defer cancel()
+    
+    if err := db.PingContext(ctx); err != nil {
+        t.Skipf("Failed to ping database (database not available for test): %v", err)
+    }
+    
+    return db
 }
