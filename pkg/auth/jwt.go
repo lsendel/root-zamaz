@@ -91,6 +91,16 @@ func NewJWTService(config *config.JWTConfig, authzService AuthorizationInterface
 
 // GenerateToken generates a new JWT access token
 func (j *JWTService) GenerateToken(user *models.User, deviceID string, trustLevel int, roles []string, permissions []string) (string, error) {
+	if j == nil {
+		return "", fmt.Errorf("JWT service is nil")
+	}
+	if j.config == nil {
+		return "", fmt.Errorf("JWT config is nil")
+	}
+	if user == nil {
+		return "", fmt.Errorf("user is nil")
+	}
+	
 	now := time.Now()
 	expiresAt := now.Add(j.expiryDuration)
 

@@ -1,5 +1,24 @@
 // Package main provides the main entry point for the MVP Zero Trust Auth server.
 // It sets up the HTTP server with Fiber, initializes all services, and starts the application.
+//
+// @title Zero Trust Auth API
+// @version 1.0
+// @description Zero Trust Authentication MVP API documentation
+// @termsOfService http://swagger.io/terms/
+//
+// @contact.name API Support
+// @contact.email support@example.com
+//
+// @license.name Apache 2.0
+// @license.url http://www.apache.org/licenses/LICENSE-2.0.html
+//
+// @host localhost:8080
+// @BasePath /api
+//
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Bearer token authentication. Format: "Bearer {token}"
 package main
 
 import (
@@ -14,7 +33,9 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/gofiber/swagger"
 	"github.com/redis/go-redis/v9"
+	_ "mvp.local/docs" // Import generated docs
 
 	"mvp.local/pkg/auth"
 	"mvp.local/pkg/config"
@@ -277,6 +298,9 @@ func (s *Server) setupRoutes() {
 	adminRoutes.Delete("/users/:id", adminHandler.DeleteUser)
 	adminRoutes.Post("/users/:userId/roles/:roleId", adminHandler.AssignRoleToUser)
 	adminRoutes.Delete("/users/:userId/roles/:roleId", adminHandler.RemoveRoleFromUser)
+
+	// Swagger documentation
+	s.app.Get("/swagger/*", swagger.HandlerDefault)
 
 	// Frontend routes (serve static files)
 	s.app.Static("/", "./frontend/dist")

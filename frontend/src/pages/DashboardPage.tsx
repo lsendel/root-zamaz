@@ -17,7 +17,7 @@ export default function DashboardPage() {
         // Load devices
         try {
           const devicesData = await deviceAPI.getDevices()
-          setDevices(devicesData)
+          setDevices(devicesData || []) // Handle null response
         } catch (error) {
           console.log('Devices API error:', error)
           setDevices([]) // Set empty array if API fails
@@ -73,13 +73,15 @@ export default function DashboardPage() {
       <header className="header">
         <h1>Zero Trust Dashboard</h1>
         <nav className="nav">
-          <span>Welcome, {user?.username}</span>
-          {isAdmin && (
-            <button onClick={() => setShowAdminPanel(true)} className="admin-btn">
-              Admin Panel
-            </button>
-          )}
-          <button onClick={handleLogout}>Logout</button>
+          <div className="user-menu" data-testid="user-menu">
+            <span>Welcome, {user?.username}</span>
+            {isAdmin && (
+              <button onClick={() => setShowAdminPanel(true)} className="admin-btn">
+                Admin Panel
+              </button>
+            )}
+            <button onClick={handleLogout}>Logout</button>
+          </div>
         </nav>
       </header>
 

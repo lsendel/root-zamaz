@@ -1,0 +1,3203 @@
+{
+  "config": {
+    "configFile": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/playwright.config.ts",
+    "rootDir": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e",
+    "forbidOnly": false,
+    "fullyParallel": true,
+    "globalSetup": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/global-setup.ts",
+    "globalTeardown": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/global-teardown.ts",
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 6
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "html",
+        null
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results/results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 6
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 6
+        },
+        "id": "firefox",
+        "name": "firefox",
+        "testDir": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 6
+        },
+        "id": "webkit",
+        "name": "webkit",
+        "testDir": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 6
+        },
+        "id": "Mobile Chrome",
+        "name": "Mobile Chrome",
+        "testDir": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 6
+        },
+        "id": "Mobile Safari",
+        "name": "Mobile Safari",
+        "testDir": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 6
+        },
+        "id": "Microsoft Edge",
+        "name": "Microsoft Edge",
+        "testDir": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 6
+        },
+        "id": "Google Chrome",
+        "name": "Google Chrome",
+        "testDir": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "shard": null,
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.53.0",
+    "workers": 6,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "auth.spec.ts",
+      "file": "auth.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Authentication E2E Tests",
+          "file": "auth.spec.ts",
+          "line": 16,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should display login page correctly",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 639,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:10.114Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-f7a7b071a2b123debf1d",
+              "file": "auth.spec.ts",
+              "line": 26,
+              "column": 3
+            },
+            {
+              "title": "should show validation errors for empty form",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "failed",
+                      "duration": 6639,
+                      "error": {
+                        "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .invalid, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .invalid, [role=\"alert\"]').first()\u001b[22m\n",
+                        "stack": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .invalid, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .invalid, [role=\"alert\"]').first()\u001b[22m\n\n    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:52:41",
+                        "location": {
+                          "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                          "column": 41,
+                          "line": 52
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 50 |\u001b[39m     \u001b[90m// Check for error messages\u001b[39m\n \u001b[90m 51 |\u001b[39m     \u001b[36mconst\u001b[39m errorElements \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'.error, .invalid, [role=\"alert\"]'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 52 |\u001b[39m     \u001b[36mawait\u001b[39m expect(errorElements\u001b[33m.\u001b[39mfirst())\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                         \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 53 |\u001b[39m     \n \u001b[90m 54 |\u001b[39m     \u001b[90m// Take screenshot of validation errors\u001b[39m\n \u001b[90m 55 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mscreenshot({ path\u001b[33m:\u001b[39m \u001b[32m'test-results/login-validation-errors.png'\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                            "column": 41,
+                            "line": 52
+                          },
+                          "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .invalid, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .invalid, [role=\"alert\"]').first()\u001b[22m\n\n\n\u001b[0m \u001b[90m 50 |\u001b[39m     \u001b[90m// Check for error messages\u001b[39m\n \u001b[90m 51 |\u001b[39m     \u001b[36mconst\u001b[39m errorElements \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'.error, .invalid, [role=\"alert\"]'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 52 |\u001b[39m     \u001b[36mawait\u001b[39m expect(errorElements\u001b[33m.\u001b[39mfirst())\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                         \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 53 |\u001b[39m     \n \u001b[90m 54 |\u001b[39m     \u001b[90m// Take screenshot of validation errors\u001b[39m\n \u001b[90m 55 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mscreenshot({ path\u001b[33m:\u001b[39m \u001b[32m'test-results/login-validation-errors.png'\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:52:41\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:10.121Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-112c3-ation-errors-for-empty-form-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-112c3-ation-errors-for-empty-form-chromium/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-112c3-ation-errors-for-empty-form-chromium/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                        "column": 41,
+                        "line": 52
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-f17893888c742ebbb0db",
+              "file": "auth.spec.ts",
+              "line": 41,
+              "column": 3
+            },
+            {
+              "title": "should show error for invalid credentials",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 2,
+                      "status": "failed",
+                      "duration": 7871,
+                      "error": {
+                        "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .alert, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .alert, [role=\"alert\"]').first()\u001b[22m\n",
+                        "stack": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .alert, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .alert, [role=\"alert\"]').first()\u001b[22m\n\n    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:79:40",
+                        "location": {
+                          "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                          "column": 40,
+                          "line": 79
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 77 |\u001b[39m     \u001b[90m// Check for error message\u001b[39m\n \u001b[90m 78 |\u001b[39m     \u001b[36mconst\u001b[39m errorMessage \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'.error, .alert, [role=\"alert\"]'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 79 |\u001b[39m     \u001b[36mawait\u001b[39m expect(errorMessage\u001b[33m.\u001b[39mfirst())\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                        \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 80 |\u001b[39m     \n \u001b[90m 81 |\u001b[39m     \u001b[90m// Take screenshot of error state\u001b[39m\n \u001b[90m 82 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mscreenshot({ path\u001b[33m:\u001b[39m \u001b[32m'test-results/invalid-credentials-error.png'\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                            "column": 40,
+                            "line": 79
+                          },
+                          "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .alert, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .alert, [role=\"alert\"]').first()\u001b[22m\n\n\n\u001b[0m \u001b[90m 77 |\u001b[39m     \u001b[90m// Check for error message\u001b[39m\n \u001b[90m 78 |\u001b[39m     \u001b[36mconst\u001b[39m errorMessage \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'.error, .alert, [role=\"alert\"]'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 79 |\u001b[39m     \u001b[36mawait\u001b[39m expect(errorMessage\u001b[33m.\u001b[39mfirst())\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                        \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 80 |\u001b[39m     \n \u001b[90m 81 |\u001b[39m     \u001b[90m// Take screenshot of error state\u001b[39m\n \u001b[90m 82 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mscreenshot({ path\u001b[33m:\u001b[39m \u001b[32m'test-results/invalid-credentials-error.png'\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:79:40\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:10.123Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-d08b4-ror-for-invalid-credentials-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-d08b4-ror-for-invalid-credentials-chromium/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-d08b4-ror-for-invalid-credentials-chromium/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                        "column": 40,
+                        "line": 79
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-0ce411b9f80d6e03fe27",
+              "file": "auth.spec.ts",
+              "line": 58,
+              "column": 3
+            },
+            {
+              "title": "should successfully login as admin user",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 3,
+                      "status": "failed",
+                      "duration": 1033,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: not \u001b[32m\"/login\"\u001b[39m\nReceived string:        \u001b[31m\"http://localhost:5175\u001b[7m/login\u001b[27m\"\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: not \u001b[32m\"/login\"\u001b[39m\nReceived string:        \u001b[31m\"http://localhost:5175\u001b[7m/login\u001b[27m\"\u001b[39m\n    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:137:28",
+                        "location": {
+                          "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                          "column": 28,
+                          "line": 137
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 135 |\u001b[39m     \n \u001b[90m 136 |\u001b[39m     \u001b[90m// Should be redirected away from login\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 137 |\u001b[39m     expect(page\u001b[33m.\u001b[39murl())\u001b[33m.\u001b[39mnot\u001b[33m.\u001b[39mtoContain(\u001b[32m'/login'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                            \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 138 |\u001b[39m     \n \u001b[90m 139 |\u001b[39m     \u001b[90m// Check for successful login indicators\u001b[39m\n \u001b[90m 140 |\u001b[39m     \u001b[36mconst\u001b[39m userMenu \u001b[33m=\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'[data-testid=\"user-menu\"], .user-menu, .profile-menu'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                            "column": 28,
+                            "line": 137
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: not \u001b[32m\"/login\"\u001b[39m\nReceived string:        \u001b[31m\"http://localhost:5175\u001b[7m/login\u001b[27m\"\u001b[39m\n\n\u001b[0m \u001b[90m 135 |\u001b[39m     \n \u001b[90m 136 |\u001b[39m     \u001b[90m// Should be redirected away from login\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 137 |\u001b[39m     expect(page\u001b[33m.\u001b[39murl())\u001b[33m.\u001b[39mnot\u001b[33m.\u001b[39mtoContain(\u001b[32m'/login'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                            \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 138 |\u001b[39m     \n \u001b[90m 139 |\u001b[39m     \u001b[90m// Check for successful login indicators\u001b[39m\n \u001b[90m 140 |\u001b[39m     \u001b[36mconst\u001b[39m userMenu \u001b[33m=\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'[data-testid=\"user-menu\"], .user-menu, .profile-menu'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:137:28\u001b[22m"
+                        }
+                      ],
+                      "stdout": [
+                        {
+                          "text": "Navigation timeout - checking for errors\n"
+                        },
+                        {
+                          "text": "Current URL after timeout: http://localhost:5175/login\n"
+                        },
+                        {
+                          "text": "Login API response: \u001b[33m200\u001b[39m {\"expires_at\":\"2025-06-19T14:27:11-04:00\",\"refresh_token\":\"demo-refresh-d956cf99-cffd-4f04-b877-86967b31ad8b\",\"token\":\"demo-token-admin-1750271231\",\"user\":{\"created_at\":\"2025-06-17T18:18:35-04:00\",\"email\":\"admin@mvp.local\",\"first_name\":\"Admin\",\"id\":2803419385209,\"is_active\":true,\"is_admin\":true,\"last_name\":\"User\",\"roles\":[\"admin\",\"user\"],\"updated_at\":\"2025-06-17T18:18:35-04:00\",\"username\":\"admin\"}}\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:10.113Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-34ab3-ssfully-login-as-admin-user-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-34ab3-ssfully-login-as-admin-user-chromium/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-34ab3-ssfully-login-as-admin-user-chromium/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                        "column": 28,
+                        "line": 137
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-cc49281318779024e3f6",
+              "file": "auth.spec.ts",
+              "line": 85,
+              "column": 3
+            },
+            {
+              "title": "should maintain session across page refresh",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 4,
+                      "status": "passed",
+                      "duration": 2857,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:10.121Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-e43194945048df0531c0",
+              "file": "auth.spec.ts",
+              "line": 151,
+              "column": 3
+            },
+            {
+              "title": "should logout successfully",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip"
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 5,
+                      "status": "skipped",
+                      "duration": 1065,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:10.115Z",
+                      "annotations": [
+                        {
+                          "type": "skip"
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-4c2b6eaa58a247a5bd6b",
+              "file": "auth.spec.ts",
+              "line": 178,
+              "column": 3
+            },
+            {
+              "title": "should handle network errors gracefully",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3321,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:10.904Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-8f6c03f7e382734c2384",
+              "file": "auth.spec.ts",
+              "line": 233,
+              "column": 3
+            },
+            {
+              "title": "should redirect unauthenticated users to login",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 6,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 227,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:11.654Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-540548c618a53b14466e",
+              "file": "auth.spec.ts",
+              "line": 258,
+              "column": 3
+            },
+            {
+              "title": "should prevent XSS in login form",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 5,
+                      "status": "passed",
+                      "duration": 2243,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:11.342Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-cf71ea7ef95663fa181f",
+              "file": "auth.spec.ts",
+              "line": 270,
+              "column": 3
+            },
+            {
+              "title": "should display login page correctly",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 1065,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:12.237Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-b2e11cebc060f6485586",
+              "file": "auth.spec.ts",
+              "line": 26,
+              "column": 3
+            },
+            {
+              "title": "should show validation errors for empty form",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 8,
+                      "parallelIndex": 4,
+                      "status": "failed",
+                      "duration": 6918,
+                      "error": {
+                        "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .invalid, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .invalid, [role=\"alert\"]').first()\u001b[22m\n",
+                        "stack": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .invalid, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .invalid, [role=\"alert\"]').first()\u001b[22m\n\n    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:52:41",
+                        "location": {
+                          "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                          "column": 41,
+                          "line": 52
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 50 |\u001b[39m     \u001b[90m// Check for error messages\u001b[39m\n \u001b[90m 51 |\u001b[39m     \u001b[36mconst\u001b[39m errorElements \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'.error, .invalid, [role=\"alert\"]'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 52 |\u001b[39m     \u001b[36mawait\u001b[39m expect(errorElements\u001b[33m.\u001b[39mfirst())\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                         \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 53 |\u001b[39m     \n \u001b[90m 54 |\u001b[39m     \u001b[90m// Take screenshot of validation errors\u001b[39m\n \u001b[90m 55 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mscreenshot({ path\u001b[33m:\u001b[39m \u001b[32m'test-results/login-validation-errors.png'\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                            "column": 41,
+                            "line": 52
+                          },
+                          "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .invalid, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .invalid, [role=\"alert\"]').first()\u001b[22m\n\n\n\u001b[0m \u001b[90m 50 |\u001b[39m     \u001b[90m// Check for error messages\u001b[39m\n \u001b[90m 51 |\u001b[39m     \u001b[36mconst\u001b[39m errorElements \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'.error, .invalid, [role=\"alert\"]'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 52 |\u001b[39m     \u001b[36mawait\u001b[39m expect(errorElements\u001b[33m.\u001b[39mfirst())\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                         \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 53 |\u001b[39m     \n \u001b[90m 54 |\u001b[39m     \u001b[90m// Take screenshot of validation errors\u001b[39m\n \u001b[90m 55 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mscreenshot({ path\u001b[33m:\u001b[39m \u001b[32m'test-results/login-validation-errors.png'\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:52:41\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:13.398Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-112c3-ation-errors-for-empty-form-firefox/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-112c3-ation-errors-for-empty-form-firefox/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-112c3-ation-errors-for-empty-form-firefox/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                        "column": 41,
+                        "line": 52
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-9356606e1458c1b0b469",
+              "file": "auth.spec.ts",
+              "line": 41,
+              "column": 3
+            },
+            {
+              "title": "should show error for invalid credentials",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 9,
+                      "parallelIndex": 5,
+                      "status": "failed",
+                      "duration": 8130,
+                      "error": {
+                        "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .alert, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .alert, [role=\"alert\"]').first()\u001b[22m\n",
+                        "stack": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .alert, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .alert, [role=\"alert\"]').first()\u001b[22m\n\n    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:79:40",
+                        "location": {
+                          "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                          "column": 40,
+                          "line": 79
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 77 |\u001b[39m     \u001b[90m// Check for error message\u001b[39m\n \u001b[90m 78 |\u001b[39m     \u001b[36mconst\u001b[39m errorMessage \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'.error, .alert, [role=\"alert\"]'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 79 |\u001b[39m     \u001b[36mawait\u001b[39m expect(errorMessage\u001b[33m.\u001b[39mfirst())\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                        \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 80 |\u001b[39m     \n \u001b[90m 81 |\u001b[39m     \u001b[90m// Take screenshot of error state\u001b[39m\n \u001b[90m 82 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mscreenshot({ path\u001b[33m:\u001b[39m \u001b[32m'test-results/invalid-credentials-error.png'\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                            "column": 40,
+                            "line": 79
+                          },
+                          "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .alert, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .alert, [role=\"alert\"]').first()\u001b[22m\n\n\n\u001b[0m \u001b[90m 77 |\u001b[39m     \u001b[90m// Check for error message\u001b[39m\n \u001b[90m 78 |\u001b[39m     \u001b[36mconst\u001b[39m errorMessage \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'.error, .alert, [role=\"alert\"]'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 79 |\u001b[39m     \u001b[36mawait\u001b[39m expect(errorMessage\u001b[33m.\u001b[39mfirst())\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                        \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 80 |\u001b[39m     \n \u001b[90m 81 |\u001b[39m     \u001b[90m// Take screenshot of error state\u001b[39m\n \u001b[90m 82 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mscreenshot({ path\u001b[33m:\u001b[39m \u001b[32m'test-results/invalid-credentials-error.png'\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:79:40\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:13.870Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-d08b4-ror-for-invalid-credentials-firefox/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-d08b4-ror-for-invalid-credentials-firefox/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-d08b4-ror-for-invalid-credentials-firefox/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                        "column": 40,
+                        "line": 79
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-01623dce2f8fd98c8505",
+              "file": "auth.spec.ts",
+              "line": 58,
+              "column": 3
+            },
+            {
+              "title": "should successfully login as admin user",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 10,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 822,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: not \u001b[32m\"/login\"\u001b[39m\nReceived string:        \u001b[31m\"http://localhost:5175\u001b[7m/login\u001b[27m\"\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: not \u001b[32m\"/login\"\u001b[39m\nReceived string:        \u001b[31m\"http://localhost:5175\u001b[7m/login\u001b[27m\"\u001b[39m\n    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:137:28",
+                        "location": {
+                          "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                          "column": 28,
+                          "line": 137
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 135 |\u001b[39m     \n \u001b[90m 136 |\u001b[39m     \u001b[90m// Should be redirected away from login\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 137 |\u001b[39m     expect(page\u001b[33m.\u001b[39murl())\u001b[33m.\u001b[39mnot\u001b[33m.\u001b[39mtoContain(\u001b[32m'/login'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                            \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 138 |\u001b[39m     \n \u001b[90m 139 |\u001b[39m     \u001b[90m// Check for successful login indicators\u001b[39m\n \u001b[90m 140 |\u001b[39m     \u001b[36mconst\u001b[39m userMenu \u001b[33m=\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'[data-testid=\"user-menu\"], .user-menu, .profile-menu'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                            "column": 28,
+                            "line": 137
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: not \u001b[32m\"/login\"\u001b[39m\nReceived string:        \u001b[31m\"http://localhost:5175\u001b[7m/login\u001b[27m\"\u001b[39m\n\n\u001b[0m \u001b[90m 135 |\u001b[39m     \n \u001b[90m 136 |\u001b[39m     \u001b[90m// Should be redirected away from login\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 137 |\u001b[39m     expect(page\u001b[33m.\u001b[39murl())\u001b[33m.\u001b[39mnot\u001b[33m.\u001b[39mtoContain(\u001b[32m'/login'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                            \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 138 |\u001b[39m     \n \u001b[90m 139 |\u001b[39m     \u001b[90m// Check for successful login indicators\u001b[39m\n \u001b[90m 140 |\u001b[39m     \u001b[36mconst\u001b[39m userMenu \u001b[33m=\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'[data-testid=\"user-menu\"], .user-menu, .profile-menu'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:137:28\u001b[22m"
+                        }
+                      ],
+                      "stdout": [
+                        {
+                          "text": "Navigation timeout - checking for errors\n"
+                        },
+                        {
+                          "text": "Current URL after timeout: http://localhost:5175/login\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:14.657Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-34ab3-ssfully-login-as-admin-user-firefox/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-34ab3-ssfully-login-as-admin-user-firefox/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-34ab3-ssfully-login-as-admin-user-firefox/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                        "column": 28,
+                        "line": 137
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-fdd869d354456e1ef354",
+              "file": "auth.spec.ts",
+              "line": 85,
+              "column": 3
+            },
+            {
+              "title": "should maintain session across page refresh",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 2835,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:14.842Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-94d5339be7cd9be91f1a",
+              "file": "auth.spec.ts",
+              "line": 151,
+              "column": 3
+            },
+            {
+              "title": "should logout successfully",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip"
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 11,
+                      "parallelIndex": 0,
+                      "status": "skipped",
+                      "duration": 1178,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:16.843Z",
+                      "annotations": [
+                        {
+                          "type": "skip"
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-3bae36bcbe9bd327d63f",
+              "file": "auth.spec.ts",
+              "line": 178,
+              "column": 3
+            },
+            {
+              "title": "should handle network errors gracefully",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 12,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 3970,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:17.193Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-872bc98ff75beda3592b",
+              "file": "auth.spec.ts",
+              "line": 233,
+              "column": 3
+            },
+            {
+              "title": "should redirect unauthenticated users to login",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 619,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:17.680Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-f3f8fe8f3c686ee78946",
+              "file": "auth.spec.ts",
+              "line": 258,
+              "column": 3
+            },
+            {
+              "title": "should prevent XSS in login form",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 2473,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:18.301Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-a5f7332bbe94e809bed7",
+              "file": "auth.spec.ts",
+              "line": 270,
+              "column": 3
+            },
+            {
+              "title": "should display login page correctly",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [
+                    {
+                      "workerIndex": 13,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 817,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:18.690Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-bf6fded3a43fbcaf55a9",
+              "file": "auth.spec.ts",
+              "line": 26,
+              "column": 3
+            },
+            {
+              "title": "should show validation errors for empty form",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [
+                    {
+                      "workerIndex": 14,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 6844,
+                      "error": {
+                        "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .invalid, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .invalid, [role=\"alert\"]').first()\u001b[22m\n",
+                        "stack": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .invalid, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .invalid, [role=\"alert\"]').first()\u001b[22m\n\n    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:52:41",
+                        "location": {
+                          "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                          "column": 41,
+                          "line": 52
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 50 |\u001b[39m     \u001b[90m// Check for error messages\u001b[39m\n \u001b[90m 51 |\u001b[39m     \u001b[36mconst\u001b[39m errorElements \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'.error, .invalid, [role=\"alert\"]'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 52 |\u001b[39m     \u001b[36mawait\u001b[39m expect(errorElements\u001b[33m.\u001b[39mfirst())\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                         \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 53 |\u001b[39m     \n \u001b[90m 54 |\u001b[39m     \u001b[90m// Take screenshot of validation errors\u001b[39m\n \u001b[90m 55 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mscreenshot({ path\u001b[33m:\u001b[39m \u001b[32m'test-results/login-validation-errors.png'\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                            "column": 41,
+                            "line": 52
+                          },
+                          "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .invalid, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .invalid, [role=\"alert\"]').first()\u001b[22m\n\n\n\u001b[0m \u001b[90m 50 |\u001b[39m     \u001b[90m// Check for error messages\u001b[39m\n \u001b[90m 51 |\u001b[39m     \u001b[36mconst\u001b[39m errorElements \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'.error, .invalid, [role=\"alert\"]'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 52 |\u001b[39m     \u001b[36mawait\u001b[39m expect(errorElements\u001b[33m.\u001b[39mfirst())\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                         \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 53 |\u001b[39m     \n \u001b[90m 54 |\u001b[39m     \u001b[90m// Take screenshot of validation errors\u001b[39m\n \u001b[90m 55 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mscreenshot({ path\u001b[33m:\u001b[39m \u001b[32m'test-results/login-validation-errors.png'\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:52:41\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:19.075Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-112c3-ation-errors-for-empty-form-webkit/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-112c3-ation-errors-for-empty-form-webkit/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-112c3-ation-errors-for-empty-form-webkit/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                        "column": 41,
+                        "line": 52
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-e4b9a387332bfe54a01a",
+              "file": "auth.spec.ts",
+              "line": 41,
+              "column": 3
+            },
+            {
+              "title": "should show error for invalid credentials",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [
+                    {
+                      "workerIndex": 13,
+                      "parallelIndex": 2,
+                      "status": "failed",
+                      "duration": 7355,
+                      "error": {
+                        "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .alert, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .alert, [role=\"alert\"]').first()\u001b[22m\n",
+                        "stack": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .alert, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .alert, [role=\"alert\"]').first()\u001b[22m\n\n    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:79:40",
+                        "location": {
+                          "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                          "column": 40,
+                          "line": 79
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 77 |\u001b[39m     \u001b[90m// Check for error message\u001b[39m\n \u001b[90m 78 |\u001b[39m     \u001b[36mconst\u001b[39m errorMessage \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'.error, .alert, [role=\"alert\"]'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 79 |\u001b[39m     \u001b[36mawait\u001b[39m expect(errorMessage\u001b[33m.\u001b[39mfirst())\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                        \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 80 |\u001b[39m     \n \u001b[90m 81 |\u001b[39m     \u001b[90m// Take screenshot of error state\u001b[39m\n \u001b[90m 82 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mscreenshot({ path\u001b[33m:\u001b[39m \u001b[32m'test-results/invalid-credentials-error.png'\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                            "column": 40,
+                            "line": 79
+                          },
+                          "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .alert, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .alert, [role=\"alert\"]').first()\u001b[22m\n\n\n\u001b[0m \u001b[90m 77 |\u001b[39m     \u001b[90m// Check for error message\u001b[39m\n \u001b[90m 78 |\u001b[39m     \u001b[36mconst\u001b[39m errorMessage \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'.error, .alert, [role=\"alert\"]'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 79 |\u001b[39m     \u001b[36mawait\u001b[39m expect(errorMessage\u001b[33m.\u001b[39mfirst())\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                        \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 80 |\u001b[39m     \n \u001b[90m 81 |\u001b[39m     \u001b[90m// Take screenshot of error state\u001b[39m\n \u001b[90m 82 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mscreenshot({ path\u001b[33m:\u001b[39m \u001b[32m'test-results/invalid-credentials-error.png'\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:79:40\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:20.096Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-d08b4-ror-for-invalid-credentials-webkit/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-d08b4-ror-for-invalid-credentials-webkit/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-d08b4-ror-for-invalid-credentials-webkit/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                        "column": 40,
+                        "line": 79
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-e360e66f623c6e3ef3b7",
+              "file": "auth.spec.ts",
+              "line": 58,
+              "column": 3
+            },
+            {
+              "title": "should successfully login as admin user",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [
+                    {
+                      "workerIndex": 15,
+                      "parallelIndex": 3,
+                      "status": "failed",
+                      "duration": 513,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: not \u001b[32m\"/login\"\u001b[39m\nReceived string:        \u001b[31m\"http://localhost:5175\u001b[7m/login\u001b[27m\"\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: not \u001b[32m\"/login\"\u001b[39m\nReceived string:        \u001b[31m\"http://localhost:5175\u001b[7m/login\u001b[27m\"\u001b[39m\n    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:137:28",
+                        "location": {
+                          "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                          "column": 28,
+                          "line": 137
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 135 |\u001b[39m     \n \u001b[90m 136 |\u001b[39m     \u001b[90m// Should be redirected away from login\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 137 |\u001b[39m     expect(page\u001b[33m.\u001b[39murl())\u001b[33m.\u001b[39mnot\u001b[33m.\u001b[39mtoContain(\u001b[32m'/login'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                            \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 138 |\u001b[39m     \n \u001b[90m 139 |\u001b[39m     \u001b[90m// Check for successful login indicators\u001b[39m\n \u001b[90m 140 |\u001b[39m     \u001b[36mconst\u001b[39m userMenu \u001b[33m=\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'[data-testid=\"user-menu\"], .user-menu, .profile-menu'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                            "column": 28,
+                            "line": 137
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: not \u001b[32m\"/login\"\u001b[39m\nReceived string:        \u001b[31m\"http://localhost:5175\u001b[7m/login\u001b[27m\"\u001b[39m\n\n\u001b[0m \u001b[90m 135 |\u001b[39m     \n \u001b[90m 136 |\u001b[39m     \u001b[90m// Should be redirected away from login\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 137 |\u001b[39m     expect(page\u001b[33m.\u001b[39murl())\u001b[33m.\u001b[39mnot\u001b[33m.\u001b[39mtoContain(\u001b[32m'/login'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                            \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 138 |\u001b[39m     \n \u001b[90m 139 |\u001b[39m     \u001b[90m// Check for successful login indicators\u001b[39m\n \u001b[90m 140 |\u001b[39m     \u001b[36mconst\u001b[39m userMenu \u001b[33m=\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'[data-testid=\"user-menu\"], .user-menu, .profile-menu'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:137:28\u001b[22m"
+                        }
+                      ],
+                      "stdout": [
+                        {
+                          "text": "Frontend warning: ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.\n"
+                        },
+                        {
+                          "text": "Frontend warning: ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.\n"
+                        },
+                        {
+                          "text": "Navigation timeout - checking for errors\n"
+                        },
+                        {
+                          "text": "Current URL after timeout: http://localhost:5175/login\n"
+                        },
+                        {
+                          "text": "Login API response: \u001b[33m200\u001b[39m {\"expires_at\":\"2025-06-19T14:27:21-04:00\",\"refresh_token\":\"demo-refresh-d956cf99-cffd-4f04-b877-86967b31ad8b\",\"token\":\"demo-token-admin-1750271241\",\"user\":{\"created_at\":\"2025-06-17T18:18:35-04:00\",\"email\":\"admin@mvp.local\",\"first_name\":\"Admin\",\"id\":2803419385209,\"is_active\":true,\"is_admin\":true,\"last_name\":\"User\",\"roles\":[\"admin\",\"user\"],\"updated_at\":\"2025-06-17T18:18:35-04:00\",\"username\":\"admin\"}}\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:21.331Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-34ab3-ssfully-login-as-admin-user-webkit/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-34ab3-ssfully-login-as-admin-user-webkit/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-34ab3-ssfully-login-as-admin-user-webkit/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                        "column": 28,
+                        "line": 137
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-7c8cfa44b9234d1bd6bd",
+              "file": "auth.spec.ts",
+              "line": 85,
+              "column": 3
+            },
+            {
+              "title": "should maintain session across page refresh",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [
+                    {
+                      "workerIndex": 16,
+                      "parallelIndex": 4,
+                      "status": "passed",
+                      "duration": 2580,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:21.575Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-82c098e140a8827fe4e0",
+              "file": "auth.spec.ts",
+              "line": 151,
+              "column": 3
+            },
+            {
+              "title": "should logout successfully",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip"
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [
+                    {
+                      "workerIndex": 18,
+                      "parallelIndex": 1,
+                      "status": "skipped",
+                      "duration": 661,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:22.297Z",
+                      "annotations": [
+                        {
+                          "type": "skip"
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-fbe94f6fede6b3f1a438",
+              "file": "auth.spec.ts",
+              "line": 178,
+              "column": 3
+            },
+            {
+              "title": "should handle network errors gracefully",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [
+                    {
+                      "workerIndex": 17,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 3591,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:22.260Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-515d104b5b6f372a050c",
+              "file": "auth.spec.ts",
+              "line": 233,
+              "column": 3
+            },
+            {
+              "title": "should redirect unauthenticated users to login",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [
+                    {
+                      "workerIndex": 18,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 255,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:23.109Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-d72dcc649d8b3c760546",
+              "file": "auth.spec.ts",
+              "line": 258,
+              "column": 3
+            },
+            {
+              "title": "should prevent XSS in login form",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [
+                    {
+                      "workerIndex": 19,
+                      "parallelIndex": 5,
+                      "status": "passed",
+                      "duration": 2532,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:23.409Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-933070f3d844039d7bfc",
+              "file": "auth.spec.ts",
+              "line": 270,
+              "column": 3
+            },
+            {
+              "title": "should display login page correctly",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 20,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 354,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:23.675Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-670437da526bc39e2b8b",
+              "file": "auth.spec.ts",
+              "line": 26,
+              "column": 3
+            },
+            {
+              "title": "should show validation errors for empty form",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 20,
+                      "parallelIndex": 1,
+                      "status": "failed",
+                      "duration": 6285,
+                      "error": {
+                        "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .invalid, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .invalid, [role=\"alert\"]').first()\u001b[22m\n",
+                        "stack": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .invalid, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .invalid, [role=\"alert\"]').first()\u001b[22m\n\n    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:52:41",
+                        "location": {
+                          "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                          "column": 41,
+                          "line": 52
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 50 |\u001b[39m     \u001b[90m// Check for error messages\u001b[39m\n \u001b[90m 51 |\u001b[39m     \u001b[36mconst\u001b[39m errorElements \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'.error, .invalid, [role=\"alert\"]'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 52 |\u001b[39m     \u001b[36mawait\u001b[39m expect(errorElements\u001b[33m.\u001b[39mfirst())\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                         \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 53 |\u001b[39m     \n \u001b[90m 54 |\u001b[39m     \u001b[90m// Take screenshot of validation errors\u001b[39m\n \u001b[90m 55 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mscreenshot({ path\u001b[33m:\u001b[39m \u001b[32m'test-results/login-validation-errors.png'\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                            "column": 41,
+                            "line": 52
+                          },
+                          "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .invalid, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .invalid, [role=\"alert\"]').first()\u001b[22m\n\n\n\u001b[0m \u001b[90m 50 |\u001b[39m     \u001b[90m// Check for error messages\u001b[39m\n \u001b[90m 51 |\u001b[39m     \u001b[36mconst\u001b[39m errorElements \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'.error, .invalid, [role=\"alert\"]'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 52 |\u001b[39m     \u001b[36mawait\u001b[39m expect(errorElements\u001b[33m.\u001b[39mfirst())\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                         \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 53 |\u001b[39m     \n \u001b[90m 54 |\u001b[39m     \u001b[90m// Take screenshot of validation errors\u001b[39m\n \u001b[90m 55 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mscreenshot({ path\u001b[33m:\u001b[39m \u001b[32m'test-results/login-validation-errors.png'\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:52:41\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:24.118Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-112c3-ation-errors-for-empty-form-Mobile-Chrome/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-112c3-ation-errors-for-empty-form-Mobile-Chrome/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-112c3-ation-errors-for-empty-form-Mobile-Chrome/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                        "column": 41,
+                        "line": 52
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-61e06cfab459aab0c8cf",
+              "file": "auth.spec.ts",
+              "line": 41,
+              "column": 3
+            },
+            {
+              "title": "should show error for invalid credentials",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 21,
+                      "parallelIndex": 4,
+                      "status": "failed",
+                      "duration": 7437,
+                      "error": {
+                        "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .alert, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .alert, [role=\"alert\"]').first()\u001b[22m\n",
+                        "stack": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .alert, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .alert, [role=\"alert\"]').first()\u001b[22m\n\n    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:79:40",
+                        "location": {
+                          "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                          "column": 40,
+                          "line": 79
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 77 |\u001b[39m     \u001b[90m// Check for error message\u001b[39m\n \u001b[90m 78 |\u001b[39m     \u001b[36mconst\u001b[39m errorMessage \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'.error, .alert, [role=\"alert\"]'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 79 |\u001b[39m     \u001b[36mawait\u001b[39m expect(errorMessage\u001b[33m.\u001b[39mfirst())\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                        \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 80 |\u001b[39m     \n \u001b[90m 81 |\u001b[39m     \u001b[90m// Take screenshot of error state\u001b[39m\n \u001b[90m 82 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mscreenshot({ path\u001b[33m:\u001b[39m \u001b[32m'test-results/invalid-credentials-error.png'\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                            "column": 40,
+                            "line": 79
+                          },
+                          "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .alert, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .alert, [role=\"alert\"]').first()\u001b[22m\n\n\n\u001b[0m \u001b[90m 77 |\u001b[39m     \u001b[90m// Check for error message\u001b[39m\n \u001b[90m 78 |\u001b[39m     \u001b[36mconst\u001b[39m errorMessage \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'.error, .alert, [role=\"alert\"]'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 79 |\u001b[39m     \u001b[36mawait\u001b[39m expect(errorMessage\u001b[33m.\u001b[39mfirst())\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                        \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 80 |\u001b[39m     \n \u001b[90m 81 |\u001b[39m     \u001b[90m// Take screenshot of error state\u001b[39m\n \u001b[90m 82 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mscreenshot({ path\u001b[33m:\u001b[39m \u001b[32m'test-results/invalid-credentials-error.png'\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:79:40\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:24.585Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-d08b4-ror-for-invalid-credentials-Mobile-Chrome/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-d08b4-ror-for-invalid-credentials-Mobile-Chrome/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-d08b4-ror-for-invalid-credentials-Mobile-Chrome/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                        "column": 40,
+                        "line": 79
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-7bf722126f5b08d14b51",
+              "file": "auth.spec.ts",
+              "line": 58,
+              "column": 3
+            },
+            {
+              "title": "should successfully login as admin user",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 22,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 540,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "Frontend warning: ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.\n"
+                        },
+                        {
+                          "text": "Frontend warning: ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.\n"
+                        },
+                        {
+                          "text": "Navigation timeout - checking for errors\n"
+                        },
+                        {
+                          "text": "Login API response: \u001b[33m200\u001b[39m {\"expires_at\":\"2025-06-19T14:27:26-04:00\",\"refresh_token\":\"demo-refresh-d956cf99-cffd-4f04-b877-86967b31ad8b\",\"token\":\"demo-token-admin-1750271246\",\"user\":{\"created_at\":\"2025-06-17T18:18:35-04:00\",\"email\":\"admin@mvp.local\",\"first_name\":\"Admin\",\"id\":2803419385209,\"is_active\":true,\"is_admin\":true,\"last_name\":\"User\",\"roles\":[\"admin\",\"user\"],\"updated_at\":\"2025-06-17T18:18:35-04:00\",\"username\":\"admin\"}}\n"
+                        },
+                        {
+                          "text": "Current URL after timeout: http://localhost:5175/dashboard\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:26.305Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-ceac2218e662fa46d6f7",
+              "file": "auth.spec.ts",
+              "line": 85,
+              "column": 3
+            },
+            {
+              "title": "should maintain session across page refresh",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 23,
+                      "parallelIndex": 5,
+                      "status": "passed",
+                      "duration": 2449,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:26.389Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-931949cc1c33589d33c7",
+              "file": "auth.spec.ts",
+              "line": 151,
+              "column": 3
+            },
+            {
+              "title": "should logout successfully",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip"
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 24,
+                      "parallelIndex": 0,
+                      "status": "skipped",
+                      "duration": 425,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:26.438Z",
+                      "annotations": [
+                        {
+                          "type": "skip"
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-5041132c91c116b2a6ad",
+              "file": "auth.spec.ts",
+              "line": 178,
+              "column": 3
+            },
+            {
+              "title": "should handle network errors gracefully",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 22,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 3310,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:26.934Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-e421ad20d2c15e5d49d6",
+              "file": "auth.spec.ts",
+              "line": 233,
+              "column": 3
+            },
+            {
+              "title": "should redirect unauthenticated users to login",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 24,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 241,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:26.967Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-c10738c8ca8c84131fd4",
+              "file": "auth.spec.ts",
+              "line": 258,
+              "column": 3
+            },
+            {
+              "title": "should prevent XSS in login form",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 24,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2282,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:27.211Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-e67d3e5f72d46f556ff9",
+              "file": "auth.spec.ts",
+              "line": 270,
+              "column": 3
+            },
+            {
+              "title": "should display login page correctly",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [
+                    {
+                      "workerIndex": 25,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 421,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:27.737Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-ae5cc39882b7e721c270",
+              "file": "auth.spec.ts",
+              "line": 26,
+              "column": 3
+            },
+            {
+              "title": "should show validation errors for empty form",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [
+                    {
+                      "workerIndex": 25,
+                      "parallelIndex": 2,
+                      "status": "failed",
+                      "duration": 6389,
+                      "error": {
+                        "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .invalid, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .invalid, [role=\"alert\"]').first()\u001b[22m\n",
+                        "stack": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .invalid, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .invalid, [role=\"alert\"]').first()\u001b[22m\n\n    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:52:41",
+                        "location": {
+                          "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                          "column": 41,
+                          "line": 52
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 50 |\u001b[39m     \u001b[90m// Check for error messages\u001b[39m\n \u001b[90m 51 |\u001b[39m     \u001b[36mconst\u001b[39m errorElements \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'.error, .invalid, [role=\"alert\"]'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 52 |\u001b[39m     \u001b[36mawait\u001b[39m expect(errorElements\u001b[33m.\u001b[39mfirst())\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                         \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 53 |\u001b[39m     \n \u001b[90m 54 |\u001b[39m     \u001b[90m// Take screenshot of validation errors\u001b[39m\n \u001b[90m 55 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mscreenshot({ path\u001b[33m:\u001b[39m \u001b[32m'test-results/login-validation-errors.png'\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                            "column": 41,
+                            "line": 52
+                          },
+                          "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .invalid, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .invalid, [role=\"alert\"]').first()\u001b[22m\n\n\n\u001b[0m \u001b[90m 50 |\u001b[39m     \u001b[90m// Check for error messages\u001b[39m\n \u001b[90m 51 |\u001b[39m     \u001b[36mconst\u001b[39m errorElements \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'.error, .invalid, [role=\"alert\"]'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 52 |\u001b[39m     \u001b[36mawait\u001b[39m expect(errorElements\u001b[33m.\u001b[39mfirst())\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                         \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 53 |\u001b[39m     \n \u001b[90m 54 |\u001b[39m     \u001b[90m// Take screenshot of validation errors\u001b[39m\n \u001b[90m 55 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mscreenshot({ path\u001b[33m:\u001b[39m \u001b[32m'test-results/login-validation-errors.png'\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:52:41\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:28.293Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-112c3-ation-errors-for-empty-form-Mobile-Safari/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-112c3-ation-errors-for-empty-form-Mobile-Safari/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-112c3-ation-errors-for-empty-form-Mobile-Safari/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                        "column": 41,
+                        "line": 52
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-9fd330b3547911095a23",
+              "file": "auth.spec.ts",
+              "line": 41,
+              "column": 3
+            },
+            {
+              "title": "should show error for invalid credentials",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [
+                    {
+                      "workerIndex": 26,
+                      "parallelIndex": 5,
+                      "status": "failed",
+                      "duration": 7563,
+                      "error": {
+                        "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .alert, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .alert, [role=\"alert\"]').first()\u001b[22m\n",
+                        "stack": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .alert, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .alert, [role=\"alert\"]').first()\u001b[22m\n\n    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:79:40",
+                        "location": {
+                          "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                          "column": 40,
+                          "line": 79
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 77 |\u001b[39m     \u001b[90m// Check for error message\u001b[39m\n \u001b[90m 78 |\u001b[39m     \u001b[36mconst\u001b[39m errorMessage \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'.error, .alert, [role=\"alert\"]'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 79 |\u001b[39m     \u001b[36mawait\u001b[39m expect(errorMessage\u001b[33m.\u001b[39mfirst())\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                        \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 80 |\u001b[39m     \n \u001b[90m 81 |\u001b[39m     \u001b[90m// Take screenshot of error state\u001b[39m\n \u001b[90m 82 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mscreenshot({ path\u001b[33m:\u001b[39m \u001b[32m'test-results/invalid-credentials-error.png'\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                            "column": 40,
+                            "line": 79
+                          },
+                          "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .alert, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .alert, [role=\"alert\"]').first()\u001b[22m\n\n\n\u001b[0m \u001b[90m 77 |\u001b[39m     \u001b[90m// Check for error message\u001b[39m\n \u001b[90m 78 |\u001b[39m     \u001b[36mconst\u001b[39m errorMessage \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'.error, .alert, [role=\"alert\"]'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 79 |\u001b[39m     \u001b[36mawait\u001b[39m expect(errorMessage\u001b[33m.\u001b[39mfirst())\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                        \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 80 |\u001b[39m     \n \u001b[90m 81 |\u001b[39m     \u001b[90m// Take screenshot of error state\u001b[39m\n \u001b[90m 82 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mscreenshot({ path\u001b[33m:\u001b[39m \u001b[32m'test-results/invalid-credentials-error.png'\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:79:40\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:29.227Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-d08b4-ror-for-invalid-credentials-Mobile-Safari/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-d08b4-ror-for-invalid-credentials-Mobile-Safari/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-d08b4-ror-for-invalid-credentials-Mobile-Safari/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                        "column": 40,
+                        "line": 79
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-64e09ac2adfdf1437e84",
+              "file": "auth.spec.ts",
+              "line": 58,
+              "column": 3
+            },
+            {
+              "title": "should successfully login as admin user",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [
+                    {
+                      "workerIndex": 27,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 470,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: not \u001b[32m\"/login\"\u001b[39m\nReceived string:        \u001b[31m\"http://localhost:5175\u001b[7m/login\u001b[27m\"\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: not \u001b[32m\"/login\"\u001b[39m\nReceived string:        \u001b[31m\"http://localhost:5175\u001b[7m/login\u001b[27m\"\u001b[39m\n    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:137:28",
+                        "location": {
+                          "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                          "column": 28,
+                          "line": 137
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 135 |\u001b[39m     \n \u001b[90m 136 |\u001b[39m     \u001b[90m// Should be redirected away from login\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 137 |\u001b[39m     expect(page\u001b[33m.\u001b[39murl())\u001b[33m.\u001b[39mnot\u001b[33m.\u001b[39mtoContain(\u001b[32m'/login'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                            \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 138 |\u001b[39m     \n \u001b[90m 139 |\u001b[39m     \u001b[90m// Check for successful login indicators\u001b[39m\n \u001b[90m 140 |\u001b[39m     \u001b[36mconst\u001b[39m userMenu \u001b[33m=\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'[data-testid=\"user-menu\"], .user-menu, .profile-menu'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                            "column": 28,
+                            "line": 137
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: not \u001b[32m\"/login\"\u001b[39m\nReceived string:        \u001b[31m\"http://localhost:5175\u001b[7m/login\u001b[27m\"\u001b[39m\n\n\u001b[0m \u001b[90m 135 |\u001b[39m     \n \u001b[90m 136 |\u001b[39m     \u001b[90m// Should be redirected away from login\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 137 |\u001b[39m     expect(page\u001b[33m.\u001b[39murl())\u001b[33m.\u001b[39mnot\u001b[33m.\u001b[39mtoContain(\u001b[32m'/login'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                            \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 138 |\u001b[39m     \n \u001b[90m 139 |\u001b[39m     \u001b[90m// Check for successful login indicators\u001b[39m\n \u001b[90m 140 |\u001b[39m     \u001b[36mconst\u001b[39m userMenu \u001b[33m=\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'[data-testid=\"user-menu\"], .user-menu, .profile-menu'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:137:28\u001b[22m"
+                        }
+                      ],
+                      "stdout": [
+                        {
+                          "text": "Frontend warning: ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.\n"
+                        },
+                        {
+                          "text": "Frontend warning: ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.\n"
+                        },
+                        {
+                          "text": "Navigation timeout - checking for errors\n"
+                        },
+                        {
+                          "text": "Current URL after timeout: http://localhost:5175/login\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:29.884Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-34ab3-ssfully-login-as-admin-user-Mobile-Safari/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-34ab3-ssfully-login-as-admin-user-Mobile-Safari/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-34ab3-ssfully-login-as-admin-user-Mobile-Safari/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                        "column": 28,
+                        "line": 137
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-f328d99f06fc555002e7",
+              "file": "auth.spec.ts",
+              "line": 85,
+              "column": 3
+            },
+            {
+              "title": "should maintain session across page refresh",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [
+                    {
+                      "workerIndex": 28,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 2597,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:30.557Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-1044eb86c7d3d607ac2b",
+              "file": "auth.spec.ts",
+              "line": 151,
+              "column": 3
+            },
+            {
+              "title": "should logout successfully",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip"
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [
+                    {
+                      "workerIndex": 29,
+                      "parallelIndex": 1,
+                      "status": "skipped",
+                      "duration": 571,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:30.706Z",
+                      "annotations": [
+                        {
+                          "type": "skip"
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-3d255db7c3d676e81efd",
+              "file": "auth.spec.ts",
+              "line": 178,
+              "column": 3
+            },
+            {
+              "title": "should handle network errors gracefully",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [
+                    {
+                      "workerIndex": 30,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3533,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:30.794Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-8907c8e0020edb8db3b1",
+              "file": "auth.spec.ts",
+              "line": 233,
+              "column": 3
+            },
+            {
+              "title": "should redirect unauthenticated users to login",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [
+                    {
+                      "workerIndex": 29,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 254,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:31.463Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-db8a249bae97a5aad9ed",
+              "file": "auth.spec.ts",
+              "line": 258,
+              "column": 3
+            },
+            {
+              "title": "should prevent XSS in login form",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [
+                    {
+                      "workerIndex": 29,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 2292,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:31.719Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-f334f8f449ad27464a71",
+              "file": "auth.spec.ts",
+              "line": 270,
+              "column": 3
+            },
+            {
+              "title": "should display login page correctly",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Microsoft Edge",
+                  "projectName": "Microsoft Edge",
+                  "results": [
+                    {
+                      "workerIndex": 31,
+                      "parallelIndex": 4,
+                      "status": "failed",
+                      "duration": 1,
+                      "error": {
+                        "message": "Error: browserType.launch: Chromium distribution 'msedge' is not found at /Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge\nRun \"npx playwright install msedge\"",
+                        "stack": "Error: browserType.launch: Chromium distribution 'msedge' is not found at /Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge\nRun \"npx playwright install msedge\""
+                      },
+                      "errors": [
+                        {
+                          "message": "Error: browserType.launch: Chromium distribution 'msedge' is not found at /Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge\nRun \"npx playwright install msedge\""
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:32.382Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-aae55c700bdcda8f4bb9",
+              "file": "auth.spec.ts",
+              "line": 26,
+              "column": 3
+            },
+            {
+              "title": "should show validation errors for empty form",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Microsoft Edge",
+                  "projectName": "Microsoft Edge",
+                  "results": [
+                    {
+                      "workerIndex": 32,
+                      "parallelIndex": 4,
+                      "status": "failed",
+                      "duration": 1,
+                      "error": {
+                        "message": "Error: browserType.launch: Chromium distribution 'msedge' is not found at /Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge\nRun \"npx playwright install msedge\"",
+                        "stack": "Error: browserType.launch: Chromium distribution 'msedge' is not found at /Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge\nRun \"npx playwright install msedge\""
+                      },
+                      "errors": [
+                        {
+                          "message": "Error: browserType.launch: Chromium distribution 'msedge' is not found at /Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge\nRun \"npx playwright install msedge\""
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:32.674Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-07e79a87833f9dd3719b",
+              "file": "auth.spec.ts",
+              "line": 41,
+              "column": 3
+            },
+            {
+              "title": "should show error for invalid credentials",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Microsoft Edge",
+                  "projectName": "Microsoft Edge",
+                  "results": [
+                    {
+                      "workerIndex": 33,
+                      "parallelIndex": 4,
+                      "status": "failed",
+                      "duration": 1,
+                      "error": {
+                        "message": "Error: browserType.launch: Chromium distribution 'msedge' is not found at /Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge\nRun \"npx playwright install msedge\"",
+                        "stack": "Error: browserType.launch: Chromium distribution 'msedge' is not found at /Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge\nRun \"npx playwright install msedge\""
+                      },
+                      "errors": [
+                        {
+                          "message": "Error: browserType.launch: Chromium distribution 'msedge' is not found at /Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge\nRun \"npx playwright install msedge\""
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:32.942Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-cb604730acc2ec8f3ffc",
+              "file": "auth.spec.ts",
+              "line": 58,
+              "column": 3
+            },
+            {
+              "title": "should successfully login as admin user",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Microsoft Edge",
+                  "projectName": "Microsoft Edge",
+                  "results": [
+                    {
+                      "workerIndex": 34,
+                      "parallelIndex": 4,
+                      "status": "failed",
+                      "duration": 1,
+                      "error": {
+                        "message": "Error: browserType.launch: Chromium distribution 'msedge' is not found at /Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge\nRun \"npx playwright install msedge\"",
+                        "stack": "Error: browserType.launch: Chromium distribution 'msedge' is not found at /Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge\nRun \"npx playwright install msedge\""
+                      },
+                      "errors": [
+                        {
+                          "message": "Error: browserType.launch: Chromium distribution 'msedge' is not found at /Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge\nRun \"npx playwright install msedge\""
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:33.203Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-90a5af0132c2d0df5ed3",
+              "file": "auth.spec.ts",
+              "line": 85,
+              "column": 3
+            },
+            {
+              "title": "should maintain session across page refresh",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Microsoft Edge",
+                  "projectName": "Microsoft Edge",
+                  "results": [
+                    {
+                      "workerIndex": 35,
+                      "parallelIndex": 4,
+                      "status": "failed",
+                      "duration": 1,
+                      "error": {
+                        "message": "Error: browserType.launch: Chromium distribution 'msedge' is not found at /Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge\nRun \"npx playwright install msedge\"",
+                        "stack": "Error: browserType.launch: Chromium distribution 'msedge' is not found at /Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge\nRun \"npx playwright install msedge\""
+                      },
+                      "errors": [
+                        {
+                          "message": "Error: browserType.launch: Chromium distribution 'msedge' is not found at /Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge\nRun \"npx playwright install msedge\""
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:33.468Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-22845c94f038bb7d943c",
+              "file": "auth.spec.ts",
+              "line": 151,
+              "column": 3
+            },
+            {
+              "title": "should logout successfully",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Microsoft Edge",
+                  "projectName": "Microsoft Edge",
+                  "results": [
+                    {
+                      "workerIndex": 36,
+                      "parallelIndex": 3,
+                      "status": "failed",
+                      "duration": 1,
+                      "error": {
+                        "message": "Error: browserType.launch: Chromium distribution 'msedge' is not found at /Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge\nRun \"npx playwright install msedge\"",
+                        "stack": "Error: browserType.launch: Chromium distribution 'msedge' is not found at /Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge\nRun \"npx playwright install msedge\""
+                      },
+                      "errors": [
+                        {
+                          "message": "Error: browserType.launch: Chromium distribution 'msedge' is not found at /Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge\nRun \"npx playwright install msedge\""
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:33.562Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-2fb6acdb05d80fe7ce8c",
+              "file": "auth.spec.ts",
+              "line": 178,
+              "column": 3
+            },
+            {
+              "title": "should handle network errors gracefully",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Microsoft Edge",
+                  "projectName": "Microsoft Edge",
+                  "results": [
+                    {
+                      "workerIndex": 37,
+                      "parallelIndex": 4,
+                      "status": "failed",
+                      "duration": 1,
+                      "error": {
+                        "message": "Error: browserType.launch: Chromium distribution 'msedge' is not found at /Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge\nRun \"npx playwright install msedge\"",
+                        "stack": "Error: browserType.launch: Chromium distribution 'msedge' is not found at /Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge\nRun \"npx playwright install msedge\""
+                      },
+                      "errors": [
+                        {
+                          "message": "Error: browserType.launch: Chromium distribution 'msedge' is not found at /Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge\nRun \"npx playwright install msedge\""
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:33.739Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-09acd5b0dfedbc6c3896",
+              "file": "auth.spec.ts",
+              "line": 233,
+              "column": 3
+            },
+            {
+              "title": "should redirect unauthenticated users to login",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Microsoft Edge",
+                  "projectName": "Microsoft Edge",
+                  "results": [
+                    {
+                      "workerIndex": 38,
+                      "parallelIndex": 3,
+                      "status": "failed",
+                      "duration": 1,
+                      "error": {
+                        "message": "Error: browserType.launch: Chromium distribution 'msedge' is not found at /Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge\nRun \"npx playwright install msedge\"",
+                        "stack": "Error: browserType.launch: Chromium distribution 'msedge' is not found at /Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge\nRun \"npx playwright install msedge\""
+                      },
+                      "errors": [
+                        {
+                          "message": "Error: browserType.launch: Chromium distribution 'msedge' is not found at /Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge\nRun \"npx playwright install msedge\""
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:33.830Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-561e3dcfb5fb2334f451",
+              "file": "auth.spec.ts",
+              "line": 258,
+              "column": 3
+            },
+            {
+              "title": "should prevent XSS in login form",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Microsoft Edge",
+                  "projectName": "Microsoft Edge",
+                  "results": [
+                    {
+                      "workerIndex": 39,
+                      "parallelIndex": 4,
+                      "status": "failed",
+                      "duration": 1,
+                      "error": {
+                        "message": "Error: browserType.launch: Chromium distribution 'msedge' is not found at /Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge\nRun \"npx playwright install msedge\"",
+                        "stack": "Error: browserType.launch: Chromium distribution 'msedge' is not found at /Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge\nRun \"npx playwright install msedge\""
+                      },
+                      "errors": [
+                        {
+                          "message": "Error: browserType.launch: Chromium distribution 'msedge' is not found at /Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge\nRun \"npx playwright install msedge\""
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:34.007Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-4f7446a7b44d6419cd33",
+              "file": "auth.spec.ts",
+              "line": 270,
+              "column": 3
+            },
+            {
+              "title": "should display login page correctly",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Google Chrome",
+                  "projectName": "Google Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 40,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 1108,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:34.104Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-f6416da2ce31a63ceabb",
+              "file": "auth.spec.ts",
+              "line": 26,
+              "column": 3
+            },
+            {
+              "title": "should show validation errors for empty form",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Google Chrome",
+                  "projectName": "Google Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 42,
+                      "parallelIndex": 1,
+                      "status": "failed",
+                      "duration": 7091,
+                      "error": {
+                        "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .invalid, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .invalid, [role=\"alert\"]').first()\u001b[22m\n",
+                        "stack": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .invalid, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .invalid, [role=\"alert\"]').first()\u001b[22m\n\n    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:52:41",
+                        "location": {
+                          "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                          "column": 41,
+                          "line": 52
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 50 |\u001b[39m     \u001b[90m// Check for error messages\u001b[39m\n \u001b[90m 51 |\u001b[39m     \u001b[36mconst\u001b[39m errorElements \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'.error, .invalid, [role=\"alert\"]'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 52 |\u001b[39m     \u001b[36mawait\u001b[39m expect(errorElements\u001b[33m.\u001b[39mfirst())\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                         \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 53 |\u001b[39m     \n \u001b[90m 54 |\u001b[39m     \u001b[90m// Take screenshot of validation errors\u001b[39m\n \u001b[90m 55 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mscreenshot({ path\u001b[33m:\u001b[39m \u001b[32m'test-results/login-validation-errors.png'\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                            "column": 41,
+                            "line": 52
+                          },
+                          "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .invalid, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .invalid, [role=\"alert\"]').first()\u001b[22m\n\n\n\u001b[0m \u001b[90m 50 |\u001b[39m     \u001b[90m// Check for error messages\u001b[39m\n \u001b[90m 51 |\u001b[39m     \u001b[36mconst\u001b[39m errorElements \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'.error, .invalid, [role=\"alert\"]'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 52 |\u001b[39m     \u001b[36mawait\u001b[39m expect(errorElements\u001b[33m.\u001b[39mfirst())\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                         \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 53 |\u001b[39m     \n \u001b[90m 54 |\u001b[39m     \u001b[90m// Take screenshot of validation errors\u001b[39m\n \u001b[90m 55 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mscreenshot({ path\u001b[33m:\u001b[39m \u001b[32m'test-results/login-validation-errors.png'\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:52:41\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:34.303Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-112c3-ation-errors-for-empty-form-Google-Chrome/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-112c3-ation-errors-for-empty-form-Google-Chrome/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-112c3-ation-errors-for-empty-form-Google-Chrome/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                        "column": 41,
+                        "line": 52
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-47337ce8bb2269fbded7",
+              "file": "auth.spec.ts",
+              "line": 41,
+              "column": 3
+            },
+            {
+              "title": "should show error for invalid credentials",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Google Chrome",
+                  "projectName": "Google Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 41,
+                      "parallelIndex": 4,
+                      "status": "failed",
+                      "duration": 8321,
+                      "error": {
+                        "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .alert, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .alert, [role=\"alert\"]').first()\u001b[22m\n",
+                        "stack": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .alert, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .alert, [role=\"alert\"]').first()\u001b[22m\n\n    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:79:40",
+                        "location": {
+                          "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                          "column": 40,
+                          "line": 79
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 77 |\u001b[39m     \u001b[90m// Check for error message\u001b[39m\n \u001b[90m 78 |\u001b[39m     \u001b[36mconst\u001b[39m errorMessage \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'.error, .alert, [role=\"alert\"]'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 79 |\u001b[39m     \u001b[36mawait\u001b[39m expect(errorMessage\u001b[33m.\u001b[39mfirst())\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                        \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 80 |\u001b[39m     \n \u001b[90m 81 |\u001b[39m     \u001b[90m// Take screenshot of error state\u001b[39m\n \u001b[90m 82 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mscreenshot({ path\u001b[33m:\u001b[39m \u001b[32m'test-results/invalid-credentials-error.png'\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                            "column": 40,
+                            "line": 79
+                          },
+                          "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeVisible\u001b[2m()\u001b[22m\n\nLocator: locator('.error, .alert, [role=\"alert\"]').first()\nExpected: visible\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeVisible\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('.error, .alert, [role=\"alert\"]').first()\u001b[22m\n\n\n\u001b[0m \u001b[90m 77 |\u001b[39m     \u001b[90m// Check for error message\u001b[39m\n \u001b[90m 78 |\u001b[39m     \u001b[36mconst\u001b[39m errorMessage \u001b[33m=\u001b[39m \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'.error, .alert, [role=\"alert\"]'\u001b[39m)\u001b[33m;\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 79 |\u001b[39m     \u001b[36mawait\u001b[39m expect(errorMessage\u001b[33m.\u001b[39mfirst())\u001b[33m.\u001b[39mtoBeVisible()\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                                        \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 80 |\u001b[39m     \n \u001b[90m 81 |\u001b[39m     \u001b[90m// Take screenshot of error state\u001b[39m\n \u001b[90m 82 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mscreenshot({ path\u001b[33m:\u001b[39m \u001b[32m'test-results/invalid-credentials-error.png'\u001b[39m })\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:79:40\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:34.304Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-d08b4-ror-for-invalid-credentials-Google-Chrome/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-d08b4-ror-for-invalid-credentials-Google-Chrome/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-d08b4-ror-for-invalid-credentials-Google-Chrome/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                        "column": 40,
+                        "line": 79
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-56d1dab64fc63c314e53",
+              "file": "auth.spec.ts",
+              "line": 58,
+              "column": 3
+            },
+            {
+              "title": "should successfully login as admin user",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Google Chrome",
+                  "projectName": "Google Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 43,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 1732,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: not \u001b[32m\"/login\"\u001b[39m\nReceived string:        \u001b[31m\"http://localhost:5175\u001b[7m/login\u001b[27m\"\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: not \u001b[32m\"/login\"\u001b[39m\nReceived string:        \u001b[31m\"http://localhost:5175\u001b[7m/login\u001b[27m\"\u001b[39m\n    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:137:28",
+                        "location": {
+                          "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                          "column": 28,
+                          "line": 137
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 135 |\u001b[39m     \n \u001b[90m 136 |\u001b[39m     \u001b[90m// Should be redirected away from login\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 137 |\u001b[39m     expect(page\u001b[33m.\u001b[39murl())\u001b[33m.\u001b[39mnot\u001b[33m.\u001b[39mtoContain(\u001b[32m'/login'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                            \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 138 |\u001b[39m     \n \u001b[90m 139 |\u001b[39m     \u001b[90m// Check for successful login indicators\u001b[39m\n \u001b[90m 140 |\u001b[39m     \u001b[36mconst\u001b[39m userMenu \u001b[33m=\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'[data-testid=\"user-menu\"], .user-menu, .profile-menu'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                            "column": 28,
+                            "line": 137
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mnot\u001b[2m.\u001b[22mtoContain\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // indexOf\u001b[22m\n\nExpected substring: not \u001b[32m\"/login\"\u001b[39m\nReceived string:        \u001b[31m\"http://localhost:5175\u001b[7m/login\u001b[27m\"\u001b[39m\n\n\u001b[0m \u001b[90m 135 |\u001b[39m     \n \u001b[90m 136 |\u001b[39m     \u001b[90m// Should be redirected away from login\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 137 |\u001b[39m     expect(page\u001b[33m.\u001b[39murl())\u001b[33m.\u001b[39mnot\u001b[33m.\u001b[39mtoContain(\u001b[32m'/login'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m     |\u001b[39m                            \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 138 |\u001b[39m     \n \u001b[90m 139 |\u001b[39m     \u001b[90m// Check for successful login indicators\u001b[39m\n \u001b[90m 140 |\u001b[39m     \u001b[36mconst\u001b[39m userMenu \u001b[33m=\u001b[39m page\u001b[33m.\u001b[39mlocator(\u001b[32m'[data-testid=\"user-menu\"], .user-menu, .profile-menu'\u001b[39m)\u001b[33m;\u001b[39m\u001b[0m\n\u001b[2m    at /Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts:137:28\u001b[22m"
+                        }
+                      ],
+                      "stdout": [
+                        {
+                          "text": "Frontend warning: ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.\n"
+                        },
+                        {
+                          "text": "Frontend warning: ⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.\n"
+                        },
+                        {
+                          "text": "Navigation timeout - checking for errors\n"
+                        },
+                        {
+                          "text": "Current URL after timeout: http://localhost:5175/login\n"
+                        },
+                        {
+                          "text": "Login API response: \u001b[33m200\u001b[39m {\"expires_at\":\"2025-06-19T14:27:37-04:00\",\"refresh_token\":\"demo-refresh-d956cf99-cffd-4f04-b877-86967b31ad8b\",\"token\":\"demo-token-admin-1750271257\",\"user\":{\"created_at\":\"2025-06-17T18:18:35-04:00\",\"email\":\"admin@mvp.local\",\"first_name\":\"Admin\",\"id\":2803419385209,\"is_active\":true,\"is_admin\":true,\"last_name\":\"User\",\"roles\":[\"admin\",\"user\"],\"updated_at\":\"2025-06-17T18:18:35-04:00\",\"username\":\"admin\"}}\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:35.080Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-34ab3-ssfully-login-as-admin-user-Google-Chrome/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-34ab3-ssfully-login-as-admin-user-Google-Chrome/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/test-results/auth-Authentication-E2E-Te-34ab3-ssfully-login-as-admin-user-Google-Chrome/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/lsendel/IdeaProjects/projects/root-zamaz/frontend/tests/e2e/auth.spec.ts",
+                        "column": 28,
+                        "line": 137
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-2e9989a09087b908bedb",
+              "file": "auth.spec.ts",
+              "line": 85,
+              "column": 3
+            },
+            {
+              "title": "should maintain session across page refresh",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Google Chrome",
+                  "projectName": "Google Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 44,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 3079,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:35.205Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-7ab60e462200951208a2",
+              "file": "auth.spec.ts",
+              "line": 151,
+              "column": 3
+            },
+            {
+              "title": "should logout successfully",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip"
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "Google Chrome",
+                  "projectName": "Google Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 40,
+                      "parallelIndex": 3,
+                      "status": "skipped",
+                      "duration": 768,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:35.899Z",
+                      "annotations": [
+                        {
+                          "type": "skip"
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-49ecd29a7b5dc5fda4a8",
+              "file": "auth.spec.ts",
+              "line": 178,
+              "column": 3
+            },
+            {
+              "title": "should handle network errors gracefully",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Google Chrome",
+                  "projectName": "Google Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 40,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 3545,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:36.670Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-e536df858cad6ea4a34b",
+              "file": "auth.spec.ts",
+              "line": 233,
+              "column": 3
+            },
+            {
+              "title": "should redirect unauthenticated users to login",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Google Chrome",
+                  "projectName": "Google Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 45,
+                      "parallelIndex": 5,
+                      "status": "passed",
+                      "duration": 660,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:37.323Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-2e777b50d433bfadea16",
+              "file": "auth.spec.ts",
+              "line": 258,
+              "column": 3
+            },
+            {
+              "title": "should prevent XSS in login form",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Google Chrome",
+                  "projectName": "Google Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 46,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2577,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-06-18T18:27:37.833Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "d748ac400d08b85935ef-1482e0495c8de5541750",
+              "file": "auth.spec.ts",
+              "line": 270,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2025-06-18T18:27:08.999Z",
+    "duration": 34193.687,
+    "expected": 31,
+    "skipped": 6,
+    "unexpected": 26,
+    "flaky": 0
+  }
+}

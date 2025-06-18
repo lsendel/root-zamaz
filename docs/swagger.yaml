@@ -1,0 +1,302 @@
+basePath: /api
+definitions:
+  auth.LoginRequest:
+    properties:
+      device_id:
+        type: string
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  auth.RefreshRequest:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  handlers.ChangePasswordRequest:
+    properties:
+      current_password:
+        type: string
+      new_password:
+        minLength: 8
+        type: string
+    required:
+    - current_password
+    - new_password
+    type: object
+  handlers.RegisterRequest:
+    properties:
+      email:
+        type: string
+      first_name:
+        maxLength: 50
+        type: string
+      last_name:
+        maxLength: 50
+        type: string
+      password:
+        minLength: 8
+        type: string
+      username:
+        maxLength: 50
+        minLength: 3
+        type: string
+    required:
+    - email
+    - password
+    - username
+    type: object
+  handlers.UserResponse:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      first_name:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      is_admin:
+        type: boolean
+      last_name:
+        type: string
+      roles:
+        items:
+          type: string
+        type: array
+      updated_at:
+        type: string
+      username:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@example.com
+    name: API Support
+  description: Zero Trust Authentication MVP API documentation
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Zero Trust Auth API
+  version: "1.0"
+paths:
+  /auth/change-password:
+    post:
+      consumes:
+      - application/json
+      description: Change the current user's password
+      parameters:
+      - description: Password change details
+        in: body
+        name: password
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.ChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Password changed successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Invalid current password
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Server error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Change password
+      tags:
+      - auth
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user and return JWT tokens
+      parameters:
+      - description: Login credentials
+        in: body
+        name: login
+        required: true
+        schema:
+          $ref: '#/definitions/auth.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Login successful
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Invalid credentials
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: User login
+      tags:
+      - auth
+  /auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Invalidate current session and tokens
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Logout successful
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Server error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: User logout
+      tags:
+      - auth
+  /auth/me:
+    get:
+      consumes:
+      - application/json
+      description: Get information about the currently authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User information
+          schema:
+            $ref: '#/definitions/handlers.UserResponse'
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get current user
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Exchange refresh token for new access token
+      parameters:
+      - description: Refresh token
+        in: body
+        name: refresh
+        required: true
+        schema:
+          $ref: '#/definitions/auth.RefreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: New tokens
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Invalid refresh token
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Refresh access token
+      tags:
+      - auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Create a new user account
+      parameters:
+      - description: Registration details
+        in: body
+        name: register
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: User created successfully
+          schema:
+            $ref: '#/definitions/handlers.UserResponse'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: User already exists
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: User registration
+      tags:
+      - auth
+securityDefinitions:
+  BearerAuth:
+    description: 'Bearer token authentication. Format: "Bearer {token}"'
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
