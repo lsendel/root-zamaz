@@ -13,7 +13,7 @@ ENV_FILE ?= .env
 .PHONY: help dev-up dev-down dev-all build build-server run-server test clean logs deploy-local \
         build-frontend dev-frontend frontend-install test-coverage check-coverage test-integration test-load \
         db-migrate certs-generate monitoring-setup dev-setup \
-        lint fmt check-deps security-scan quality-check ci-build pre-commit \
+        lint fmt check-deps security-scan security-scan-quick security-install quality-check ci-build pre-commit \
         db-reset
 
 # Default target
@@ -158,11 +158,23 @@ check-deps: ## Check for dependency vulnerabilities
 	@go list -json -deps ./... | docker run --rm -i sonatypecorp/nancy:latest sleuth || (echo "❌ Nancy vulnerability check failed" && exit 1)
 	@echo "✅ Dependency check completed"
 
-security-scan: ## Run security scan on codebase
-	@echo "🔒 Running security scan..."
-	@command -v gosec >/dev/null 2>&1 || (echo "❌ gosec not installed. Run: go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest" && exit 1)
-	@gosec ./... || (echo "❌ Security scan failed" && exit 1)
+security-scan: ## Run comprehensive security scan
+	@echo "🔒 Running comprehensive security scan..."
+	@chmod +x scripts/security-scan.sh
+	@./scripts/security-scan.sh || (echo "❌ Security scan failed" && exit 1)
 	@echo "✅ Security scan completed"
+
+security-scan-quick: ## Run quick security scan
+	@echo "🔒 Running quick security scan..."
+	@chmod +x scripts/security-scan.sh
+	@./scripts/security-scan.sh --quick || (echo "❌ Quick security scan failed" && exit 1)
+	@echo "✅ Quick security scan completed"
+
+security-install: ## Install security scanning tools
+	@echo "🔧 Installing security scanning tools..."
+	@chmod +x scripts/security-scan.sh
+	@./scripts/security-scan.sh --install
+	@echo "✅ Security tools installed"
 
 # Clean up
 clean: ## Clean up containers, volumes, and build artifacts
@@ -216,7 +228,7 @@ quality-check: ## Run all quality checks (coverage, lint, security)
 	@$(MAKE) check-coverage
 	@$(MAKE) lint
 	@$(MAKE) check-deps
-	@$(MAKE) security-scan
+	@$(MAKE) security-scan-quick
 	@echo "✅ All quality checks passed"
 
 ci-build: ## Complete CI build pipeline

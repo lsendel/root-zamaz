@@ -1,0 +1,118 @@
+# Gitleaks Configuration for MVP Zero Trust Auth
+title = "MVP Zero Trust Auth - Secret Detection"
+
+[extend]
+# Extend default rules
+useDefault = true
+
+[[rules]]
+description = "AWS Access Key ID"
+id = "aws-access-key-id"
+regex = '''AKIA[0-9A-Z]{16}'''
+tags = ["key", "AWS"]
+
+[[rules]]
+description = "AWS Secret Access Key"
+id = "aws-secret-access-key"
+regex = '''(?i)aws(.{0,20})?(?-i)['\"][0-9a-zA-Z\/+]{40}['\"]'''
+tags = ["key", "AWS"]
+
+[[rules]]
+description = "GitHub Personal Access Token"
+id = "github-pat"
+regex = '''ghp_[0-9a-zA-Z]{36}'''
+tags = ["key", "GitHub"]
+
+[[rules]]
+description = "GitHub OAuth Token"
+id = "github-oauth"
+regex = '''gho_[0-9a-zA-Z]{36}'''
+tags = ["key", "GitHub"]
+
+[[rules]]
+description = "GitHub App Token"
+id = "github-app-token"
+regex = '''(ghu|ghs)_[0-9a-zA-Z]{36}'''
+tags = ["key", "GitHub"]
+
+[[rules]]
+description = "JWT Token"
+id = "jwt"
+regex = '''ey[A-Za-z0-9_-]*\.[A-Za-z0-9._-]*\.[A-Za-z0-9._-]*'''
+tags = ["key", "JWT"]
+
+[[rules]]
+description = "Generic Secret"
+id = "generic-secret"
+regex = '''(?i)(secret|password|key|token|auth)(.{0,20})?['\"][0-9a-zA-Z!@#$%^&*()_+\-=\[\]{}|;:,.<>?]{16,}['\"]'''
+tags = ["secret", "generic"]
+
+[[rules]]
+description = "Database Connection String"
+id = "database-url"
+regex = '''(?i)(database_url|db_url|connection_string)(.{0,20})?['\"][^'\"\s]{10,}['\"]'''
+tags = ["secret", "database"]
+
+[[rules]]
+description = "Redis URL"
+id = "redis-url"
+regex = '''redis://[^\s'"]{10,}'''
+tags = ["secret", "redis"]
+
+[[rules]]
+description = "Private Key"
+id = "private-key"
+regex = '''-----BEGIN[A-Z ]+PRIVATE KEY-----'''
+tags = ["key", "private"]
+
+[allowlist]
+description = "Allowlist for known safe patterns"
+paths = [
+    '''\.gitleaks\.toml''',
+    '''docs/''',
+    '''README\.md''',
+    '''LICENSE''',
+    '''\.github/''',
+    '''frontend/node_modules/''',
+    '''\.git/''',
+]
+
+# Allow development and demo secrets
+regexes = [
+    '''development-secret-do-not-use-in-production''',
+    '''development-secret-key''',
+    '''test-secret-key''',
+    '''demo-token-admin-123''',
+    '''example-key''',
+    '''mvp_password''',
+    '''mvp_user''',
+    '''your-super-secret-jwt-key''',
+    '''your-production-secret''',
+    '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.example\.token''',
+    '''Bearer YOUR_TOKEN_HERE''',
+    '''Authorization: Bearer token''',
+    '''postgres://user:pass@host:5432/db''',
+    '''redis://redis:6379''',
+    '''jwt_secret''',
+    '''db_password''',
+    '''STRONG_RANDOM_SECRET''',
+    '''BUILD_VERSION''',
+    '''api-key: \$\{\{ secrets\.FOSSA_API_KEY \}\}''',
+    '''GITHUB_TOKEN: \$\{\{ secrets\.GITHUB_TOKEN \}\}''',
+    '''env\.FOSSA_API_KEY''',
+]
+
+# Allow common variable patterns
+stopwords = [
+    "example",
+    "sample",
+    "test",
+    "demo",
+    "placeholder",
+    "TODO",
+    "FIXME",
+    "XXX",
+    "template",
+    "mock",
+    "fake",
+]

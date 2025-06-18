@@ -24,7 +24,7 @@ ARG BUILD_TIME=unknown
 RUN CGO_ENABLED=0 GOOS=linux go build \
     -ldflags "-X main.version=${VERSION} -X main.commit=${COMMIT_SHA} -X main.buildTime=${BUILD_TIME} -w -s" \
     -a -installsuffix cgo \
-    -o mvp-auth ./
+    -o mvp-auth ./cmd/server
 
 # Stage 2: Runtime stage
 FROM alpine:3.18
