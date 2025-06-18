@@ -1,0 +1,101 @@
+# Security-focused Envoy filters for Zero Trust
+
+http_filters:
+# 1. CORS Configuration
+- name: envoy.filters.http.cors
+  typed_config:
+    "@type": type.googleapis.com/envoy.extensions.filters.http.cors.v3.Cors
+    allow_origin_string_match:
+    - prefix: "https://"
+    - exact: "http://localhost:5175"  # Frontend dev server
+    allow_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    allow_headers: ["authorization", "content-type", "x-requested-with"]
+    max_age: "1728000"
+
+# 2. Request/Response Size Limits
+- name: envoy.filters.http.buffer
+  typed_config:
+    "@type": type.googleapis.com/envoy.extensions.filters.http.buffer.v3.Buffer
+    max_request_bytes: 1048576  # 1MB limit
+
+# 3. Request Headers Validation
+- name: envoy.filters.http.wasm
+  typed_config:
+    "@type": type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+    config:
+      name: "security_headers"
+      root_id: "security_headers"
+      configuration:
+        "@type": type.googleapis.com/google.protobuf.StringValue
+        value: |
+          {
+            "blocked_headers": ["x-forwarded-for", "x-real-ip"],
+            "required_headers": ["user-agent"],
+            "max_header_size": 8192
+          }
+
+# 4. Request ID and Tracing
+- name: envoy.filters.http.request_id
+  typed_config:
+    "@type": type.googleapis.com/envoy.extensions.filters.http.request_id.v3.RequestId
+    uuid4_config: {}
+
+# 5. Rate Limiting per IP
+- name: envoy.filters.http.local_ratelimit
+  typed_config:
+    "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+    type_url: type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+    value:
+      stat_prefix: ip_rate_limiter
+      token_bucket:
+        max_tokens: 1000
+        tokens_per_fill: 1000
+        fill_interval: 3600s  # 1 hour
+      filter_enabled:
+        runtime_key: rate_limit_enabled
+        default_value:
+          numerator: 100
+          denominator: HUNDRED
+      filter_enforced:
+        runtime_key: rate_limit_enforced
+        default_value:
+          numerator: 100
+          denominator: HUNDRED
+      response_headers_to_add:
+      - append: false
+        header:
+          key: x-local-rate-limit
+          value: 'true'
+
+# 6. Custom Response Headers for Security
+- name: envoy.filters.http.header_to_metadata
+  typed_config:
+    "@type": type.googleapis.com/envoy.extensions.filters.http.header_to_metadata.v3.Config
+    request_rules:
+    - header: authorization
+      on_header_present:
+        metadata_namespace: auth
+        key: token_present
+        value: "true"
+    - header: x-device-id
+      on_header_present:
+        metadata_namespace: device
+        key: device_id
+        value: "%{HEADER_VALUE}"
+
+# 7. Audit Logging Filter
+- name: envoy.filters.http.wasm
+  typed_config:
+    "@type": type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+    config:
+      name: "audit_logger"
+      root_id: "audit_logger"
+      configuration:
+        "@type": type.googleapis.com/google.protobuf.StringValue
+        value: |
+          {
+            "log_requests": true,
+            "log_responses": false,
+            "sensitive_headers": ["authorization", "x-api-key"],
+            "audit_paths": ["/api/auth/", "/api/admin/"]
+          }
