@@ -13,8 +13,8 @@ ENV_FILE ?= .env
 .PHONY: help dev-up dev-down dev-all build build-server run-server test clean logs deploy-local \
         build-frontend dev-frontend frontend-install test-coverage check-coverage test-integration test-load \
         db-migrate certs-generate monitoring-setup dev-setup \
-        lint fmt check-deps security-scan security-scan-quick security-install quality-check ci-build pre-commit \
-        db-reset
+        lint fmt check-deps ensure-security-script security-scan security-scan-quick security-install \
+        quality-check ci-build pre-commit db-reset
 
 # Default target
 help: ## Show this help message
@@ -158,21 +158,26 @@ check-deps: ## Check for dependency vulnerabilities
 	@go list -json -deps ./... | docker run --rm -i sonatypecorp/nancy:latest sleuth || (echo "❌ Nancy vulnerability check failed" && exit 1)
 	@echo "✅ Dependency check completed"
 
-security-scan: ## Run comprehensive security scan
-	@echo "🔒 Running comprehensive security scan..."
+# Security targets
+ensure-security-script: ## Ensure security script exists and is executable
+	@if [ ! -f scripts/security-scan.sh ]; then \
+		echo "❌ Security scan script not found at scripts/security-scan.sh"; \
+		exit 1; \
+	fi
 	@chmod +x scripts/security-scan.sh
+
+security-scan: ensure-security-script ## Run comprehensive security scan
+	@echo "🔒 Running comprehensive security scan..."
 	@./scripts/security-scan.sh || (echo "❌ Security scan failed" && exit 1)
 	@echo "✅ Security scan completed"
 
-security-scan-quick: ## Run quick security scan
+security-scan-quick: ensure-security-script ## Run quick security scan
 	@echo "🔒 Running quick security scan..."
-	@chmod +x scripts/security-scan.sh
 	@./scripts/security-scan.sh --quick || (echo "❌ Quick security scan failed" && exit 1)
 	@echo "✅ Quick security scan completed"
 
-security-install: ## Install security scanning tools
+security-install: ensure-security-script ## Install security scanning tools
 	@echo "🔧 Installing security scanning tools..."
-	@chmod +x scripts/security-scan.sh
 	@./scripts/security-scan.sh --install
 	@echo "✅ Security tools installed"
 

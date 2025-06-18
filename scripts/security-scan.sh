@@ -35,19 +35,52 @@ install_go_tools() {
     print_status "Installing Go security tools..."
     
     if command_exists go; then
+        # Track installation results
+        local failed_tools=()
+        
         # Install govulncheck
-        go install golang.org/x/vuln/cmd/govulncheck@latest
+        print_status "Installing govulncheck..."
+        if go install golang.org/x/vuln/cmd/govulncheck@latest; then
+            print_success "govulncheck installed"
+        else
+            failed_tools+=("govulncheck")
+            print_warning "Failed to install govulncheck"
+        fi
         
         # Install staticcheck
-        go install honnef.co/go/tools/cmd/staticcheck@latest
+        print_status "Installing staticcheck..."
+        if go install honnef.co/go/tools/cmd/staticcheck@latest; then
+            print_success "staticcheck installed"
+        else
+            failed_tools+=("staticcheck")
+            print_warning "Failed to install staticcheck"
+        fi
         
         # Install gosec
-        go install github.com/securecode/gosec/v2/cmd/gosec@latest
+        print_status "Installing gosec..."
+        if go install github.com/securego/gosec/v2/cmd/gosec@latest; then
+            print_success "gosec installed"
+        else
+            failed_tools+=("gosec")
+            print_warning "Failed to install gosec"
+        fi
         
         # Install go-licenses
-        go install github.com/google/go-licenses@latest
+        print_status "Installing go-licenses..."
+        if go install github.com/google/go-licenses@latest; then
+            print_success "go-licenses installed"
+        else
+            failed_tools+=("go-licenses")
+            print_warning "Failed to install go-licenses"
+        fi
         
-        print_success "Go security tools installed"
+        # Report results
+        if [ ${#failed_tools[@]} -eq 0 ]; then
+            print_success "All Go security tools installed successfully"
+        else
+            print_warning "Some tools failed to install: ${failed_tools[*]}"
+            print_status "You may need to install them manually or check your Go environment"
+        fi
     else
         print_error "Go not found. Please install Go first."
         exit 1
@@ -136,7 +169,7 @@ run_sast_scan() {
     
     if command_exists gosec; then
         print_status "Running gosec..."
-        if gosec ./...; then
+        if gosec -fmt text ./...; then
             print_success "gosec scan passed"
         else
             print_warning "gosec found security issues"
@@ -252,22 +285,64 @@ main() {
     # Install tools if requested
     if [ "$INSTALL_TOOLS" = true ]; then
         install_go_tools
+        # Exit after installation
+        exit 0
     fi
     
+    # Initialize scan summary
+    local scan_summary=""
+    
     # Run security scans
+    print_status "=== Running Dependency Scan ==="
     run_dependency_scan
+    
+    print_status "=== Running Secret Scan ==="
     run_secret_scan
     
     if [ "$QUICK_SCAN" = false ]; then
+        print_status "=== Running Container Security Scan ==="
         run_container_scan
+        
+        print_status "=== Running SAST Scan ==="
         run_sast_scan
+        
+        print_status "=== Running License Check ==="
         run_license_check
+    else
+        print_status "Skipping container scan, SAST, and license check (quick mode)"
     fi
     
     # Generate report
     generate_report
     
+    # Print summary
+    echo ""
     print_success "Security scan completed!"
+    echo ""
+    echo "========================================="
+    echo "           SECURITY SCAN SUMMARY         "
+    echo "========================================="
+    if [ "$QUICK_SCAN" = true ]; then
+        echo "Mode: Quick Scan"
+        echo "Scans performed:"
+        echo "  ✓ Dependency vulnerability scan"
+        echo "  ✓ Secret detection"
+        echo ""
+        echo "Skipped scans (use full scan for these):"
+        echo "  - Container security scan"
+        echo "  - Static application security testing"
+        echo "  - License compliance check"
+    else
+        echo "Mode: Comprehensive Scan"
+        echo "Scans performed:"
+        echo "  ✓ Dependency vulnerability scan"
+        echo "  ✓ Secret detection"
+        echo "  ✓ Container security scan"
+        echo "  ✓ Static application security testing"
+        echo "  ✓ License compliance check"
+    fi
+    echo "========================================="
+    echo ""
     print_status "Review the security-report.md file for detailed results"
 }
 
