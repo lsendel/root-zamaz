@@ -30,6 +30,17 @@ func NewAdminHandler(db *gorm.DB, authzService *auth.AuthorizationService, obs *
 }
 
 // GetRoles returns all roles in the system
+// @Summary List all roles
+// @Description Get a list of all roles in the system
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {array} models.Role "List of roles"
+// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Failure 403 {object} map[string]interface{} "Forbidden"
+// @Failure 500 {object} map[string]interface{} "Server error"
+// @Router /admin/roles [get]
 func (h *AdminHandler) GetRoles(c *fiber.Ctx) error {
 	// Test with hardcoded data first
 	testRoles := []map[string]interface{}{
@@ -51,6 +62,20 @@ func (h *AdminHandler) GetRoles(c *fiber.Ctx) error {
 }
 
 // CreateRole creates a new role
+// @Summary Create a new role
+// @Description Create a new role in the system
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param role body object{name=string,description=string} true "Role data"
+// @Success 201 {object} models.Role "Created role"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Failure 403 {object} map[string]interface{} "Forbidden"
+// @Failure 409 {object} map[string]interface{} "Role already exists"
+// @Failure 500 {object} map[string]interface{} "Server error"
+// @Router /admin/roles [post]
 func (h *AdminHandler) CreateRole(c *fiber.Ctx) error {
 	var req struct {
 		Name        string `json:"name" validate:"required,min=1,max=50"`
@@ -89,6 +114,21 @@ func (h *AdminHandler) CreateRole(c *fiber.Ctx) error {
 }
 
 // UpdateRole updates an existing role
+// @Summary Update a role
+// @Description Update an existing role
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Role ID"
+// @Param role body object{name=string,description=string,is_active=bool} true "Updated role data"
+// @Success 200 {object} models.Role "Updated role"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Failure 403 {object} map[string]interface{} "Forbidden"
+// @Failure 404 {object} map[string]interface{} "Role not found"
+// @Failure 500 {object} map[string]interface{} "Server error"
+// @Router /admin/roles/{id} [put]
 func (h *AdminHandler) UpdateRole(c *fiber.Ctx) error {
 	roleID, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -144,6 +184,20 @@ func (h *AdminHandler) UpdateRole(c *fiber.Ctx) error {
 }
 
 // DeleteRole deletes a role
+// @Summary Delete a role
+// @Description Delete a role from the system
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Role ID"
+// @Success 200 {object} map[string]interface{} "Role deleted successfully"
+// @Failure 400 {object} map[string]interface{} "Invalid role ID"
+// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Failure 403 {object} map[string]interface{} "Forbidden"
+// @Failure 404 {object} map[string]interface{} "Role not found"
+// @Failure 500 {object} map[string]interface{} "Server error"
+// @Router /admin/roles/{id} [delete]
 func (h *AdminHandler) DeleteRole(c *fiber.Ctx) error {
 	roleID, err := strconv.ParseUint(c.Params("id"), 10, 32)
 	if err != nil {
@@ -312,6 +366,17 @@ func (h *AdminHandler) RemovePermissionFromRole(c *fiber.Ctx) error {
 }
 
 // GetUsers returns all users with their roles
+// @Summary List all users
+// @Description Get a list of all users in the system
+// @Tags admin
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {array} models.User "List of users"
+// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Failure 403 {object} map[string]interface{} "Forbidden"
+// @Failure 500 {object} map[string]interface{} "Server error"
+// @Router /admin/users [get]
 func (h *AdminHandler) GetUsers(c *fiber.Ctx) error {
 	var users []models.User
 	if err := h.db.Find(&users).Error; err != nil {

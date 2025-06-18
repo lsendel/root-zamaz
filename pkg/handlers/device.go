@@ -76,6 +76,16 @@ func NewDeviceHandler(
 }
 
 // GetDevices returns all device attestations for the current user
+// @Summary Get user devices
+// @Description Get all device attestations for the authenticated user
+// @Tags devices
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {array} DeviceResponse "List of devices"
+// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Failure 500 {object} map[string]interface{} "Server error"
+// @Router /devices [get]
 func (h *DeviceHandler) GetDevices(c *fiber.Ctx) error {
 	userID, err := auth.GetCurrentUserID(c)
 	if err != nil {
@@ -104,6 +114,19 @@ func (h *DeviceHandler) GetDevices(c *fiber.Ctx) error {
 }
 
 // AttestDevice creates a new device attestation
+// @Summary Attest a device
+// @Description Create a new device attestation for zero trust verification
+// @Tags devices
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param device body AttestDeviceRequest true "Device attestation data"
+// @Success 201 {object} DeviceResponse "Created device attestation"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Failure 409 {object} map[string]interface{} "Device already exists"
+// @Failure 500 {object} map[string]interface{} "Server error"
+// @Router /devices [post]
 func (h *DeviceHandler) AttestDevice(c *fiber.Ctx) error {
 	userID, err := auth.GetCurrentUserID(c)
 	if err != nil {
@@ -182,6 +205,21 @@ func (h *DeviceHandler) AttestDevice(c *fiber.Ctx) error {
 }
 
 // VerifyDevice verifies a device attestation (requires device.verify permission)
+// @Summary Verify a device
+// @Description Verify a device attestation and set trust level
+// @Tags devices
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Device ID"
+// @Param verification body VerifyDeviceRequest true "Verification data"
+// @Success 200 {object} DeviceResponse "Verified device"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Failure 403 {object} map[string]interface{} "Forbidden - insufficient permissions"
+// @Failure 404 {object} map[string]interface{} "Device not found"
+// @Failure 500 {object} map[string]interface{} "Server error"
+// @Router /devices/{id}/verify [post]
 func (h *DeviceHandler) VerifyDevice(c *fiber.Ctx) error {
 	userID, err := auth.GetCurrentUserID(c)
 	if err != nil {
@@ -260,6 +298,19 @@ func (h *DeviceHandler) VerifyDevice(c *fiber.Ctx) error {
 }
 
 // GetDeviceById returns a specific device by ID
+// @Summary Get device by ID
+// @Description Get a specific device attestation by ID
+// @Tags devices
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Device ID"
+// @Success 200 {object} DeviceResponse "Device details"
+// @Failure 400 {object} map[string]interface{} "Invalid device ID"
+// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Failure 404 {object} map[string]interface{} "Device not found"
+// @Failure 500 {object} map[string]interface{} "Server error"
+// @Router /devices/{id} [get]
 func (h *DeviceHandler) GetDeviceById(c *fiber.Ctx) error {
 	userID, err := auth.GetCurrentUserID(c)
 	if err != nil {
@@ -317,6 +368,20 @@ func (h *DeviceHandler) GetDeviceById(c *fiber.Ctx) error {
 }
 
 // UpdateDevice updates a device attestation
+// @Summary Update device
+// @Description Update a device attestation
+// @Tags devices
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Device ID"
+// @Param device body AttestDeviceRequest true "Updated device data"
+// @Success 200 {object} DeviceResponse "Updated device"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Failure 404 {object} map[string]interface{} "Device not found"
+// @Failure 500 {object} map[string]interface{} "Server error"
+// @Router /devices/{id} [put]
 func (h *DeviceHandler) UpdateDevice(c *fiber.Ctx) error {
 	userID, err := auth.GetCurrentUserID(c)
 	if err != nil {
@@ -397,6 +462,19 @@ func (h *DeviceHandler) UpdateDevice(c *fiber.Ctx) error {
 }
 
 // DeleteDevice deletes a device attestation
+// @Summary Delete device
+// @Description Delete a device attestation
+// @Tags devices
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Device ID"
+// @Success 204 "Device deleted successfully"
+// @Failure 400 {object} map[string]interface{} "Invalid device ID"
+// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Failure 404 {object} map[string]interface{} "Device not found"
+// @Failure 500 {object} map[string]interface{} "Server error"
+// @Router /devices/{id} [delete]
 func (h *DeviceHandler) DeleteDevice(c *fiber.Ctx) error {
 	userID, err := auth.GetCurrentUserID(c)
 	if err != nil {

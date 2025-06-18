@@ -67,6 +67,14 @@ func NewSystemHandler(
 }
 
 // Health provides a basic health check endpoint
+// @Summary Health check
+// @Description Get the health status of the system
+// @Tags system
+// @Accept json
+// @Produce json
+// @Success 200 {object} HealthResponse "System is healthy"
+// @Success 503 {object} HealthResponse "System is degraded or unhealthy"
+// @Router /health [get]
 func (h *SystemHandler) Health(c *fiber.Ctx) error {
 	start := time.Now()
 
@@ -137,6 +145,16 @@ func (h *SystemHandler) Health(c *fiber.Ctx) error {
 }
 
 // SystemHealth provides detailed system health information (requires authentication)
+// @Summary Detailed system health
+// @Description Get detailed health information about all system components
+// @Tags system
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} HealthResponse "Detailed system health"
+// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Failure 403 {object} map[string]interface{} "Forbidden - insufficient permissions"
+// @Router /system/health [get]
 func (h *SystemHandler) SystemHealth(c *fiber.Ctx) error {
 	userID, err := auth.GetCurrentUserID(c)
 	if err != nil {
