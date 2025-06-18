@@ -68,14 +68,13 @@ static_resources:
           # Add basic rate limiting to prevent overload
           - name: envoy.filters.http.local_ratelimit
             typed_config:
-              "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-              type_url: type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
-              value:
-                stat_prefix: http_local_rate_limiter
-                token_bucket:
-                  max_tokens: 1000
-                  tokens_per_fill: 100
-                  fill_interval: 1s
+              "@type": type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+              stat_prefix: http_local_rate_limiter
+              token_bucket:
+                max_tokens: 1000
+                tokens_per_fill: 100
+                fill_interval:
+                  seconds: 1
           # Router must be the last filter
           - name: envoy.filters.http.router
             typed_config:

@@ -1,395 +1,170 @@
 {
-  "dashboard": {
-    "title": "Envoy Performance Dashboard",
-    "uid": "envoy-performance",
-    "version": 1,
-    "refresh": "10s",
-    "schemaVersion": 30,
-    "time": {
-      "from": "now-1h",
-      "to": "now"
-    },
-    "timepicker": {
-      "refresh_intervals": ["5s", "10s", "30s", "1m", "5m", "15m", "30m", "1h", "2h", "1d"]
-    },
-    "panels": [
-      {
-        "id": 1,
-        "title": "Request Rate",
-        "type": "timeseries",
-        "datasource": "Prometheus",
-        "gridPos": {
-          "h": 8,
-          "w": 12,
-          "x": 0,
-          "y": 0
-        },
-        "targets": [
-          {
-            "expr": "sum(rate(envoy_http_downstream_rq_total[1m]))",
-            "legendFormat": "Total Requests",
-            "refId": "A"
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "axisLabel": "Requests/sec",
-              "lineInterpolation": "linear",
-              "fillOpacity": 10
-            },
-            "unit": "reqps"
-          }
-        }
-      },
-      {
-        "id": 2,
-        "title": "Response Status Codes",
-        "type": "timeseries",
-        "datasource": "Prometheus",
-        "gridPos": {
-          "h": 8,
-          "w": 12,
-          "x": 12,
-          "y": 0
-        },
-        "targets": [
-          {
-            "expr": "sum(rate(envoy_http_downstream_rq_xx{envoy_response_code_class=\"2\"}[1m]))",
-            "legendFormat": "2xx",
-            "refId": "A"
-          },
-          {
-            "expr": "sum(rate(envoy_http_downstream_rq_xx{envoy_response_code_class=\"4\"}[1m]))",
-            "legendFormat": "4xx",
-            "refId": "B"
-          },
-          {
-            "expr": "sum(rate(envoy_http_downstream_rq_xx{envoy_response_code_class=\"5\"}[1m]))",
-            "legendFormat": "5xx",
-            "refId": "C"
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "axisLabel": "Responses/sec",
-              "lineInterpolation": "linear",
-              "fillOpacity": 10
-            },
-            "unit": "reqps",
-            "mappings": []
-          },
-          "overrides": [
-            {
-              "matcher": {
-                "id": "byName",
-                "options": "2xx"
-              },
-              "properties": [
-                {
-                  "id": "color",
-                  "value": {
-                    "fixedColor": "green",
-                    "mode": "fixed"
-                  }
-                }
-              ]
-            },
-            {
-              "matcher": {
-                "id": "byName",
-                "options": "4xx"
-              },
-              "properties": [
-                {
-                  "id": "color",
-                  "value": {
-                    "fixedColor": "orange",
-                    "mode": "fixed"
-                  }
-                }
-              ]
-            },
-            {
-              "matcher": {
-                "id": "byName",
-                "options": "5xx"
-              },
-              "properties": [
-                {
-                  "id": "color",
-                  "value": {
-                    "fixedColor": "red",
-                    "mode": "fixed"
-                  }
-                }
-              ]
-            }
-          ]
-        }
-      },
-      {
-        "id": 3,
-        "title": "Request Latency",
-        "type": "timeseries",
-        "datasource": "Prometheus",
-        "gridPos": {
-          "h": 8,
-          "w": 12,
-          "x": 0,
-          "y": 8
-        },
-        "targets": [
-          {
-            "expr": "histogram_quantile(0.5, sum(rate(envoy_http_downstream_rq_time_bucket[1m])) by (le))",
-            "legendFormat": "p50",
-            "refId": "A"
-          },
-          {
-            "expr": "histogram_quantile(0.9, sum(rate(envoy_http_downstream_rq_time_bucket[1m])) by (le))",
-            "legendFormat": "p90",
-            "refId": "B"
-          },
-          {
-            "expr": "histogram_quantile(0.99, sum(rate(envoy_http_downstream_rq_time_bucket[1m])) by (le))",
-            "legendFormat": "p99",
-            "refId": "C"
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "axisLabel": "Latency (ms)",
-              "lineInterpolation": "linear",
-              "fillOpacity": 10
-            },
-            "unit": "ms"
-          }
-        }
-      },
-      {
-        "id": 4,
-        "title": "Connection Pool Usage",
-        "type": "timeseries",
-        "datasource": "Prometheus",
-        "gridPos": {
-          "h": 8,
-          "w": 12,
-          "x": 12,
-          "y": 8
-        },
-        "targets": [
-          {
-            "expr": "envoy_cluster_upstream_cx_active{envoy_cluster_name=\"mvp_service\"}",
-            "legendFormat": "Active Connections",
-            "refId": "A"
-          },
-          {
-            "expr": "envoy_cluster_upstream_rq_active{envoy_cluster_name=\"mvp_service\"}",
-            "legendFormat": "Active Requests",
-            "refId": "B"
-          },
-          {
-            "expr": "envoy_cluster_upstream_rq_pending_active{envoy_cluster_name=\"mvp_service\"}",
-            "legendFormat": "Pending Requests",
-            "refId": "C"
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "axisLabel": "Count",
-              "lineInterpolation": "linear",
-              "fillOpacity": 10
-            },
-            "unit": "short"
-          }
-        }
-      },
-      {
-        "id": 5,
-        "title": "Circuit Breaker Trips",
-        "type": "timeseries",
-        "datasource": "Prometheus",
-        "gridPos": {
-          "h": 8,
-          "w": 12,
-          "x": 0,
-          "y": 16
-        },
-        "targets": [
-          {
-            "expr": "rate(envoy_cluster_upstream_rq_pending_overflow{envoy_cluster_name=\"mvp_service\"}[1m])",
-            "legendFormat": "Pending Overflow",
-            "refId": "A"
-          },
-          {
-            "expr": "rate(envoy_cluster_upstream_cx_overflow{envoy_cluster_name=\"mvp_service\"}[1m])",
-            "legendFormat": "Connection Overflow",
-            "refId": "B"
-          },
-          {
-            "expr": "rate(envoy_cluster_upstream_rq_retry{envoy_cluster_name=\"mvp_service\"}[1m])",
-            "legendFormat": "Retries",
-            "refId": "C"
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "axisLabel": "Count/sec",
-              "lineInterpolation": "linear",
-              "fillOpacity": 10
-            },
-            "unit": "short"
-          }
-        }
-      },
-      {
-        "id": 6,
-        "title": "Rate Limiting",
-        "type": "timeseries",
-        "datasource": "Prometheus",
-        "gridPos": {
-          "h": 8,
-          "w": 12,
-          "x": 12,
-          "y": 16
-        },
-        "targets": [
-          {
-            "expr": "rate(envoy_http_ratelimit_total{envoy_ratelimit_status=\"over_limit\"}[1m])",
-            "legendFormat": "Rate Limited Requests",
-            "refId": "A"
-          },
-          {
-            "expr": "rate(envoy_http_ratelimit_total{envoy_ratelimit_status=\"ok\"}[1m])",
-            "legendFormat": "Allowed Requests",
-            "refId": "B"
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "axisLabel": "Requests/sec",
-              "lineInterpolation": "linear",
-              "fillOpacity": 10
-            },
-            "unit": "reqps"
-          }
-        }
-      },
-      {
-        "id": 7,
-        "title": "Health Check Status",
-        "type": "stat",
-        "datasource": "Prometheus",
-        "gridPos": {
-          "h": 8,
-          "w": 12,
-          "x": 0,
-          "y": 24
-        },
-        "targets": [
-          {
-            "expr": "envoy_cluster_health_check_healthy{envoy_cluster_name=\"mvp_service\"}",
-            "legendFormat": "Healthy Endpoints",
-            "refId": "A"
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "thresholds"
-            },
-            "mappings": [],
-            "thresholds": {
-              "mode": "absolute",
-              "steps": [
-                {
-                  "color": "red",
-                  "value": null
-                },
-                {
-                  "color": "green",
-                  "value": 1
-                }
-              ]
-            },
-            "unit": "short"
-          }
-        },
-        "options": {
-          "colorMode": "value",
-          "graphMode": "area",
-          "justifyMode": "auto",
-          "orientation": "auto",
-          "reduceOptions": {
-            "calcs": ["lastNotNull"],
-            "fields": "",
-            "values": false
-          },
-          "text": {},
-          "textMode": "auto"
-        }
-      },
-      {
-        "id": 8,
-        "title": "Memory Usage",
-        "type": "timeseries",
-        "datasource": "Prometheus",
-        "gridPos": {
-          "h": 8,
-          "w": 12,
-          "x": 12,
-          "y": 24
-        },
-        "targets": [
-          {
-            "expr": "envoy_memory_allocated",
-            "legendFormat": "Allocated Memory",
-            "refId": "A"
-          },
-          {
-            "expr": "envoy_memory_heap_size",
-            "legendFormat": "Heap Size",
-            "refId": "B"
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "palette-classic"
-            },
-            "custom": {
-              "axisLabel": "Bytes",
-              "lineInterpolation": "linear",
-              "fillOpacity": 10
-            },
-            "unit": "bytes"
-          }
-        }
-      }
-    ]
+  "title": "Envoy Performance Dashboard",
+  "uid": "envoy-performance",
+  "version": 1,
+  "refresh": "10s",
+  "schemaVersion": 30,
+  "time": {
+    "from": "now-1h",
+    "to": "now"
   },
-  "message": "Enhanced Envoy performance dashboard with key metrics"
+  "timepicker": {
+    "refresh_intervals": ["5s", "10s", "30s", "1m", "5m", "15m", "30m", "1h", "2h", "1d"]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Request Rate",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(envoy_http_downstream_rq_total[1m]))",
+          "legendFormat": "Total Requests",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Response Status Codes",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(envoy_http_downstream_rq_xx{envoy_response_code_class=\"2\"}[1m]))",
+          "legendFormat": "2xx",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(rate(envoy_http_downstream_rq_xx{envoy_response_code_class=\"4\"}[1m]))",
+          "legendFormat": "4xx",
+          "refId": "B"
+        },
+        {
+          "expr": "sum(rate(envoy_http_downstream_rq_xx{envoy_response_code_class=\"5\"}[1m]))",
+          "legendFormat": "5xx",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Request Latency",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5, sum(rate(envoy_http_downstream_rq_time_bucket[1m])) by (le))",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.9, sum(rate(envoy_http_downstream_rq_time_bucket[1m])) by (le))",
+          "legendFormat": "p90",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(envoy_http_downstream_rq_time_bucket[1m])) by (le))",
+          "legendFormat": "p99",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Connection Pool Usage",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "targets": [
+        {
+          "expr": "envoy_cluster_upstream_cx_active{envoy_cluster_name=\"mvp_service\"}",
+          "legendFormat": "Active Connections",
+          "refId": "A"
+        },
+        {
+          "expr": "envoy_cluster_upstream_rq_active{envoy_cluster_name=\"mvp_service\"}",
+          "legendFormat": "Active Requests",
+          "refId": "B"
+        },
+        {
+          "expr": "envoy_cluster_upstream_rq_pending_active{envoy_cluster_name=\"mvp_service\"}",
+          "legendFormat": "Pending Requests",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Circuit Breaker Trips",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "targets": [
+        {
+          "expr": "rate(envoy_cluster_upstream_rq_pending_overflow{envoy_cluster_name=\"mvp_service\"}[1m])",
+          "legendFormat": "Pending Overflow",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(envoy_cluster_upstream_cx_overflow{envoy_cluster_name=\"mvp_service\"}[1m])",
+          "legendFormat": "Connection Overflow",
+          "refId": "B"
+        },
+        {
+          "expr": "rate(envoy_cluster_upstream_rq_retry{envoy_cluster_name=\"mvp_service\"}[1m])",
+          "legendFormat": "Retries",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Health Check Status",
+      "type": "stat",
+      "datasource": "Prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "targets": [
+        {
+          "expr": "envoy_cluster_health_check_healthy{envoy_cluster_name=\"mvp_service\"}",
+          "legendFormat": "Healthy Endpoints",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
 }

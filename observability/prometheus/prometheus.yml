@@ -21,6 +21,8 @@ scrape_configs:
     static_configs:
       - targets: ['envoy:9901']
     metrics_path: '/stats/prometheus'
+    scrape_interval: 5s
+    scrape_timeout: 4s
 
   - job_name: 'spire-server'
     static_configs:
