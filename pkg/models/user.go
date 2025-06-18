@@ -11,7 +11,7 @@ import (
 
 // User represents a user in the system with authentication and profile information
 type User struct {
-	ID        uint           `gorm:"primarykey" json:"id"`
+	ID        string         `gorm:"primarykey;type:uuid;default:gen_random_uuid()" json:"id"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -37,13 +37,13 @@ type User struct {
 
 // UserSession represents an active user session for tracking
 type UserSession struct {
-	ID        uint           `gorm:"primarykey" json:"id"`
+	ID        string         `gorm:"primarykey;type:uuid;default:gen_random_uuid()" json:"id"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 
 	// Session tracking
-	UserID       uint      `gorm:"not null;index" json:"user_id"`
+	UserID       string    `gorm:"not null;index;type:uuid" json:"user_id"`
 	User         User      `json:"user,omitempty"`
 	SessionToken string    `gorm:"uniqueIndex;not null" json:"-"`
 	ExpiresAt    time.Time `gorm:"not null" json:"expires_at"`
@@ -59,13 +59,13 @@ type UserSession struct {
 
 // DeviceAttestation represents device attestation data for Zero Trust
 type DeviceAttestation struct {
-	ID        uint           `gorm:"primarykey" json:"id"`
+	ID        string         `gorm:"primarykey;type:uuid;default:gen_random_uuid()" json:"id"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 
 	// Device identification
-	UserID     uint   `gorm:"not null;index" json:"user_id"`
+	UserID     string `gorm:"not null;index;type:uuid" json:"user_id"`
 	User       User   `json:"user,omitempty"`
 	DeviceID   string `gorm:"uniqueIndex;not null;size:100" json:"device_id"`
 	DeviceName string `gorm:"size:100" json:"device_name"`
@@ -84,7 +84,7 @@ type DeviceAttestation struct {
 
 // Role represents a role in the RBAC system
 type Role struct {
-	ID        uint           `gorm:"primarykey" json:"id"`
+	ID        int64          `gorm:"primarykey;autoIncrement" json:"id"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -101,7 +101,7 @@ type Role struct {
 
 // Permission represents a permission in the RBAC system
 type Permission struct {
-	ID        uint           `gorm:"primarykey" json:"id"`
+	ID        int64          `gorm:"primarykey;autoIncrement" json:"id"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -119,11 +119,11 @@ type Permission struct {
 
 // AuditLog represents system audit logs for security tracking
 type AuditLog struct {
-	ID        uint      `gorm:"primarykey" json:"id"`
+	ID        string    `gorm:"primarykey;type:uuid;default:gen_random_uuid()" json:"id"`
 	CreatedAt time.Time `json:"created_at"`
 
 	// Audit details
-	UserID    *uint  `gorm:"index" json:"user_id"`
+	UserID    *string `gorm:"index;type:uuid" json:"user_id"`
 	User      *User  `json:"user,omitempty"`
 	Action    string `gorm:"not null;size:100" json:"action"`
 	Resource  string `gorm:"size:100" json:"resource"`

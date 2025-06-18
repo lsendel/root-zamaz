@@ -9,6 +9,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 
+	"mvp.local/pkg/config"
 	"mvp.local/pkg/errors"
 	"mvp.local/pkg/models"
 	"mvp.local/pkg/observability"
@@ -20,6 +21,7 @@ type AuthMiddleware struct {
 	authzService AuthorizationInterface
 	db           *gorm.DB
 	obs          *observability.Observability
+	config       *config.Config
 }
 
 // AuthMiddlewareInterface defines the contract for authentication middleware
@@ -38,18 +40,35 @@ func NewAuthMiddleware(
 	authzService AuthorizationInterface,
 	db *gorm.DB,
 	obs *observability.Observability,
+	config *config.Config,
 ) *AuthMiddleware {
 	return &AuthMiddleware{
 		jwtService:   jwtService,
 		authzService: authzService,
 		db:           db,
 		obs:          obs,
+		config:       config,
 	}
 }
 
 // RequireAuth middleware that requires valid JWT authentication
 func (a *AuthMiddleware) RequireAuth() fiber.Handler {
 	return func(c *fiber.Ctx) error {
+		// SIMPLIFIED AUTH MODE: Skip all authentication when disabled
+		if a.config.Security.DisableAuth {
+			// Create a fake user context for the application with proper UUID
+			c.Locals("user_id", "00000000-0000-0000-0000-000000000000")
+			c.Locals("user", &models.User{
+				ID:       "00000000-0000-0000-0000-000000000000",
+				Username: "testuser",
+				Email:    "testuser@test.local",
+				IsActive: true,
+				IsAdmin:  true,
+			})
+			c.Locals("user_roles", []string{"admin", "user"})
+			return c.Next()
+		}
+
 		// Extract token from header
 		authHeader := c.Get("Authorization")
 		tokenString, err := ExtractTokenFromHeader(authHeader)
@@ -99,7 +118,7 @@ func (a *AuthMiddleware) RequirePermission(resource, action string) fiber.Handle
 			return err
 		}
 
-		userID := c.Locals("user_id").(uint)
+		userID := c.Locals("user_id").(string)
 
 		// Check permission
 		allowed, err := a.authzService.Enforce(userID, resource, action)
@@ -126,7 +145,7 @@ func (a *AuthMiddleware) RequireRole(role string) fiber.Handler {
 			return err
 		}
 
-		userID := c.Locals("user_id").(uint)
+		userID := c.Locals("user_id").(string)
 		roles := c.Locals("roles").([]string)
 
 		// Check if user has the required role
@@ -205,9 +224,9 @@ func (a *AuthMiddleware) AuditMiddleware() fiber.Handler {
 		err := c.Next()
 
 		// Log the request
-		userID := uint(0)
+		userID := ""
 		if uid := c.Locals("user_id"); uid != nil {
-			userID = uid.(uint)
+			userID = uid.(string)
 		}
 
 		action := c.Method() + " " + c.Path()
@@ -222,8 +241,13 @@ func (a *AuthMiddleware) AuditMiddleware() fiber.Handler {
 
 		detailsJSON, _ := json.Marshal(details)
 
+		var userIDPtr *string
+		if userID != "" {
+			userIDPtr = &userID
+		}
+
 		auditLog := models.AuditLog{
-			UserID:    &userID,
+			UserID:    userIDPtr,
 			Action:    action,
 			Resource:  "api",
 			Details:   string(detailsJSON),
@@ -273,9 +297,14 @@ func (a *AuthMiddleware) sendInternalError(c *fiber.Ctx, message string) error {
 	})
 }
 
-func (a *AuthMiddleware) logAuthEvent(c *fiber.Ctx, userID uint, event string, success bool, details string) {
+func (a *AuthMiddleware) logAuthEvent(c *fiber.Ctx, userID string, event string, success bool, details string) {
+	var userIDPtr *string
+	if userID != "" {
+		userIDPtr = &userID
+	}
+
 	auditLog := models.AuditLog{
-		UserID:    &userID,
+		UserID:    userIDPtr,
 		Action:    event,
 		Resource:  "auth",
 		Details:   details,
@@ -311,15 +340,15 @@ func GetCurrentUser(c *fiber.Ctx) (*models.User, error) {
 }
 
 // GetCurrentUserID is a helper function to get the current authenticated user ID
-func GetCurrentUserID(c *fiber.Ctx) (uint, error) {
+func GetCurrentUserID(c *fiber.Ctx) (string, error) {
 	userID := c.Locals("user_id")
 	if userID == nil {
-		return 0, errors.Unauthorized("No authenticated user")
+		return "", errors.Unauthorized("No authenticated user")
 	}
 
-	uid, ok := userID.(uint)
+	uid, ok := userID.(string)
 	if !ok {
-		return 0, errors.Internal("Invalid user ID in context")
+		return "", errors.Internal("Invalid user ID in context")
 	}
 
 	return uid, nil

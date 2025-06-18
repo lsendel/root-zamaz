@@ -4,7 +4,6 @@ package auth
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -18,7 +17,7 @@ import (
 
 // JWTClaims represents the JWT token claims
 type JWTClaims struct {
-	UserID      uint     `json:"user_id"`
+	UserID      string   `json:"user_id"`
 	Username    string   `json:"username"`
 	Email       string   `json:"email"`
 	Roles       []string `json:"roles"`
@@ -61,13 +60,13 @@ type JWTService struct {
 // JWTServiceInterface defines the contract for JWT operations
 type JWTServiceInterface interface {
 	GenerateToken(user *models.User, deviceID string, trustLevel int, roles []string, permissions []string) (string, error)
-	GenerateRefreshToken(userID uint) (string, error)
+	GenerateRefreshToken(userID string) (string, error)
 	ValidateToken(tokenString string) (*JWTClaims, error)
-	ValidateRefreshToken(tokenString string) (uint, error)
+	ValidateRefreshToken(tokenString string) (string, error)
 	RefreshAccessToken(refreshToken string, user *models.User, roles []string, permissions []string) (*LoginResponse, error)
 	HashPassword(password string) (string, error)
 	CheckPassword(hashedPassword, password string) error
-	GetUserRolesAndPermissions(userID uint) ([]string, []string, error)
+	GetUserRolesAndPermissions(userID string) ([]string, []string, error)
 }
 
 // NewJWTService creates a new JWT service
@@ -104,8 +103,8 @@ func (j *JWTService) GenerateToken(user *models.User, deviceID string, trustLeve
 		DeviceID:    deviceID,
 		TrustLevel:  trustLevel,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ID:        fmt.Sprintf("%d-%d", user.ID, now.Unix()),
-			Subject:   strconv.FormatUint(uint64(user.ID), 10),
+			ID:        fmt.Sprintf("%s-%d", user.ID, now.Unix()),
+			Subject:   user.ID,
 			Audience:  jwt.ClaimStrings{j.config.Audience},
 			Issuer:    j.config.Issuer,
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -124,13 +123,13 @@ func (j *JWTService) GenerateToken(user *models.User, deviceID string, trustLeve
 }
 
 // GenerateRefreshToken generates a new JWT refresh token
-func (j *JWTService) GenerateRefreshToken(userID uint) (string, error) {
+func (j *JWTService) GenerateRefreshToken(userID string) (string, error) {
 	now := time.Now()
 	expiresAt := now.Add(j.refreshExpiry)
 
 	claims := &jwt.RegisteredClaims{
-		ID:        fmt.Sprintf("refresh-%d-%d", userID, now.Unix()),
-		Subject:   strconv.FormatUint(uint64(userID), 10),
+		ID:        fmt.Sprintf("refresh-%s-%d", userID, now.Unix()),
+		Subject:   userID,
 		Audience:  jwt.ClaimStrings{j.config.Audience},
 		Issuer:    j.config.Issuer,
 		IssuedAt:  jwt.NewNumericDate(now),
@@ -177,7 +176,7 @@ func (j *JWTService) ValidateToken(tokenString string) (*JWTClaims, error) {
 }
 
 // ValidateRefreshToken validates and parses a JWT refresh token
-func (j *JWTService) ValidateRefreshToken(tokenString string) (uint, error) {
+func (j *JWTService) ValidateRefreshToken(tokenString string) (string, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &jwt.RegisteredClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
@@ -186,18 +185,14 @@ func (j *JWTService) ValidateRefreshToken(tokenString string) (uint, error) {
 	})
 
 	if err != nil {
-		return 0, errors.Wrap(err, errors.CodeUnauthorized, "Invalid refresh token")
+		return "", errors.Wrap(err, errors.CodeUnauthorized, "Invalid refresh token")
 	}
 
 	if claims, ok := token.Claims.(*jwt.RegisteredClaims); ok && token.Valid {
-		userID, err := strconv.ParseUint(claims.Subject, 10, 32)
-		if err != nil {
-			return 0, errors.Unauthorized("Invalid user ID in refresh token")
-		}
-		return uint(userID), nil
+		return claims.Subject, nil
 	}
 
-	return 0, errors.Unauthorized("Invalid refresh token claims")
+	return "", errors.Unauthorized("Invalid refresh token claims")
 }
 
 // RefreshAccessToken generates a new access token using a valid refresh token
@@ -265,9 +260,10 @@ func ExtractTokenFromHeader(authHeader string) (string, error) {
 }
 
 // GetUserRolesAndPermissions retrieves user roles and permissions
-func (j *JWTService) GetUserRolesAndPermissions(userID uint) ([]string, []string, error) {
+func (j *JWTService) GetUserRolesAndPermissions(userID string) ([]string, []string, error) {
 	if j.authzService == nil {
-		return nil, nil, errors.Internal("Authorization service not available")
+		// Return empty roles and permissions when authorization service is disabled
+		return []string{}, []string{}, nil
 	}
 
 	// Get user roles

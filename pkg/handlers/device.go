@@ -48,7 +48,7 @@ type VerifyDeviceRequest struct {
 
 // DeviceResponse represents a device attestation response
 type DeviceResponse struct {
-	ID               uint                   `json:"id"`
+	ID               string                 `json:"id"`
 	DeviceID         string                 `json:"device_id"`
 	DeviceName       string                 `json:"device_name"`
 	TrustLevel       int                    `json:"trust_level"`
@@ -87,7 +87,7 @@ func (h *DeviceHandler) GetDevices(c *fiber.Ctx) error {
 
 	var devices []models.DeviceAttestation
 	if err := h.db.Where("user_id = ?", userID).Find(&devices).Error; err != nil {
-		h.obs.Logger.Error().Err(err).Uint("user_id", userID).Msg("Failed to fetch devices")
+		h.obs.Logger.Error().Err(err).Str("user_id", userID).Msg("Failed to fetch devices")
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Internal Server Error",
 			"message": "Failed to fetch devices",
@@ -519,7 +519,7 @@ func (h *DeviceHandler) calculateInitialTrustLevel(platform string, attestationD
 	return baseTrust
 }
 
-func (h *DeviceHandler) logDeviceEvent(c *fiber.Ctx, userID, deviceID uint, event string, success bool, details string) {
+func (h *DeviceHandler) logDeviceEvent(c *fiber.Ctx, userID, deviceID string, event string, success bool, details string) {
 	auditDetails := map[string]interface{}{
 		"event":     event,
 		"device_id": deviceID,
@@ -527,8 +527,13 @@ func (h *DeviceHandler) logDeviceEvent(c *fiber.Ctx, userID, deviceID uint, even
 	}
 	detailsJSON, _ := json.Marshal(auditDetails)
 
+	var userIDPtr *string
+	if userID != "" {
+		userIDPtr = &userID
+	}
+
 	auditLog := models.AuditLog{
-		UserID:    &userID,
+		UserID:    userIDPtr,
 		Action:    event,
 		Resource:  "device",
 		Details:   string(detailsJSON),

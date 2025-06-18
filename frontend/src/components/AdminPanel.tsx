@@ -14,6 +14,9 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
   const [roles, setRoles] = useState<Role[]>([])
   const [permissions, setPermissions] = useState<Permission[]>([])
   const [users, setUsers] = useState<UserWithRoles[]>([])
+  const [filteredUsers, setFilteredUsers] = useState<UserWithRoles[]>([])
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -45,6 +48,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
         setRoles(rolesData)
         setPermissions(permissionsData)
         setUsers(usersData)
+        setFilteredUsers(usersData)
       } catch (err: any) {
         setError(err.message || 'Failed to load admin data')
       } finally {
@@ -54,6 +58,37 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
 
     loadAdminData()
   }, [isAdmin, user])
+
+  // Filter users based on search term and status filter
+  useEffect(() => {
+    let filtered = users
+
+    // Apply search filter
+    if (searchTerm) {
+      filtered = filtered.filter(user =>
+        user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        `${user.first_name || ''} ${user.last_name || ''}`.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    }
+
+    // Apply status filter
+    if (statusFilter) {
+      switch (statusFilter) {
+        case 'active':
+          filtered = filtered.filter(user => user.is_active)
+          break
+        case 'inactive':
+          filtered = filtered.filter(user => !user.is_active)
+          break
+        case 'admin':
+          filtered = filtered.filter(user => user.is_admin)
+          break
+      }
+    }
+
+    setFilteredUsers(filtered)
+  }, [users, searchTerm, statusFilter])
 
   const handleCreateRole = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -102,6 +137,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
       // Reload users to show updated roles
       const updatedUsers = await adminAPI.getUsers()
       setUsers(updatedUsers)
+      // Filtering will be handled by the useEffect
     } catch (err: any) {
       setError(err.message || 'Failed to assign role to user')
     }
@@ -113,6 +149,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
       // Reload users to show updated roles
       const updatedUsers = await adminAPI.getUsers()
       setUsers(updatedUsers)
+      // Filtering will be handled by the useEffect
     } catch (err: any) {
       setError(err.message || 'Failed to remove role from user')
     }
@@ -316,43 +353,144 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
         {activeTab === 'users' && (
           <div className="users-section">
             <h3>User Management</h3>
+            
+            {/* User Statistics */}
+            <div className="user-stats">
+              <div className="stat-card">
+                <h4>Total Users</h4>
+                <span className="stat-number">{users.length}</span>
+              </div>
+              <div className="stat-card">
+                <h4>Active Users</h4>
+                <span className="stat-number">{users.filter(u => u.is_active).length}</span>
+              </div>
+              <div className="stat-card">
+                <h4>Admin Users</h4>
+                <span className="stat-number">{users.filter(u => u.is_admin).length}</span>
+              </div>
+              <div className="stat-card">
+                <h4>Users with Roles</h4>
+                <span className="stat-number">{users.filter(u => u.roles && u.roles.length > 0).length}</span>
+              </div>
+            </div>
+
+            {/* User Search/Filter */}
+            <div className="user-filters">
+              <input
+                type="text"
+                placeholder="Search users by username, email, or name..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="user-search"
+              />
+              <select 
+                className="status-filter"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="">All Users</option>
+                <option value="active">Active Only</option>
+                <option value="inactive">Inactive Only</option>
+                <option value="admin">Admins Only</option>
+              </select>
+            </div>
+            
+            {/* Display filtered results count */}
+            <div className="filter-results">
+              <p>Showing {filteredUsers.length} of {users.length} users</p>
+              {searchTerm && <p>Search: "{searchTerm}"</p>}
+              {statusFilter && <p>Filter: {statusFilter}</p>}
+            </div>
+            
             <div className="users-list">
-              {users.map(user => (
+              {filteredUsers.map(user => (
                 <div key={user.id} className="user-card">
                   <div className="user-info">
-                    <h5>{user.username}</h5>
+                    <div className="user-header">
+                      <h5>{user.username}</h5>
+                      <span className={`user-badge ${user.is_admin ? 'admin' : 'user'}`}>
+                        {user.is_admin ? 'ADMIN' : 'USER'}
+                      </span>
+                      <span className={`status-badge ${user.is_active ? 'active' : 'inactive'}`}>
+                        {user.is_active ? 'ACTIVE' : 'INACTIVE'}
+                      </span>
+                    </div>
+                    <p><strong>ID:</strong> {user.id}</p>
                     <p><strong>Email:</strong> {user.email}</p>
-                    <p><strong>Name:</strong> {user.first_name} {user.last_name}</p>
-                    <p><strong>Status:</strong> {user.is_active ? 'Active' : 'Inactive'}</p>
-                    <p><strong>Admin:</strong> {user.is_admin ? 'Yes' : 'No'}</p>
-                    <p><strong>Roles:</strong> {user.roles?.map(r => r.name).join(', ') || 'None'}</p>
+                    <p><strong>Name:</strong> {user.first_name || 'N/A'} {user.last_name || ''}</p>
+                    <p><strong>Created:</strong> {new Date(user.created_at).toLocaleDateString()}</p>
+                    <p><strong>Last Updated:</strong> {new Date(user.updated_at).toLocaleDateString()}</p>
+                    <p><strong>Roles:</strong> {user.roles?.map(r => r.name).join(', ') || 'None assigned'}</p>
+                    <p><strong>Role Count:</strong> {user.roles?.length || 0}</p>
                   </div>
-                  <div className="user-role-management">
-                    <h6>Assign Roles:</h6>
-                    <div className="role-assignments">
-                      {roles.map(role => {
-                        const hasRole = user.roles?.some(r => r.id === role.id)
-                        return (
-                          <div key={role.id} className="role-assignment">
-                            <span>{role.name}</span>
-                            {hasRole ? (
-                              <button 
-                                onClick={() => handleRemoveRoleFromUser(user.id, role.id)}
-                                className="remove-role"
-                              >
-                                Remove
-                              </button>
-                            ) : (
-                              <button 
-                                onClick={() => handleAssignRoleToUser(user.id, role.id)}
-                                className="assign-role"
-                              >
-                                Assign
-                              </button>
-                            )}
-                          </div>
-                        )
-                      })}
+                  <div className="user-actions">
+                    <div className="user-role-management">
+                      <h6>Role Management:</h6>
+                      <div className="role-assignments">
+                        {roles.map(role => {
+                          const hasRole = user.roles?.some(r => r.id === role.id)
+                          return (
+                            <div key={role.id} className="role-assignment">
+                              <span className={`role-name ${hasRole ? 'assigned' : ''}`}>
+                                {role.name}
+                              </span>
+                              {hasRole ? (
+                                <button 
+                                  onClick={() => handleRemoveRoleFromUser(user.id, role.id)}
+                                  className="remove-role"
+                                  title="Remove this role from user"
+                                >
+                                  ✕ Remove
+                                </button>
+                              ) : (
+                                <button 
+                                  onClick={() => handleAssignRoleToUser(user.id, role.id)}
+                                  className="assign-role"
+                                  title="Assign this role to user"
+                                >
+                                  + Assign
+                                </button>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                    
+                    <div className="user-management-actions">
+                      <h6>Account Actions:</h6>
+                      <div className="action-buttons">
+                        <button 
+                          className="edit-user"
+                          onClick={() => {
+                            // TODO: Implement user editing modal
+                            alert(`Edit user: ${user.username}`)
+                          }}
+                          title="Edit user details"
+                        >
+                          📝 Edit User
+                        </button>
+                        <button 
+                          className={`toggle-status ${user.is_active ? 'deactivate' : 'activate'}`}
+                          onClick={() => {
+                            // TODO: Implement user status toggle
+                            alert(`${user.is_active ? 'Deactivate' : 'Activate'} user: ${user.username}`)
+                          }}
+                          title={`${user.is_active ? 'Deactivate' : 'Activate'} this user`}
+                        >
+                          {user.is_active ? '🚫 Deactivate' : '✅ Activate'}
+                        </button>
+                        <button 
+                          className={`toggle-admin ${user.is_admin ? 'remove-admin' : 'make-admin'}`}
+                          onClick={() => {
+                            // TODO: Implement admin status toggle
+                            alert(`${user.is_admin ? 'Remove admin' : 'Make admin'}: ${user.username}`)
+                          }}
+                          title={`${user.is_admin ? 'Remove admin privileges' : 'Grant admin privileges'}`}
+                        >
+                          {user.is_admin ? '👤 Remove Admin' : '👑 Make Admin'}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>

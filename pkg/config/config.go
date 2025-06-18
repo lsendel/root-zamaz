@@ -111,6 +111,7 @@ type SecurityConfig struct {
 	AllowedOrigins     []string        `yaml:"allowed_origins" env:"ALLOWED_ORIGINS"`
 	SecureHeaders      bool            `yaml:"secure_headers" env:"SECURE_HEADERS" default:"true"`
 	ContentTypeNosniff bool            `yaml:"content_type_nosniff" env:"CONTENT_TYPE_NOSNIFF" default:"true"`
+	DisableAuth        bool            `yaml:"disable_auth" env:"DISABLE_AUTH" default:"false"`
 }
 
 // SPIREConfig contains SPIRE workload identity settings
@@ -267,6 +268,7 @@ func loadFromEnv(config *Config) error {
 	// Set Security config
 	config.Security.SecureHeaders = getEnvBoolWithDefault("SECURE_HEADERS", true)
 	config.Security.ContentTypeNosniff = getEnvBoolWithDefault("CONTENT_TYPE_NOSNIFF", true)
+	config.Security.DisableAuth = getEnvBoolWithDefault("DISABLE_AUTH", false)
 	config.Security.TrustedProxies = getEnvSliceWithDefault("TRUSTED_PROXIES", []string{})
 	config.Security.AllowedOrigins = getEnvSliceWithDefault("ALLOWED_ORIGINS", []string{})
 

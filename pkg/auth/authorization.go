@@ -4,7 +4,6 @@ package auth
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/casbin/casbin/v2"
 	gormadapter "github.com/casbin/gorm-adapter/v3"
@@ -23,16 +22,16 @@ type AuthorizationService struct {
 // AuthorizationInterface defines the contract for authorization operations
 type AuthorizationInterface interface {
 	Initialize(db *gorm.DB, modelPath string) error
-	Enforce(userID uint, resource, action string) (bool, error)
-	AddRoleForUser(userID uint, role string) error
-	RemoveRoleForUser(userID uint, role string) error
-	GetRolesForUser(userID uint) ([]string, error)
+	Enforce(userID string, resource, action string) (bool, error)
+	AddRoleForUser(userID string, role string) error
+	RemoveRoleForUser(userID string, role string) error
+	GetRolesForUser(userID string) ([]string, error)
 	GetUsersForRole(role string) ([]string, error)
 	AddPermissionForRole(role, resource, action string) error
 	RemovePermissionForRole(role, resource, action string) error
 	GetPermissionsForRole(role string) ([][]string, error)
-	GetUserPermissions(userID uint) ([]string, error)
-	CheckPermission(userID uint, resource, action string) error
+	GetUserPermissions(userID string) ([]string, error)
+	CheckPermission(userID string, resource, action string) error
 	LoadPolicy() error
 	SavePolicy() error
 }
@@ -73,13 +72,12 @@ func (a *AuthorizationService) Initialize(db *gorm.DB, modelPath string) error {
 }
 
 // Enforce checks if a user has permission to perform an action on a resource
-func (a *AuthorizationService) Enforce(userID uint, resource, action string) (bool, error) {
+func (a *AuthorizationService) Enforce(userID string, resource, action string) (bool, error) {
 	if a.enforcer == nil {
 		return false, errors.Internal("Authorization service not initialized")
 	}
 
-	userIDStr := strconv.FormatUint(uint64(userID), 10)
-	allowed, err := a.enforcer.Enforce(userIDStr, resource, action)
+	allowed, err := a.enforcer.Enforce(userID, resource, action)
 	if err != nil {
 		return false, errors.Wrap(err, errors.CodeInternal, "Failed to enforce authorization")
 	}
@@ -88,13 +86,12 @@ func (a *AuthorizationService) Enforce(userID uint, resource, action string) (bo
 }
 
 // AddRoleForUser assigns a role to a user
-func (a *AuthorizationService) AddRoleForUser(userID uint, role string) error {
+func (a *AuthorizationService) AddRoleForUser(userID string, role string) error {
 	if a.enforcer == nil {
 		return errors.Internal("Authorization service not initialized")
 	}
 
-	userIDStr := strconv.FormatUint(uint64(userID), 10)
-	_, err := a.enforcer.AddRoleForUser(userIDStr, role)
+	_, err := a.enforcer.AddRoleForUser(userID, role)
 	if err != nil {
 		return errors.Wrap(err, errors.CodeInternal, "Failed to add role for user")
 	}
@@ -108,13 +105,12 @@ func (a *AuthorizationService) AddRoleForUser(userID uint, role string) error {
 }
 
 // RemoveRoleForUser removes a role from a user
-func (a *AuthorizationService) RemoveRoleForUser(userID uint, role string) error {
+func (a *AuthorizationService) RemoveRoleForUser(userID string, role string) error {
 	if a.enforcer == nil {
 		return errors.Internal("Authorization service not initialized")
 	}
 
-	userIDStr := strconv.FormatUint(uint64(userID), 10)
-	_, err := a.enforcer.DeleteRoleForUser(userIDStr, role)
+	_, err := a.enforcer.DeleteRoleForUser(userID, role)
 	if err != nil {
 		return errors.Wrap(err, errors.CodeInternal, "Failed to remove role for user")
 	}
@@ -128,13 +124,12 @@ func (a *AuthorizationService) RemoveRoleForUser(userID uint, role string) error
 }
 
 // GetRolesForUser gets all roles for a user
-func (a *AuthorizationService) GetRolesForUser(userID uint) ([]string, error) {
+func (a *AuthorizationService) GetRolesForUser(userID string) ([]string, error) {
 	if a.enforcer == nil {
 		return nil, errors.Internal("Authorization service not initialized")
 	}
 
-	userIDStr := strconv.FormatUint(uint64(userID), 10)
-	roles, err := a.enforcer.GetRolesForUser(userIDStr)
+	roles, err := a.enforcer.GetRolesForUser(userID)
 	if err != nil {
 		return nil, errors.Wrap(err, errors.CodeInternal, "Failed to get roles for user")
 	}
@@ -262,13 +257,12 @@ func (a *AuthorizationService) syncDatabaseToPolicy() error {
 	for _, user := range users {
 		for _, role := range user.Roles {
 			if role.IsActive {
-				userIDStr := strconv.FormatUint(uint64(user.ID), 10)
 				// Check if role assignment already exists to avoid duplicates
-				hasRole, _ := a.enforcer.HasRoleForUser(userIDStr, role.Name)
+				hasRole, _ := a.enforcer.HasRoleForUser(user.ID, role.Name)
 				if !hasRole {
-					_, err := a.enforcer.AddRoleForUser(userIDStr, role.Name)
+					_, err := a.enforcer.AddRoleForUser(user.ID, role.Name)
 					if err != nil {
-						return errors.Wrap(err, errors.CodeInternal, fmt.Sprintf("Failed to add role %s for user %d", role.Name, user.ID))
+						return errors.Wrap(err, errors.CodeInternal, fmt.Sprintf("Failed to add role %s for user %s", role.Name, user.ID))
 					}
 				}
 			}
@@ -280,9 +274,9 @@ func (a *AuthorizationService) syncDatabaseToPolicy() error {
 }
 
 // updateUserRoleInDB updates user role assignment in the database
-func (a *AuthorizationService) updateUserRoleInDB(userID uint, roleName string, add bool) error {
+func (a *AuthorizationService) updateUserRoleInDB(userID string, roleName string, add bool) error {
 	var user models.User
-	if err := a.db.Preload("Roles").First(&user, userID).Error; err != nil {
+	if err := a.db.Preload("Roles").Where("id = ?", userID).First(&user).Error; err != nil {
 		return errors.Wrap(err, errors.CodeNotFound, "User not found")
 	}
 
@@ -307,21 +301,21 @@ func (a *AuthorizationService) updateUserRoleInDB(userID uint, roleName string, 
 }
 
 // CheckPermission is a convenience method to check user permissions
-func (a *AuthorizationService) CheckPermission(userID uint, resource, action string) error {
+func (a *AuthorizationService) CheckPermission(userID string, resource, action string) error {
 	allowed, err := a.Enforce(userID, resource, action)
 	if err != nil {
 		return err
 	}
 
 	if !allowed {
-		return errors.Forbidden(fmt.Sprintf("User %d does not have permission to %s %s", userID, action, resource))
+		return errors.Forbidden(fmt.Sprintf("User %s does not have permission to %s %s", userID, action, resource))
 	}
 
 	return nil
 }
 
 // GetUserPermissions returns all permissions for a user (through their roles)
-func (a *AuthorizationService) GetUserPermissions(userID uint) ([]string, error) {
+func (a *AuthorizationService) GetUserPermissions(userID string) ([]string, error) {
 	roles, err := a.GetRolesForUser(userID)
 	if err != nil {
 		return nil, err
