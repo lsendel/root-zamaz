@@ -12,6 +12,8 @@ ENV_FILE ?= .env
 
 .PHONY: help dev-up dev-down dev-all build build-server run-server test clean logs deploy-local \
         build-frontend dev-frontend frontend-install test-coverage check-coverage test-integration test-load \
+        test-e2e-setup test-e2e test-e2e-ui test-e2e-debug test-e2e-report test-e2e-codegen test-e2e-headed \
+        test-e2e-chrome test-all \
         db-migrate certs-generate monitoring-setup dev-setup \
         lint fmt check-deps ensure-security-script security-scan security-scan-quick security-install \
         quality-check ci-build pre-commit db-reset
@@ -135,6 +137,70 @@ test-load: ## Run load tests using k6 (via Docker)
 	@docker run --rm -i loadimpact/k6 run - < tests/load/basic-load-test.js \
 		|| (echo "⚠️ Load tests skipped (k6 or network not available)" && exit 0)
 	@echo "✅ Load tests completed"
+
+# E2E test targets
+test-e2e-setup: ## Setup E2E test environment (backend + Playwright)
+	@echo "🔧 Setting up E2E test environment..."
+	@chmod +x scripts/playwright-setup.sh
+	@./scripts/playwright-setup.sh
+
+test-e2e: frontend-install ## Run Playwright E2E tests
+	@echo "🎭 Running E2E tests with Playwright..."
+	@if [ ! -d "frontend/node_modules/@playwright" ]; then \
+		echo "📦 Installing Playwright browsers..."; \
+		cd frontend && npx playwright install || (echo "❌ Playwright install failed" && exit 1); \
+	fi
+	@cd frontend && npm run test:e2e || (echo "❌ E2E tests failed" && exit 1)
+	@echo "✅ E2E tests completed"
+
+test-e2e-ui: frontend-install ## Run Playwright tests with UI mode
+	@echo "🎭 Running E2E tests in UI mode..."
+	@if [ ! -d "frontend/node_modules/@playwright" ]; then \
+		echo "📦 Installing Playwright browsers..."; \
+		cd frontend && npx playwright install || (echo "❌ Playwright install failed" && exit 1); \
+	fi
+	@cd frontend && npm run test:e2e:ui
+
+test-e2e-debug: frontend-install ## Debug Playwright tests
+	@echo "🐛 Running E2E tests in debug mode..."
+	@if [ ! -d "frontend/node_modules/@playwright" ]; then \
+		echo "📦 Installing Playwright browsers..."; \
+		cd frontend && npx playwright install || (echo "❌ Playwright install failed" && exit 1); \
+	fi
+	@cd frontend && npm run test:e2e:debug
+
+test-e2e-report: ## Show Playwright test report
+	@echo "📊 Opening Playwright test report..."
+	@cd frontend && npx playwright show-report || (echo "⚠️ No test report found. Run 'make test-e2e' first" && exit 0)
+
+test-e2e-codegen: frontend-install ## Run Playwright codegen to record tests
+	@echo "🎬 Starting Playwright test recorder..."
+	@if [ ! -d "frontend/node_modules/@playwright" ]; then \
+		echo "📦 Installing Playwright browsers..."; \
+		cd frontend && npx playwright install || (echo "❌ Playwright install failed" && exit 1); \
+	fi
+	@cd frontend && npx playwright codegen http://localhost:5175
+
+test-e2e-headed: frontend-install ## Run Playwright tests in headed mode
+	@echo "🎭 Running E2E tests in headed mode (visible browser)..."
+	@if [ ! -d "frontend/node_modules/@playwright" ]; then \
+		echo "📦 Installing Playwright browsers..."; \
+		cd frontend && npx playwright install || (echo "❌ Playwright install failed" && exit 1); \
+	fi
+	@cd frontend && npm run test:e2e:headed || (echo "❌ E2E tests failed" && exit 1)
+	@echo "✅ E2E tests completed"
+
+test-e2e-chrome: frontend-install ## Run Playwright tests on Chrome only
+	@echo "🎭 Running E2E tests on Chrome..."
+	@if [ ! -d "frontend/node_modules/@playwright" ]; then \
+		echo "📦 Installing Playwright browsers..."; \
+		cd frontend && npx playwright install || (echo "❌ Playwright install failed" && exit 1); \
+	fi
+	@cd frontend && npx playwright test --project=chromium || (echo "❌ E2E tests failed" && exit 1)
+	@echo "✅ E2E tests completed"
+
+test-all: test test-e2e ## Run all tests (unit + E2E)
+	@echo "✅ All tests completed successfully!"
 
 # Code quality targets
 lint: ## Run linter on Go code
