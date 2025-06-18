@@ -9,9 +9,9 @@ This document outlines the performance optimizations implemented in the Envoy pr
 - **TCP Keepalive**: Configured to maintain connection health and detect stale connections
   ```yaml
   tcp_keepalive:
+    keepalive_time: 30s
     keepalive_probes: 3
-    keepalive_time: 30
-    keepalive_interval: 5
+    keepalive_interval: 5s
   ```
 
 - **Circuit Breakers**: Prevent cascading failures by limiting connections and requests
@@ -25,13 +25,16 @@ This document outlines the performance optimizations implemented in the Envoy pr
         max_retries: 3
   ```
 
-- **HTTP/2 Support**: Enabled for better connection multiplexing
+- **HTTP/2 Support**: Enabled for better connection multiplexing with optimized settings
   ```yaml
   typed_extension_protocol_options:
     envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
       "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
       explicit_http_config:
-        http2_protocol_options: {}
+        http2_protocol_options:
+          max_concurrent_streams: 100
+          initial_stream_window_size: 65536  # 64 KiB
+          initial_connection_window_size: 1048576  # 1 MiB
   ```
 
 ### 2. Request Handling
@@ -65,6 +68,7 @@ This document outlines the performance optimizations implemented in the Envoy pr
     typed_config:
       "@type": type.googleapis.com/envoy.extensions.filters.http.buffer.v3.Buffer
       max_request_bytes: 1048576  # 1MB limit
+      max_request_time: 5s
   ```
 
 - **Rate Limiting**: Protect against traffic spikes
@@ -91,6 +95,9 @@ This document outlines the performance optimizations implemented in the Envoy pr
       unhealthy_threshold: 3
       http_health_check:
         path: "/health"
+        expected_statuses:
+          - start: 200
+            end: 299
   ```
 
 - **Health Check Endpoint**: Dedicated endpoint for health checks
@@ -142,11 +149,26 @@ A comprehensive Grafana dashboard has been created to monitor key Envoy performa
 3. **Timeout Values**: Tune based on your application's response time characteristics
 4. **Rate Limiting**: Adjust token bucket parameters based on expected traffic patterns
 
+### 5. Content Compression
+
+- **Compression**: Reduce bandwidth usage and improve response times
+  ```yaml
+  - name: envoy.filters.http.compressor
+    typed_config:
+      "@type": type.googleapis.com/envoy.extensions.filters.http.compressor.v3.Compressor
+      content_type:
+        - application/json
+        - text/html
+        - text/plain
+      compression_level: 6
+      content_length: 1024
+  ```
+
 ## Future Optimizations
 
 Consider implementing these additional optimizations:
 
-1. **Content Compression**: Reduce bandwidth usage
-2. **Response Caching**: Improve performance for frequently accessed resources
-3. **Request Hedging**: Reduce tail latency for critical operations
-4. **Adaptive Concurrency**: Dynamically adjust concurrency limits based on backend performance
+1. **Response Caching**: Improve performance for frequently accessed resources
+2. **Request Hedging**: Reduce tail latency for critical operations
+3. **Adaptive Concurrency**: Dynamically adjust concurrency limits based on backend performance
+4. **Dynamic Rate Limiting**: Adjust rate limits based on backend load and response times

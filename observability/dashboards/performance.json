@@ -1,4 +1,11 @@
 {
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
   "title": "Envoy Performance Dashboard",
   "uid": "envoy-performance",
   "version": 1,
