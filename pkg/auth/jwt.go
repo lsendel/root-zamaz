@@ -274,8 +274,18 @@ func ExtractTokenFromHeader(authHeader string) (string, error) {
 
 // GetUserRolesAndPermissions retrieves user roles and permissions
 func (j *JWTService) GetUserRolesAndPermissions(userID string) ([]string, []string, error) {
+	if j == nil {
+		return nil, nil, fmt.Errorf("JWT service is nil")
+	}
 	if j.authzService == nil {
 		// Return empty roles and permissions when authorization service is disabled
+		return []string{}, []string{}, nil
+	}
+	
+	// Check if the interface contains a nil pointer using type assertion
+	// This happens when a nil *AuthorizationService is assigned to the interface
+	if authz, ok := j.authzService.(*AuthorizationService); ok && authz == nil {
+		// Return empty roles and permissions when authorization service is disabled  
 		return []string{}, []string{}, nil
 	}
 
