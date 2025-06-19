@@ -3,8 +3,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -282,7 +280,7 @@ func (h *DeviceHandler) VerifyDevice(c *fiber.Ctx) error {
 	device.VerifiedAt = &now
 	device.TrustLevel = req.TrustLevel
 
-	if err := h.db.Save(&device).Error; err != nil {
+	if err := h.db.Save(device).Error; err != nil {
 		h.obs.Logger.Error().Err(err).Uint("device_id", uint(deviceID)).Msg("Failed to verify device")
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Internal Server Error",
@@ -292,7 +290,7 @@ func (h *DeviceHandler) VerifyDevice(c *fiber.Ctx) error {
 
 	h.logDeviceEvent(c, userID, device.ID.String(), "device_verified", true, "")
 
-	response := h.convertToDeviceResponse(&device)
+	response := h.convertToDeviceResponse(device)
 	return c.JSON(response)
 }
 
@@ -532,10 +530,10 @@ func (h *DeviceHandler) fetchDeviceByID(c *fiber.Ctx, deviceID uint64) (*models.
 	var device models.DeviceAttestation
 	if err := h.db.First(&device, uint(deviceID)).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return nil, c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Device not found"})
+			return nil, HandleNotFoundError(c, "device")
 		}
 		h.obs.Logger.Error().Err(err).Uint64("device_id", deviceID).Msg("Failed to fetch device by ID")
-		return nil, c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch device"})
+		return nil, HandleDatabaseError(c, err, "fetch_device")
 	}
 	return &device, nil
 }
