@@ -31,6 +31,13 @@ CREATE TABLE IF NOT EXISTS users (
     last_name VARCHAR(50),
     is_active BOOLEAN DEFAULT true,
     is_admin BOOLEAN DEFAULT false,
+    -- Account security fields for lockout protection
+    failed_login_attempts INTEGER DEFAULT 0,
+    last_failed_login_at TIMESTAMP WITH TIME ZONE,
+    account_locked_at TIMESTAMP WITH TIME ZONE,
+    account_locked_until TIMESTAMP WITH TIME ZONE,
+    last_login_at TIMESTAMP WITH TIME ZONE,
+    last_login_ip VARCHAR(45),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP WITH TIME ZONE
@@ -110,6 +117,21 @@ CREATE TABLE IF NOT EXISTS role_permissions (
     PRIMARY KEY (role_id, permission_id)
 );
 
+-- Login attempts table for security tracking and brute force protection
+CREATE TABLE IF NOT EXISTS login_attempts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    username VARCHAR(50) NOT NULL,
+    user_id UUID REFERENCES users(id),
+    ip_address VARCHAR(45) NOT NULL,
+    user_agent VARCHAR(500),
+    success BOOLEAN DEFAULT false,
+    failure_reason VARCHAR(200),
+    is_suspicious BOOLEAN DEFAULT false,
+    blocked_by_rate BOOLEAN DEFAULT false,
+    request_id VARCHAR(100),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Audit log table for security events
 CREATE TABLE IF NOT EXISTS audit_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -129,11 +151,22 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_deleted_at ON users(deleted_at);
+CREATE INDEX IF NOT EXISTS idx_users_account_locked_until ON users(account_locked_until);
 CREATE INDEX IF NOT EXISTS idx_user_sessions_token ON user_sessions(session_token);
 CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at);
 CREATE INDEX IF NOT EXISTS idx_device_attestations_user_id ON device_attestations(user_id);
 CREATE INDEX IF NOT EXISTS idx_device_attestations_device_id ON device_attestations(device_id);
+-- Login attempts indexes for security lookups
+CREATE INDEX IF NOT EXISTS idx_login_attempts_username ON login_attempts(username);
+CREATE INDEX IF NOT EXISTS idx_login_attempts_user_id ON login_attempts(user_id);
+CREATE INDEX IF NOT EXISTS idx_login_attempts_ip_address ON login_attempts(ip_address);
+CREATE INDEX IF NOT EXISTS idx_login_attempts_success ON login_attempts(success);
+CREATE INDEX IF NOT EXISTS idx_login_attempts_created_at ON login_attempts(created_at);
+CREATE INDEX IF NOT EXISTS idx_login_attempts_suspicious ON login_attempts(is_suspicious);
+-- Composite indexes for common security queries
+CREATE INDEX IF NOT EXISTS idx_login_attempts_ip_success_time ON login_attempts(ip_address, success, created_at);
+CREATE INDEX IF NOT EXISTS idx_login_attempts_username_success_time ON login_attempts(username, success, created_at);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at);

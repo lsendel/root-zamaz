@@ -43,17 +43,19 @@ import (
 	"mvp.local/pkg/handlers"
 	"mvp.local/pkg/middleware"
 	"mvp.local/pkg/observability"
+	"mvp.local/pkg/security"
 )
 
 // Server represents the main application server
 type Server struct {
-	app          *fiber.App
-	config       *config.Config
-	db           *database.Database
-	redisClient  *redis.Client
-	obs          *observability.Observability
-	authzService *auth.AuthorizationService
-	jwtService   *auth.JWTService
+	app            *fiber.App
+	config         *config.Config
+	db             *database.Database
+	redisClient    *redis.Client
+	obs            *observability.Observability
+	authzService   *auth.AuthorizationService
+	jwtService     *auth.JWTService
+	lockoutService *security.LockoutService
 }
 
 func main() {
@@ -157,6 +159,9 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	// Initialize JWT service
 	jwtService := auth.NewJWTService(&cfg.Security.JWT, authzService)
 
+	// Initialize lockout service
+	lockoutService := security.NewLockoutService(db.GetDB(), obs, &cfg.Security.Lockout)
+
 	// Create Fiber app
 	app := fiber.New(fiber.Config{
 		ReadTimeout:  cfg.HTTP.ReadTimeout,
@@ -166,13 +171,14 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	})
 
 	server := &Server{
-		app:          app,
-		config:       cfg,
-		db:           db,
-		redisClient:  redisClient,
-		obs:          obs,
-		authzService: authzService,
-		jwtService:   jwtService,
+		app:            app,
+		config:         cfg,
+		db:             db,
+		redisClient:    redisClient,
+		obs:            obs,
+		authzService:   authzService,
+		jwtService:     jwtService,
+		lockoutService: lockoutService,
 	}
 
 	server.setupMiddleware()
@@ -219,7 +225,7 @@ func (s *Server) setupMiddleware() {
 // setupRoutes configures all application routes
 func (s *Server) setupRoutes() {
 	// Initialize handlers
-	authHandler := handlers.NewAuthHandler(s.db.GetDB(), s.jwtService, s.authzService, s.obs, s.config)
+	authHandler := handlers.NewAuthHandler(s.db.GetDB(), s.jwtService, s.authzService, s.lockoutService, s.obs, s.config)
 	deviceHandler := handlers.NewDeviceHandler(s.db.GetDB(), s.authzService, s.obs)
 	systemHandler := handlers.NewSystemHandler(s.db, s.redisClient, s.authzService, s.obs)
 	adminHandler := handlers.NewAdminHandler(s.db.GetDB(), s.authzService, s.obs)
