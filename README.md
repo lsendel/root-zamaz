@@ -61,6 +61,7 @@ make dev-frontend
 - **Frontend**: http://localhost:5175
 - **API**: http://localhost:8080
 - **Swagger UI**: http://localhost:8080/swagger/index.html
+- **OpenAPI Spec**: [docs/openapi.yaml](docs/openapi.yaml)
 - **Grafana**: http://localhost:3000 (admin/admin)
 - **Prometheus**: http://localhost:9090
 - **Jaeger**: http://localhost:16686
