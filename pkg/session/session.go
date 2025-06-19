@@ -9,6 +9,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
+
+	"mvp.local/pkg/cache"
 	"mvp.local/pkg/errors"
 )
 
@@ -16,8 +18,8 @@ import (
 type SessionConfig struct {
 	KeyPrefix         string        `default:"session"`
 	DefaultExpiration time.Duration `default:"24h"`
-	MaxSessions       int           `default:"5"`     // Max concurrent sessions per user
-	RefreshThreshold  time.Duration `default:"6h"`   // Refresh session if less than this time remaining
+	MaxSessions       int           `default:"5"`  // Max concurrent sessions per user
+	RefreshThreshold  time.Duration `default:"6h"` // Refresh session if less than this time remaining
 	SecureCookies     bool          `default:"true"`
 	SameSite          string        `default:"Strict"`
 	HttpOnly          bool          `default:"true"`
@@ -58,11 +60,12 @@ type SessionData struct {
 // SessionManager handles session operations
 type SessionManager struct {
 	redis  *redis.Client
+	cache  cache.Cache
 	config SessionConfig
 }
 
 // NewSessionManager creates a new session manager
-func NewSessionManager(redisClient *redis.Client, config ...SessionConfig) *SessionManager {
+func NewSessionManager(redisClient *redis.Client, cacheLayer cache.Cache, config ...SessionConfig) *SessionManager {
 	cfg := DefaultSessionConfig()
 	if len(config) > 0 {
 		cfg = config[0]
@@ -70,6 +73,7 @@ func NewSessionManager(redisClient *redis.Client, config ...SessionConfig) *Sess
 
 	return &SessionManager{
 		redis:  redisClient,
+		cache:  cacheLayer,
 		config: cfg,
 	}
 }
@@ -155,19 +159,22 @@ func (sm *SessionManager) CreateSession(ctx context.Context, userID string, sess
 		
 		return 1
 	`)
-	
+
 	// Use key prefix instead of full key to allow Lua script to construct keys
 	sessionKeyPrefix := sm.config.KeyPrefix + ":"
-	
-	_, err = luaScript.Run(ctx, sm.redis, 
+
+	_, err = luaScript.Run(ctx, sm.redis,
 		[]string{userSessionsKey, sessionKeyPrefix},
 		string(sessionJSON), sessionID, sm.config.MaxSessions, int(sm.config.DefaultExpiration.Seconds()),
 	).Result()
-	
+
 	if err != nil {
 		return nil, errors.Wrap(err, errors.CodeInternal, "Failed to create session atomically")
 	}
 
+	if sm.cache != nil {
+		_ = sm.cache.Set(ctx, sm.getSessionKey(sessionID), sessionJSON)
+	}
 
 	return &sessionData, nil
 }
@@ -179,12 +186,27 @@ func (sm *SessionManager) GetSession(ctx context.Context, sessionID string) (*Se
 	}
 
 	sessionKey := sm.getSessionKey(sessionID)
+
+	// try in-memory cache first
+	if sm.cache != nil {
+		if data, err := sm.cache.Get(ctx, sessionKey); err == nil {
+			var cached SessionData
+			if jsonErr := json.Unmarshal(data, &cached); jsonErr == nil {
+				return &cached, nil
+			}
+		}
+	}
+
 	sessionJSON, err := sm.redis.Get(ctx, sessionKey).Result()
 	if err != nil {
 		if err == redis.Nil {
 			return nil, errors.NotFound("Session not found")
 		}
 		return nil, errors.Wrap(err, errors.CodeInternal, "Failed to get session")
+	}
+
+	if sm.cache != nil {
+		_ = sm.cache.Set(ctx, sessionKey, []byte(sessionJSON))
 	}
 
 	var sessionData SessionData
@@ -234,6 +256,10 @@ func (sm *SessionManager) UpdateSession(ctx context.Context, sessionID string, s
 		return errors.Wrap(err, errors.CodeInternal, "Failed to update session")
 	}
 
+	if sm.cache != nil {
+		_ = sm.cache.Set(ctx, sessionKey, sessionJSON)
+	}
+
 	return nil
 }
 
@@ -263,6 +289,12 @@ func (sm *SessionManager) RefreshSession(ctx context.Context, sessionID string) 
 	sessionKey := sm.getSessionKey(sessionID)
 	if err := sm.redis.Expire(ctx, sessionKey, sm.config.DefaultExpiration).Err(); err != nil {
 		return nil, errors.Wrap(err, errors.CodeInternal, "Failed to update session expiration")
+	}
+
+	if sm.cache != nil {
+		if data, err := json.Marshal(sessionData); err == nil {
+			_ = sm.cache.Set(ctx, sessionKey, data)
+		}
 	}
 
 	return sessionData, nil
@@ -297,6 +329,10 @@ func (sm *SessionManager) DeleteSession(ctx context.Context, sessionID string) e
 	_, err = pipe.Exec(ctx)
 	if err != nil {
 		return errors.Wrap(err, errors.CodeInternal, "Failed to delete session")
+	}
+
+	if sm.cache != nil {
+		_ = sm.cache.Delete(ctx, sessionKey)
 	}
 
 	return nil
@@ -336,27 +372,27 @@ func (sm *SessionManager) GetUserSessions(ctx context.Context, userID string) ([
 
 	var sessions []SessionData
 	expiredSessionIDs := []string{}
-	
+
 	for i, data := range sessionDataResults {
 		if data == nil {
 			// Session key doesn't exist, mark for cleanup
 			expiredSessionIDs = append(expiredSessionIDs, sessionIDs[i])
 			continue
 		}
-		
+
 		var session SessionData
 		if err := json.Unmarshal([]byte(data.(string)), &session); err != nil {
 			// Invalid session data, mark for cleanup
 			expiredSessionIDs = append(expiredSessionIDs, sessionIDs[i])
 			continue
 		}
-		
+
 		// Check if session is expired
 		if time.Now().After(session.ExpiresAt) {
 			expiredSessionIDs = append(expiredSessionIDs, sessionIDs[i])
 			continue
 		}
-		
+
 		sessions = append(sessions, session)
 	}
 
@@ -394,13 +430,13 @@ func (sm *SessionManager) CleanupExpiredSessions(ctx context.Context) error {
 	pattern := sm.config.KeyPrefix + ":*"
 	var expiredKeys []string
 	var cursor uint64
-	
+
 	for {
 		keys, nextCursor, err := sm.redis.Scan(ctx, cursor, pattern, 100).Result()
 		if err != nil {
 			return errors.Wrap(err, errors.CodeInternal, "Failed to scan session keys")
 		}
-		
+
 		// Check TTL for each key
 		for _, key := range keys {
 			ttl := sm.redis.TTL(ctx, key).Val()
@@ -408,7 +444,7 @@ func (sm *SessionManager) CleanupExpiredSessions(ctx context.Context) error {
 				expiredKeys = append(expiredKeys, key)
 			}
 		}
-		
+
 		cursor = nextCursor
 		if cursor == 0 {
 			break
@@ -435,15 +471,15 @@ func (sm *SessionManager) GetSessionStats(ctx context.Context) (map[string]inter
 	totalSessions := 0
 	activeSessions := 0
 	var cursor uint64
-	
+
 	for {
 		keys, nextCursor, err := sm.redis.Scan(ctx, cursor, pattern, 100).Result()
 		if err != nil {
 			return nil, errors.Wrap(err, errors.CodeInternal, "Failed to scan session keys")
 		}
-		
+
 		totalSessions += len(keys)
-		
+
 		// Count active sessions (still expensive, but using SCAN to avoid blocking)
 		for _, key := range keys {
 			ttl := sm.redis.TTL(ctx, key).Val()
@@ -451,7 +487,7 @@ func (sm *SessionManager) GetSessionStats(ctx context.Context) (map[string]inter
 				activeSessions++
 			}
 		}
-		
+
 		cursor = nextCursor
 		if cursor == 0 {
 			break
