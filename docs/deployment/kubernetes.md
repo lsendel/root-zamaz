@@ -53,7 +53,7 @@ graph TB
 ### Namespace
 
 ```yaml
-# deployments/kubernetes/base/namespace.yaml
+# kubernetes/apps/zamaz/base/namespace.yaml
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -67,7 +67,7 @@ metadata:
 ### ConfigMap
 
 ```yaml
-# deployments/kubernetes/base/configmap.yaml
+# kubernetes/apps/zamaz/base/configmap.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -111,7 +111,7 @@ data:
 ### Secrets
 
 ```yaml
-# deployments/kubernetes/base/secrets.yaml
+# kubernetes/apps/zamaz/base/secrets.yaml
 apiVersion: v1
 kind: Secret
 metadata:
@@ -140,7 +140,7 @@ data:
 ### Deployment
 
 ```yaml
-# deployments/kubernetes/base/deployment.yaml
+# kubernetes/apps/zamaz/base/deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -324,7 +324,7 @@ spec:
 ### Service
 
 ```yaml
-# deployments/kubernetes/base/service.yaml
+# kubernetes/apps/zamaz/base/service.yaml
 apiVersion: v1
 kind: Service
 metadata:
@@ -386,7 +386,7 @@ spec:
 ### RBAC
 
 ```yaml
-# deployments/kubernetes/base/rbac.yaml
+# kubernetes/apps/zamaz/base/rbac.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -426,7 +426,7 @@ roleRef:
 ### PostgreSQL Deployment
 
 ```yaml
-# deployments/kubernetes/base/postgres.yaml
+# kubernetes/apps/zamaz/base/postgres.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -520,7 +520,7 @@ spec:
 ### Redis Deployment
 
 ```yaml
-# deployments/kubernetes/base/redis.yaml
+# kubernetes/apps/zamaz/base/redis.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -602,7 +602,7 @@ spec:
 ### Ingress
 
 ```yaml
-# deployments/kubernetes/base/ingress.yaml
+# kubernetes/apps/zamaz/base/ingress.yaml
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -640,7 +640,7 @@ spec:
 ### Base Kustomization
 
 ```yaml
-# deployments/kubernetes/base/kustomization.yaml
+# kubernetes/apps/zamaz/base/kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
@@ -673,7 +673,7 @@ images:
 ### Production Overlay
 
 ```yaml
-# deployments/kubernetes/overlays/production/kustomization.yaml
+# kubernetes/apps/zamaz/overlays/production/kustomization.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
@@ -712,7 +712,7 @@ secretGenerator:
 ### Production Patches
 
 ```yaml
-# deployments/kubernetes/overlays/production/deployment-patch.yaml
+# kubernetes/apps/zamaz/overlays/production/deployment-patch.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -742,10 +742,10 @@ spec:
 
 ```bash
 # Create namespace
-kubectl apply -f deployments/kubernetes/base/namespace.yaml
+kubectl apply -f kubernetes/apps/zamaz/base/namespace.yaml
 
 # Deploy base resources
-kubectl apply -k deployments/kubernetes/base/
+kubectl apply -k kubernetes/apps/zamaz/base/
 
 # Check deployment status
 kubectl get pods -n mvp-auth
@@ -757,7 +757,7 @@ kubectl get ingress -n mvp-auth
 
 ```bash
 # Deploy production overlay
-kubectl apply -k deployments/kubernetes/overlays/production/
+kubectl apply -k kubernetes/apps/zamaz/overlays/production/
 
 # Check rollout status
 kubectl rollout status deployment/prod-mvp-auth -n mvp-auth-prod
@@ -813,7 +813,7 @@ spec:
 ### HorizontalPodAutoscaler
 
 ```yaml
-# deployments/kubernetes/overlays/production/hpa.yaml
+# kubernetes/apps/zamaz/overlays/production/hpa.yaml
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
@@ -857,7 +857,7 @@ spec:
 ### PodDisruptionBudget
 
 ```yaml
-# deployments/kubernetes/overlays/production/pdb.yaml
+# kubernetes/apps/zamaz/overlays/production/pdb.yaml
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
@@ -875,7 +875,7 @@ spec:
 ### Network Policies
 
 ```yaml
-# deployments/kubernetes/base/network-policy.yaml
+# kubernetes/apps/zamaz/base/network-policy.yaml
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

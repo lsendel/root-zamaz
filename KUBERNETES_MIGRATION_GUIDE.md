@@ -247,7 +247,7 @@ kubectl get pods --all-namespaces | grep zamaz
 helm install zamaz charts/zamaz/ -n zamaz
 
 # Restore original Kustomize
-kubectl apply -k deployments/kubernetes/overlays/$ENVIRONMENT/
+kubectl apply -k kubernetes/apps/zamaz/overlays/$ENVIRONMENT/
 ```
 
 ## Troubleshooting

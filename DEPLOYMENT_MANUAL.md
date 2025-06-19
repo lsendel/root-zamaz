@@ -130,7 +130,7 @@ kubectl create namespace zamaz-staging
 kubectl create namespace zamaz-monitoring
 
 # Apply RBAC
-kubectl apply -f deployments/kubernetes/rbac/
+kubectl apply -f kubernetes/apps/zamaz/base/serviceaccount.yaml
 ```
 
 ### 3. Secrets Management
@@ -197,7 +197,7 @@ helm install redis bitnami/redis \
 ### 5. Application Deployment
 ```bash
 # Deploy with Kustomize
-kubectl apply -k deployments/kubernetes/overlays/production
+kubectl apply -k kubernetes/apps/zamaz/overlays/production
 
 # Verify deployment
 kubectl get pods -n zamaz-prod
