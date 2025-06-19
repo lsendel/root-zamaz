@@ -16,12 +16,12 @@ import (
 // AdminHandler handles admin-related HTTP requests for role and user management
 type AdminHandler struct {
 	db           *gorm.DB
-	authzService *auth.AuthorizationService
+	authzService auth.AuthorizationInterface
 	obs          *observability.Observability
 }
 
 // NewAdminHandler creates a new admin handler instance
-func NewAdminHandler(db *gorm.DB, authzService *auth.AuthorizationService, obs *observability.Observability) *AdminHandler {
+func NewAdminHandler(db *gorm.DB, authzService auth.AuthorizationInterface, obs *observability.Observability) *AdminHandler {
 	return &AdminHandler{
 		db:           db,
 		authzService: authzService,
@@ -477,7 +477,7 @@ func (h *AdminHandler) UpdateUser(c *fiber.Ctx) error {
 		})
 	}
 
-	h.obs.Logger.Info().Str("username", user.Username).Str("user_id", user.ID).Msg("User updated")
+	h.obs.Logger.Info().Str("username", user.Username).Str("user_id", user.ID.String()).Msg("User updated")
 	return c.JSON(user)
 }
 
@@ -517,7 +517,7 @@ func (h *AdminHandler) DeleteUser(c *fiber.Ctx) error {
 		})
 	}
 
-	h.obs.Logger.Info().Str("username", user.Username).Str("user_id", user.ID).Msg("User deleted")
+	h.obs.Logger.Info().Str("username", user.Username).Str("user_id", user.ID.String()).Msg("User deleted")
 	return c.SendStatus(fiber.StatusNoContent)
 }
 
@@ -550,14 +550,12 @@ func (h *AdminHandler) AssignRoleToUser(c *fiber.Ctx) error {
 		})
 	}
 
-	// Use authorization service to assign role by name (if available)
-	if h.authzService != nil {
-		if err := h.authzService.AddRoleForUser(userID, role.Name); err != nil {
-			h.obs.Logger.Error().Err(err).Msg("Failed to assign role to user")
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Failed to assign role to user",
-			})
-		}
+	// Use authorization service to assign role by name
+	if err := h.authzService.AddRoleForUser(userID, role.Name); err != nil {
+		h.obs.Logger.Error().Err(err).Msg("Failed to assign role to user")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to assign role to user",
+		})
 	}
 
 	h.obs.Logger.Info().
@@ -597,14 +595,12 @@ func (h *AdminHandler) RemoveRoleFromUser(c *fiber.Ctx) error {
 		})
 	}
 
-	// Use authorization service to remove role by name (if available)
-	if h.authzService != nil {
-		if err := h.authzService.RemoveRoleForUser(userID, role.Name); err != nil {
-			h.obs.Logger.Error().Err(err).Msg("Failed to remove role from user")
-			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Failed to remove role from user",
-			})
-		}
+	// Use authorization service to remove role by name
+	if err := h.authzService.RemoveRoleForUser(userID, role.Name); err != nil {
+		h.obs.Logger.Error().Err(err).Msg("Failed to remove role from user")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Failed to remove role from user",
+		})
 	}
 
 	h.obs.Logger.Info().

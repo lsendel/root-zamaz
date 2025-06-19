@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "zamaz.fullname" . }}-api
+  labels:
+    {{- include "zamaz.labels" . | nindent 4 }}
+    app: zamaz
+    component: api
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: {{ .Values.service.istio.portName | default "http" }}
+    - port: 9090
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+  selector:
+    {{- include "zamaz.selectorLabels" . | nindent 4 }}
+    app: zamaz
+    component: api
+---
+{{- if .Values.frontend.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "zamaz.fullname" . }}-frontend
+  labels:
+    {{- include "zamaz.labels" . | nindent 4 }}
+    app: zamaz
+    component: frontend
+spec:
+  type: {{ .Values.frontend.service.type }}
+  ports:
+    - port: {{ .Values.frontend.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: {{ .Values.frontend.service.istio.portName | default "http" }}
+  selector:
+    {{- include "zamaz.selectorLabels" . | nindent 4 }}
+    app: zamaz
+    component: frontend
+{{- end }}

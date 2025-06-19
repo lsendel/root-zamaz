@@ -71,6 +71,19 @@ func (m *MockJWTService) GetUserRolesAndPermissions(userID string) ([]string, []
 	return roles, permissions, args.Error(2)
 }
 
+func (m *MockJWTService) RotateKey() error {
+	args := m.Called()
+	return args.Error(0)
+}
+
+func (m *MockJWTService) GetKeyManagerStats() map[string]interface{} {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return make(map[string]interface{})
+	}
+	return args.Get(0).(map[string]interface{})
+}
+
 // MockAuthorizationService is a mock implementation of auth.AuthorizationInterface
 type MockAuthorizationService struct {
 	mock.Mock

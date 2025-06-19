@@ -1,19 +1,35 @@
 export interface User {
   id: string
-  username: string
   email: string
-  first_name?: string
-  last_name?: string
+  username: string
+  first_name: string
+  last_name: string
   is_active: boolean
   is_admin: boolean
   created_at: string
   updated_at: string
+  last_login_at?: string
+  last_login_ip?: string
+  failed_login_attempts: number
+  account_locked_until?: string
+  mfa_enabled: boolean
   roles?: string[]
 }
 
 export interface LoginCredentials {
-  username: string
+  email: string
   password: string
+}
+
+export interface LoginRequest {
+  email: string
+  password: string
+}
+
+export interface LoginResponse {
+  user: User
+  token: string
+  expires_at: string
 }
 
 export interface RegisterCredentials {
@@ -29,6 +45,18 @@ export interface AuthResponse {
   token: string
   refresh_token: string
   expires_at: string
+}
+
+export interface RefreshTokenResponse {
+  token: string
+  user: User
+  expires_at: string
+}
+
+export interface AuthError {
+  message: string
+  code?: string
+  details?: Record<string, any>
 }
 
 export interface Role {

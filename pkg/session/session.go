@@ -96,44 +96,78 @@ func (sm *SessionManager) CreateSession(ctx context.Context, userID string, sess
 		sessionData.Metadata = make(map[string]interface{})
 	}
 
-	// Check if user has too many active sessions
-	activeSessions, err := sm.GetUserSessions(ctx, userID)
-	if err != nil {
-		return nil, errors.Wrap(err, errors.CodeInternal, "Failed to check user sessions")
-	}
-
-	if len(activeSessions) >= sm.config.MaxSessions {
-		// Remove oldest session
-		if err := sm.cleanupOldestSession(ctx, userID, activeSessions); err != nil {
-			return nil, errors.Wrap(err, errors.CodeInternal, "Failed to cleanup old sessions")
-		}
-	}
-
-	// Store session data
-	sessionKey := sm.getSessionKey(sessionID)
-	userSessionsKey := sm.getUserSessionsKey(userID)
-
-	// Use pipeline for atomic operations
-	pipe := sm.redis.Pipeline()
-
 	// Serialize session data
 	sessionJSON, err := json.Marshal(sessionData)
 	if err != nil {
 		return nil, errors.Wrap(err, errors.CodeInternal, "Failed to serialize session data")
 	}
 
-	// Store session
-	pipe.Set(ctx, sessionKey, sessionJSON, sm.config.DefaultExpiration)
+	// Get Redis keys
+	userSessionsKey := sm.getUserSessionsKey(userID)
 
-	// Add to user sessions set
-	pipe.SAdd(ctx, userSessionsKey, sessionID)
-	pipe.Expire(ctx, userSessionsKey, sm.config.DefaultExpiration)
-
-	// Execute pipeline
-	_, err = pipe.Exec(ctx)
+	// Use Lua script for atomic session creation with max session check
+	// This prevents race conditions between checking session count and cleanup
+	luaScript := redis.NewScript(`
+		local userSessionsKey = KEYS[1]
+		local sessionKeyPrefix = KEYS[2]
+		local sessionData = ARGV[1]
+		local sessionID = ARGV[2]
+		local maxSessions = tonumber(ARGV[3])
+		local expiration = tonumber(ARGV[4])
+		
+		local sessionKey = sessionKeyPrefix .. sessionID
+		
+		-- Get current session count
+		local sessionCount = redis.call('scard', userSessionsKey)
+		
+		-- If at max sessions, find and remove oldest
+		if sessionCount >= maxSessions then
+			local sessions = redis.call('smembers', userSessionsKey)
+			local oldestSession = nil
+			local oldestTime = nil
+			
+			-- Find oldest session by checking each session's created timestamp
+			for _, sid in ipairs(sessions) do
+				local skey = sessionKeyPrefix .. sid
+				local sdata = redis.call('get', skey)
+				if sdata then
+					-- Extract CreatedAt timestamp (simplified JSON parsing)
+					local created = string.match(sdata, '"created_at":"([^"]+)"')
+					if not oldestTime or (created and created < oldestTime) then
+						oldestTime = created
+						oldestSession = sid
+					end
+				end
+			end
+			
+			-- Remove oldest session atomically
+			if oldestSession then
+				local oldKey = sessionKeyPrefix .. oldestSession
+				redis.call('del', oldKey)
+				redis.call('srem', userSessionsKey, oldestSession)
+			end
+		end
+		
+		-- Store new session
+		redis.call('set', sessionKey, sessionData, 'EX', expiration)
+		redis.call('sadd', userSessionsKey, sessionID)
+		redis.call('expire', userSessionsKey, expiration)
+		
+		return 1
+	`)
+	
+	// Use key prefix instead of full key to allow Lua script to construct keys
+	sessionKeyPrefix := sm.config.KeyPrefix + ":"
+	
+	_, err = luaScript.Run(ctx, sm.redis, 
+		[]string{userSessionsKey, sessionKeyPrefix},
+		string(sessionJSON), sessionID, sm.config.MaxSessions, int(sm.config.DefaultExpiration.Seconds()),
+	).Result()
+	
 	if err != nil {
-		return nil, errors.Wrap(err, errors.CodeInternal, "Failed to create session")
+		return nil, errors.Wrap(err, errors.CodeInternal, "Failed to create session atomically")
 	}
+
 
 	return &sessionData, nil
 }
@@ -160,8 +194,12 @@ func (sm *SessionManager) GetSession(ctx context.Context, sessionID string) (*Se
 
 	// Check if session is expired
 	if time.Now().After(sessionData.ExpiresAt) {
-		// Clean up expired session
-		sm.DeleteSession(ctx, sessionID)
+		// Clean up expired session and log any errors
+		if err := sm.DeleteSession(ctx, sessionID); err != nil {
+			// Log error but don't fail the request
+			// In production, you'd use the observability logger here
+			fmt.Printf("Warning: Failed to delete expired session %s: %v\n", sessionID, err)
+		}
 		return nil, errors.NotFound("Session expired")
 	}
 
@@ -315,19 +353,28 @@ func (sm *SessionManager) CleanupExpiredSessions(ctx context.Context) error {
 		return errors.Internal("Redis client not available")
 	}
 
-	// This is a simple implementation - in production you might want to use Redis SCAN
-	// to iterate through keys more efficiently
+	// Use SCAN instead of KEYS for better performance and non-blocking operation
 	pattern := sm.config.KeyPrefix + ":*"
-	keys, err := sm.redis.Keys(ctx, pattern).Result()
-	if err != nil {
-		return errors.Wrap(err, errors.CodeInternal, "Failed to get session keys")
-	}
-
 	var expiredKeys []string
-	for _, key := range keys {
-		ttl := sm.redis.TTL(ctx, key).Val()
-		if ttl == -1 { // Key exists but has no expiration
-			expiredKeys = append(expiredKeys, key)
+	var cursor uint64
+	
+	for {
+		keys, nextCursor, err := sm.redis.Scan(ctx, cursor, pattern, 100).Result()
+		if err != nil {
+			return errors.Wrap(err, errors.CodeInternal, "Failed to scan session keys")
+		}
+		
+		// Check TTL for each key
+		for _, key := range keys {
+			ttl := sm.redis.TTL(ctx, key).Val()
+			if ttl == -1 { // Key exists but has no expiration
+				expiredKeys = append(expiredKeys, key)
+			}
+		}
+		
+		cursor = nextCursor
+		if cursor == 0 {
+			break
 		}
 	}
 
@@ -346,26 +393,37 @@ func (sm *SessionManager) GetSessionStats(ctx context.Context) (map[string]inter
 		return nil, errors.Internal("Redis client not available")
 	}
 
+	// Use SCAN instead of KEYS for better performance
 	pattern := sm.config.KeyPrefix + ":*"
-	keys, err := sm.redis.Keys(ctx, pattern).Result()
-	if err != nil {
-		return nil, errors.Wrap(err, errors.CodeInternal, "Failed to get session keys")
-	}
-
-	totalSessions := len(keys)
+	totalSessions := 0
 	activeSessions := 0
-
-	// Count active sessions (this is expensive - consider using different approach in production)
-	for _, key := range keys {
-		ttl := sm.redis.TTL(ctx, key).Val()
-		if ttl > 0 {
-			activeSessions++
+	var cursor uint64
+	
+	for {
+		keys, nextCursor, err := sm.redis.Scan(ctx, cursor, pattern, 100).Result()
+		if err != nil {
+			return nil, errors.Wrap(err, errors.CodeInternal, "Failed to scan session keys")
+		}
+		
+		totalSessions += len(keys)
+		
+		// Count active sessions (still expensive, but using SCAN to avoid blocking)
+		for _, key := range keys {
+			ttl := sm.redis.TTL(ctx, key).Val()
+			if ttl > 0 {
+				activeSessions++
+			}
+		}
+		
+		cursor = nextCursor
+		if cursor == 0 {
+			break
 		}
 	}
 
 	return map[string]interface{}{
-		"total_sessions":  totalSessions,
-		"active_sessions": activeSessions,
+		"total_sessions":   totalSessions,
+		"active_sessions":  activeSessions,
 		"expired_sessions": totalSessions - activeSessions,
 	}, nil
 }

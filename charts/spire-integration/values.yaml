@@ -1,0 +1,307 @@
+# SPIRE Integration values
+# Configuration for SPIRE Server and Agent with Istio integration
+
+global:
+  # Trust domain for SPIFFE identities
+  trustDomain: zamaz.cluster.local
+  
+  # SPIRE image configuration
+  image:
+    registry: ghcr.io/spiffe
+    pullPolicy: IfNotPresent
+    
+  # Cluster name for SPIRE federation
+  clusterName: zamaz-cluster
+
+# SPIRE Server configuration
+server:
+  enabled: true
+  
+  # Image configuration
+  image:
+    repository: spire-server
+    tag: "1.8.5"
+    
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 8081
+    
+  # Resource configuration
+  resources:
+    requests:
+      cpu: 500m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+      
+  # Storage configuration
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: ""
+    
+  # Configuration file
+  config:
+    server:
+      bind_address: "0.0.0.0"
+      bind_port: "8081"
+      trust_domain: "{{ .Values.global.trustDomain }}"
+      data_dir: "/opt/spire/data"
+      log_level: "INFO"
+      
+      # Upstream authority (for production, use external CA)
+      ca_subject:
+        country: ["US"]
+        organization: ["Zamaz"]
+        common_name: "Zamaz Root CA"
+        
+      # Key manager
+      key_manager:
+        disk:
+          keys_path: "/opt/spire/data/keys"
+          
+      # Node attestor for Kubernetes
+      node_attestor:
+        k8s_psat:
+          clusters:
+            zamaz-cluster:
+              service_account_allow_list:
+                - "spire-system:spire-agent"
+                
+      # Workload attestor
+      workload_attestor:
+        k8s:
+          skip_kubelet_verification: true
+          
+      # Registration API configuration
+      registration_uds_path: "/opt/spire/sockets/server.sock"
+      
+      # Health check configuration
+      health_checks:
+        listener_enabled: true
+        bind_address: "0.0.0.0"
+        bind_port: "8080"
+        live_path: "/live"
+        ready_path: "/ready"
+
+# SPIRE Agent configuration
+agent:
+  enabled: true
+  
+  # Image configuration
+  image:
+    repository: spire-agent
+    tag: "1.8.5"
+    
+  # DaemonSet configuration
+  daemonset:
+    updateStrategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxUnavailable: 1
+        
+  # Resource configuration
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+      
+  # Configuration file
+  config:
+    agent:
+      data_dir: "/opt/spire/data"
+      log_level: "INFO"
+      server_address: "spire-server.spire-system.svc.cluster.local"
+      server_port: "8081"
+      trust_bundle_path: "/opt/spire/conf/agent/bootstrap.crt"
+      trust_domain: "{{ .Values.global.trustDomain }}"
+      
+      # Socket path for workload API
+      socket_path: "/run/spire/sockets/agent.sock"
+      
+      # Node attestor
+      node_attestor:
+        k8s_psat:
+          cluster: "{{ .Values.global.clusterName }}"
+          
+      # Workload attestor
+      workload_attestor:
+        k8s:
+          skip_kubelet_verification: true
+          
+      # Health check configuration
+      health_checks:
+        listener_enabled: true
+        bind_address: "0.0.0.0"
+        bind_port: "8080"
+        live_path: "/live"
+        ready_path: "/ready"
+
+# Istio Integration
+istio:
+  enabled: true
+  
+  # Custom Resource for SPIRE integration
+  meshConfig:
+    enabled: true
+    trustDomain: "{{ .Values.global.trustDomain }}"
+    meshMTLS:
+      minProtocolVersion: TLSV1_2
+      
+  # EnvoyFilter for SPIRE integration
+  envoyFilter:
+    enabled: true
+    name: spire-integration
+    
+# Registration entries for workloads
+registrationEntries:
+  enabled: true
+  
+  # Zamaz API workload
+  zamazApi:
+    spiffeId: "spiffe://{{ .Values.global.trustDomain }}/ns/zamaz-mesh/sa/zamaz-api"
+    parentId: "spiffe://{{ .Values.global.trustDomain }}/node/zamaz-cluster"
+    selectors:
+      - "k8s:ns:zamaz-mesh"
+      - "k8s:sa:zamaz-api"
+      - "k8s:pod-label:app:zamaz"
+      - "k8s:pod-label:component:api"
+      
+  # Zamaz Frontend workload  
+  zamazFrontend:
+    spiffeId: "spiffe://{{ .Values.global.trustDomain }}/ns/zamaz-mesh/sa/zamaz-frontend"
+    parentId: "spiffe://{{ .Values.global.trustDomain }}/node/zamaz-cluster"
+    selectors:
+      - "k8s:ns:zamaz-mesh"
+      - "k8s:sa:zamaz-frontend"
+      - "k8s:pod-label:app:zamaz"
+      - "k8s:pod-label:component:frontend"
+      
+  # Istio Gateway
+  istioGateway:
+    spiffeId: "spiffe://{{ .Values.global.trustDomain }}/ns/istio-system/sa/zamaz-gateway"
+    parentId: "spiffe://{{ .Values.global.trustDomain }}/node/zamaz-cluster"
+    selectors:
+      - "k8s:ns:istio-system"
+      - "k8s:sa:zamaz-gateway"
+
+# RBAC configuration
+rbac:
+  create: true
+  
+  # Service account configuration
+  serviceAccount:
+    server:
+      create: true
+      name: spire-server
+      annotations: {}
+    agent:
+      create: true
+      name: spire-agent
+      annotations: {}
+      
+  # Cluster role for SPIRE server
+  clusterRole:
+    server:
+      create: true
+      rules:
+        - apiGroups: [""]
+          resources: ["pods", "nodes", "configmaps"]
+          verbs: ["get", "list", "watch"]
+        - apiGroups: ["apps"]
+          resources: ["replicasets"]
+          verbs: ["get", "list", "watch"]
+        - apiGroups: ["authentication.k8s.io"]
+          resources: ["tokenreviews"]
+          verbs: ["create"]
+          
+    agent:
+      create: true
+      rules:
+        - apiGroups: [""]
+          resources: ["pods", "nodes", "configmaps"]
+          verbs: ["get", "list", "watch"]
+
+# Network policies
+networkPolicy:
+  enabled: true
+  server:
+    enabled: true
+    ingress:
+      - from:
+        - podSelector:
+            matchLabels:
+              app: spire-agent
+        ports:
+        - protocol: TCP
+          port: 8081
+      - from:
+        - namespaceSelector:
+            matchLabels:
+              name: zamaz-mesh
+        ports:
+        - protocol: TCP
+          port: 8081
+          
+  agent:
+    enabled: true
+    egress:
+      - to:
+        - podSelector:
+            matchLabels:
+              app: spire-server
+        ports:
+        - protocol: TCP
+          port: 8081
+      - to: []
+        ports:
+        - protocol: UDP
+          port: 53
+
+# Monitoring configuration
+monitoring:
+  enabled: true
+  
+  # Service monitor for Prometheus
+  serviceMonitor:
+    enabled: true
+    namespace: monitoring
+    interval: 30s
+    
+  # Prometheus rules
+  prometheusRules:
+    enabled: true
+    rules:
+      - alert: SPIREServerDown
+        expr: up{job="spire-server"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "SPIRE Server is down"
+          description: "SPIRE Server has been down for more than 5 minutes"
+          
+      - alert: SPIREAgentDown
+        expr: up{job="spire-agent"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "SPIRE Agent is down"
+          description: "SPIRE Agent on {{ $labels.instance }} has been down for more than 5 minutes"
+
+# Security policies
+securityPolicies:
+  podSecurityPolicy:
+    enabled: true
+    
+  podSecurityStandards:
+    enabled: true
+    enforce: "restricted"
+    audit: "restricted"
+    warn: "restricted"

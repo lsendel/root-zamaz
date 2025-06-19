@@ -1,0 +1,21 @@
+apiVersion: v2
+name: zamaz
+description: Zero Trust Authentication MVP Helm Chart
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+home: https://github.com/your-org/zamaz
+sources:
+  - https://github.com/your-org/zamaz
+maintainers:
+  - name: Platform Team
+    email: platform-team@company.com
+keywords:
+  - zero-trust
+  - authentication
+  - security
+  - microservices
+# dependencies disabled for demo
+annotations:
+  category: Security
+  licenses: Apache-2.0

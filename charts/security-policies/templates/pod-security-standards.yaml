@@ -1,0 +1,17 @@
+{{- if .Values.podSecurityStandards.enabled }}
+{{- range $nsName, $config := .Values.podSecurityStandards.namespaces }}
+# Pod Security Standards for {{ $nsName }} namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ index $.Values.global.namespaces $nsName }}
+  labels:
+    {{- include "security-policies.labels" $ | nindent 4 }}
+    pod-security.kubernetes.io/enforce: {{ $config.enforce }}
+    pod-security.kubernetes.io/audit: {{ $config.audit }}
+    pod-security.kubernetes.io/warn: {{ $config.warn }}
+    security-tier: {{ $nsName }}
+spec: {}
+---
+{{- end }}
+{{- end }}

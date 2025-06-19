@@ -1,0 +1,21 @@
+{{- if .Values.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "istio-mesh.fullname" . }}-envoy
+  namespace: {{ .Values.serviceMonitor.namespace }}
+  labels:
+    {{- include "istio-mesh.labels" . | nindent 4 }}
+    {{- with .Values.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app: zamaz
+  namespaceSelector:
+    matchNames:
+      - {{ .Values.virtualService.namespace }}
+  endpoints:
+    {{- toYaml .Values.serviceMonitor.endpoints | nindent 4 }}
+{{- end }}

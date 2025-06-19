@@ -1,0 +1,548 @@
+# Default values for zamaz
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+  storageClass: ""
+  # Service mesh configuration
+  serviceMesh:
+    enabled: false
+    namespace: zamaz-mesh
+    istio:
+      injection: enabled
+      mtls: STRICT
+
+replicaCount: 3
+
+image:
+  registry: docker.io
+  repository: zamaz/server
+  tag: "1.0.0"
+  pullPolicy: IfNotPresent
+
+frontend:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: zamaz/frontend
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  replicaCount: 2
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  name: ""
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "9090"
+  prometheus.io/path: "/metrics"
+  # Istio sidecar configuration
+  sidecar.istio.io/inject: "{{ .Values.global.serviceMesh.istio.injection }}"
+  # SPIRE workload identity
+  spiffe.io/spire-managed-identity: "true"
+
+podSecurityContext:
+  fsGroup: 1000
+  runAsNonRoot: true
+  runAsUser: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+    - ALL
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+  annotations: {}
+  # Istio service configuration
+  istio:
+    portName: http
+    protocol: HTTP
+
+frontend:
+  service:
+    type: ClusterIP
+    port: 3000
+    targetPort: 3000
+    # Istio service configuration
+    istio:
+      portName: http
+      protocol: HTTP
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+  hosts:
+    - host: api.zamaz.local
+      paths:
+        - path: /
+          pathType: Prefix
+          service: zamaz
+    - host: app.zamaz.local
+      paths:
+        - path: /
+          pathType: Prefix
+          service: zamaz-frontend
+  tls:
+    - secretName: zamaz-tls
+      hosts:
+        - api.zamaz.local
+        - app.zamaz.local
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+frontend:
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 50
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 15
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/name
+            operator: In
+            values:
+            - zamaz
+        topologyKey: kubernetes.io/hostname
+
+# Application Configuration
+config:
+  environment: production
+  logLevel: info
+  logFormat: json
+  
+  # Database configuration
+  database:
+    host: ""  # Will use postgresql dependency if enabled
+    port: 5432
+    name: zamaz
+    sslMode: require
+    maxConnections: 25
+    maxIdleConns: 5
+    connMaxLifetime: "300s"
+    
+  # Redis configuration
+  redis:
+    host: ""  # Will use redis dependency if enabled
+    port: 6379
+    database: 0
+    poolSize: 10
+    
+  # Security configuration
+  security:
+    jwt:
+      expiration: "24h"
+      refreshExpiration: "168h"
+    cors:
+      enabled: true
+      allowedOrigins:
+        - "https://app.zamaz.local"
+        - "https://admin.zamaz.local"
+      allowedMethods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - OPTIONS
+    
+    lockout:
+      enabled: true
+      maxAttempts: 5
+      lockoutDuration: "15m"
+      
+  # Observability
+  observability:
+    serviceName: zamaz
+    environment: production
+    jaegerEndpoint: "http://jaeger-collector:14268/api/traces"
+    prometheusPort: 9090
+    logLevel: info
+
+# External services
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "changeme"
+    username: "zamaz"
+    password: "changeme"
+    database: "zamaz"
+  primary:
+    persistence:
+      enabled: true
+      size: 100Gi
+      storageClass: ""
+    resources:
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+      requests:
+        cpu: 1000m
+        memory: 2Gi
+  metrics:
+    enabled: true
+
+redis:
+  enabled: true
+  auth:
+    enabled: true
+    password: "changeme"
+  master:
+    persistence:
+      enabled: true
+      size: 20Gi
+      storageClass: ""
+    resources:
+      limits:
+        cpu: 500m
+        memory: 1Gi
+      requests:
+        cpu: 250m
+        memory: 512Mi
+  metrics:
+    enabled: true
+
+# Monitoring stack
+monitoring:
+  prometheus:
+    enabled: false  # Use external Prometheus
+  grafana:
+    enabled: false  # Use external Grafana
+  serviceMonitor:
+    enabled: true
+    namespace: monitoring
+    interval: 30s
+    scrapeTimeout: 10s
+
+# Network policies
+networkPolicy:
+  enabled: true
+  ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: istio-system
+      - namespaceSelector:
+          matchLabels:
+            name: ingress-nginx
+      ports:
+      - protocol: TCP
+        port: 8080
+      - protocol: TCP
+        port: 3000
+  egress:
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            name: kube-system
+      ports:
+      - protocol: UDP
+        port: 53
+    - to: []
+      ports:
+      - protocol: TCP
+        port: 5432
+      - protocol: TCP
+        port: 6379
+      - protocol: TCP
+        port: 443
+
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+# Init containers
+initContainers:
+  migration:
+    enabled: true
+    image:
+      registry: docker.io
+      repository: zamaz/migration
+      tag: "1.0.0"
+    command:
+      - "/app/migrate"
+      - "up"
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+
+# Secrets management
+secrets:
+  # External secrets operator
+  external:
+    enabled: false
+    secretStore: vault-backend
+    refreshInterval: 1h
+    data:
+      - secretKey: database-password
+        remoteRef:
+          key: zamaz/database
+          property: password
+      - secretKey: jwt-secret
+        remoteRef:
+          key: zamaz/auth
+          property: jwt_secret
+      - secretKey: redis-password
+        remoteRef:
+          key: zamaz/redis
+          property: password
+
+# Service mesh (Istio) - Enhanced Configuration
+istio:
+  enabled: false  # Set to true for service mesh deployment
+  
+  # Sidecar injection configuration
+  sidecar:
+    inject: true
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+  
+  # Virtual Service configuration for routing
+  virtualService:
+    enabled: true
+    name: zamaz-vs
+    hosts:
+      - api.zamaz.local
+      - app.zamaz.local
+    gateways:
+      - istio-system/zamaz-gateway
+    http:
+      # API routes with enhanced retry and fault tolerance
+      - match:
+        - headers:
+            ":authority":
+              exact: "api.zamaz.local"
+          uri:
+            prefix: "/api/"
+        route:
+        - destination:
+            host: zamaz-api
+            port:
+              number: 8080
+        timeout: 30s
+        retries:
+          attempts: 3
+          perTryTimeout: 10s
+          retryOn: "5xx,gateway-error,connect-failure,refused-stream"
+        fault:
+          delay:
+            percentage:
+              value: 0.1
+            fixedDelay: 5s
+      # Frontend routes
+      - match:
+        - headers:
+            ":authority":
+              exact: "app.zamaz.local"
+        route:
+        - destination:
+            host: zamaz-frontend
+            port:
+              number: 3000
+        timeout: 30s
+          
+  # Destination Rules with enhanced traffic policies
+  destinationRule:
+    enabled: true
+    api:
+      host: zamaz-api
+      trafficPolicy:
+        loadBalancer:
+          simple: LEAST_CONN
+        connectionPool:
+          tcp:
+            maxConnections: 100
+            connectTimeout: 30s
+            tcpKeepalive:
+              time: 7200s
+              interval: 75s
+          http:
+            http1MaxPendingRequests: 1000
+            maxRequestsPerConnection: 10
+            maxRetries: 3
+            idleTimeout: 60s
+            h2UpgradePolicy: UPGRADE
+        circuitBreaker:
+          consecutiveGatewayErrors: 5
+          consecutive5xxErrors: 5
+          interval: 30s
+          baseEjectionTime: 30s
+          maxEjectionPercent: 50
+          minHealthPercent: 30
+    frontend:
+      host: zamaz-frontend
+      trafficPolicy:
+        loadBalancer:
+          simple: ROUND_ROBIN
+        connectionPool:
+          tcp:
+            maxConnections: 50
+            connectTimeout: 10s
+          http:
+            http1MaxPendingRequests: 100
+            maxRequestsPerConnection: 2
+            idleTimeout: 30s
+  
+  # Security configuration
+  security:
+    # Peer Authentication for mTLS
+    peerAuthentication:
+      enabled: true
+      mtls:
+        mode: STRICT
+    
+    # Authorization policies
+    authorizationPolicy:
+      enabled: true
+      rules:
+        - name: api-access
+          selector:
+            matchLabels:
+              app: zamaz
+              component: api
+          rules:
+            - from:
+              - source:
+                  principals:
+                    - "cluster.local/ns/istio-system/sa/zamaz-gateway"
+                    - "cluster.local/ns/{{ .Values.global.serviceMesh.namespace }}/sa/zamaz-frontend"
+              to:
+              - operation:
+                  methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
+                  paths: ["/api/*", "/health", "/metrics"]
+        - name: frontend-access
+          selector:
+            matchLabels:
+              app: zamaz
+              component: frontend
+          rules:
+            - from:
+              - source:
+                  principals:
+                    - "cluster.local/ns/istio-system/sa/zamaz-gateway"
+              to:
+              - operation:
+                  methods: ["GET"]
+                  paths: ["/*"]
+  
+  # Telemetry configuration
+  telemetry:
+    enabled: true
+    metrics:
+      enabled: true
+      providers:
+        - prometheus
+    accessLogs:
+      enabled: true
+      format: |
+        [%START_TIME%] "%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% %PROTOCOL%"
+        %RESPONSE_CODE% %RESPONSE_FLAGS% %BYTES_RECEIVED% %BYTES_SENT%
+        %DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% "%REQ(X-FORWARDED-FOR)%"
+        "%REQ(USER-AGENT)%" "%REQ(X-REQUEST-ID)%" "%REQ(:AUTHORITY)%" "%UPSTREAM_HOST%"
+        spire_id="%REQ(X-SPIFFE-ID)%" user_id="%REQ(X-USER-ID)%"
+    tracing:
+      enabled: true
+      sampling: 1.0  # 100% for development
+      customTags:
+        user_id:
+          header:
+            name: "x-user-id"
+        request_id:
+          header:
+            name: "x-request-id"
+
+# Backup configuration
+backup:
+  enabled: false
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  retentionDays: 30
+  s3:
+    bucket: ""
+    region: ""
+    endpoint: ""
+  
+# Migration jobs
+migrations:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: zamaz/migration
+    tag: "1.0.0"
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi

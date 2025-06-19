@@ -1,0 +1,29 @@
+{{- if .Values.destinationRule.enabled }}
+# API Destination Rule
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: {{ .Values.destinationRule.name }}-api
+  namespace: {{ .Values.destinationRule.namespace }}
+  labels:
+    {{- include "istio-mesh.labels" . | nindent 4 }}
+    component: api
+spec:
+  host: {{ .Values.destinationRule.api.host }}
+  trafficPolicy:
+    {{- toYaml .Values.destinationRule.api.trafficPolicy | nindent 4 }}
+---
+# Frontend Destination Rule
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: {{ .Values.destinationRule.name }}-frontend
+  namespace: {{ .Values.destinationRule.namespace }}
+  labels:
+    {{- include "istio-mesh.labels" . | nindent 4 }}
+    component: frontend
+spec:
+  host: {{ .Values.destinationRule.frontend.host }}
+  trafficPolicy:
+    {{- toYaml .Values.destinationRule.frontend.trafficPolicy | nindent 4 }}
+{{- end }}

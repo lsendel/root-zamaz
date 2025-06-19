@@ -1,0 +1,31 @@
+{{- if .Values.security.authorizationPolicy.enabled }}
+# Authorization Policy for API
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ .Values.security.authorizationPolicy.api.name }}
+  namespace: {{ .Values.security.authorizationPolicy.api.namespace }}
+  labels:
+    {{- include "istio-mesh.labels" . | nindent 4 }}
+    component: api
+spec:
+  selector:
+    {{- toYaml .Values.security.authorizationPolicy.api.selector | nindent 4 }}
+  rules:
+    {{- toYaml .Values.security.authorizationPolicy.api.rules | nindent 4 }}
+---
+# Authorization Policy for Frontend
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ .Values.security.authorizationPolicy.frontend.name }}
+  namespace: {{ .Values.security.authorizationPolicy.frontend.namespace }}
+  labels:
+    {{- include "istio-mesh.labels" . | nindent 4 }}
+    component: frontend
+spec:
+  selector:
+    {{- toYaml .Values.security.authorizationPolicy.frontend.selector | nindent 4 }}
+  rules:
+    {{- toYaml .Values.security.authorizationPolicy.frontend.rules | nindent 4 }}
+{{- end }}

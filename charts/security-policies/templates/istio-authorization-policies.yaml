@@ -1,0 +1,16 @@
+{{- if .Values.istioSecurity.enabled }}
+{{- range .Values.istioSecurity.authorizationPolicies }}
+# Istio Authorization Policy: {{ .name }}
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: {{ .name }}
+  namespace: {{ .namespace }}
+  labels:
+    {{- include "security-policies.labels" $ | nindent 4 }}
+    security-type: authorization
+spec:
+  {{- toYaml .spec | nindent 2 }}
+---
+{{- end }}
+{{- end }}

@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { LoginCredentials, RegisterCredentials, AuthResponse, User, DeviceAttestation, Role, Permission, UserWithRoles } from '../types/auth'
+import { LoginRequest, LoginResponse, RefreshTokenResponse, RegisterCredentials, User, DeviceAttestation, Role, Permission, UserWithRoles } from '../types/auth'
 
 const api = axios.create({
   baseURL: '/api',
@@ -28,10 +28,10 @@ api.interceptors.response.use(
   }
 )
 
-export const authAPI = {
-  login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
+export const authApi = {
+  login: async (credentials: LoginRequest): Promise<{ data: LoginResponse }> => {
     const response = await api.post('/auth/login', credentials)
-    return response.data
+    return { data: response.data }
   },
 
   register: async (credentials: RegisterCredentials): Promise<User> => {
@@ -48,11 +48,14 @@ export const authAPI = {
     return response.data
   },
 
-  refreshToken: async (): Promise<{ token: string }> => {
+  refreshToken: async (): Promise<{ data: RefreshTokenResponse }> => {
     const response = await api.post('/auth/refresh')
-    return response.data
+    return { data: response.data }
   },
 }
+
+// Keep backward compatibility
+export const authAPI = authApi
 
 export const deviceAPI = {
   getDevices: async (): Promise<DeviceAttestation[]> => {

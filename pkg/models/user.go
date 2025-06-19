@@ -6,12 +6,13 @@ package models
 import (
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
 // User represents a user in the system with authentication and profile information
 type User struct {
-	ID        string         `gorm:"primarykey;type:uuid;default:gen_random_uuid()" json:"id"`
+	ID        uuid.UUID      `gorm:"primarykey;type:uuid;default:gen_random_uuid()" json:"id"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
@@ -45,13 +46,13 @@ type User struct {
 
 // UserSession represents an active user session for tracking
 type UserSession struct {
-	ID        string         `gorm:"primarykey;type:uuid;default:gen_random_uuid()" json:"id"`
+	ID        uuid.UUID      `gorm:"primarykey;type:uuid;default:gen_random_uuid()" json:"id"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 
 	// Session tracking
-	UserID       string    `gorm:"not null;index;type:uuid" json:"user_id"`
+	UserID       uuid.UUID `gorm:"not null;index;type:uuid" json:"user_id"`
 	User         User      `json:"user,omitempty"`
 	SessionToken string    `gorm:"uniqueIndex;not null" json:"-"`
 	ExpiresAt    time.Time `gorm:"not null" json:"expires_at"`
@@ -67,13 +68,13 @@ type UserSession struct {
 
 // DeviceAttestation represents device attestation data for Zero Trust
 type DeviceAttestation struct {
-	ID        string         `gorm:"primarykey;type:uuid;default:gen_random_uuid()" json:"id"`
+	ID        uuid.UUID      `gorm:"primarykey;type:uuid;default:gen_random_uuid()" json:"id"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 
 	// Device identification
-	UserID     string `gorm:"not null;index;type:uuid" json:"user_id"`
+	UserID     uuid.UUID `gorm:"not null;index;type:uuid" json:"user_id"`
 	User       User   `json:"user,omitempty"`
 	DeviceID   string `gorm:"uniqueIndex;not null;size:100" json:"device_id"`
 	DeviceName string `gorm:"size:100" json:"device_name"`
@@ -127,12 +128,12 @@ type Permission struct {
 
 // LoginAttempt represents a login attempt for security tracking and rate limiting
 type LoginAttempt struct {
-	ID        string    `gorm:"primarykey;type:uuid;default:gen_random_uuid()" json:"id"`
+	ID        uuid.UUID `gorm:"primarykey;type:uuid;default:gen_random_uuid()" json:"id"`
 	CreatedAt time.Time `json:"created_at"`
 
 	// Attempt details
-	Username      string  `gorm:"not null;size:50;index" json:"username"`
-	UserID        *string `gorm:"type:uuid;index" json:"user_id"`
+	Username      string     `gorm:"not null;size:50;index" json:"username"`
+	UserID        *uuid.UUID `gorm:"type:uuid;index" json:"user_id"`
 	User          *User   `json:"user,omitempty"`
 	IPAddress     string  `gorm:"not null;size:45;index" json:"ip_address"`
 	UserAgent     string  `gorm:"size:500" json:"user_agent"`
@@ -147,11 +148,11 @@ type LoginAttempt struct {
 
 // AuditLog represents system audit logs for security tracking
 type AuditLog struct {
-	ID        string    `gorm:"primarykey;type:uuid;default:gen_random_uuid()" json:"id"`
+	ID        uuid.UUID `gorm:"primarykey;type:uuid;default:gen_random_uuid()" json:"id"`
 	CreatedAt time.Time `json:"created_at"`
 
 	// Audit details
-	UserID   *string `gorm:"index;type:uuid" json:"user_id"`
+	UserID   *uuid.UUID `gorm:"index;type:uuid" json:"user_id"`
 	User     *User   `json:"user,omitempty"`
 	Action   string  `gorm:"not null;size:100" json:"action"`
 	Resource string  `gorm:"size:100" json:"resource"`

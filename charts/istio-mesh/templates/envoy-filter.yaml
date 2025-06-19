@@ -1,0 +1,17 @@
+{{- if .Values.envoyFilter.enabled }}
+{{- if .Values.envoyFilter.jwtValidation }}
+# EnvoyFilter for JWT validation
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: {{ .Values.envoyFilter.jwtValidation.name }}
+  namespace: {{ .Values.envoyFilter.jwtValidation.namespace }}
+  labels:
+    {{- include "istio-mesh.labels" . | nindent 4 }}
+spec:
+  workloadSelector:
+    {{- toYaml .Values.envoyFilter.jwtValidation.workloadSelector | nindent 4 }}
+  configPatches:
+    {{- toYaml .Values.envoyFilter.jwtValidation.configPatches | nindent 4 }}
+{{- end }}
+{{- end }}

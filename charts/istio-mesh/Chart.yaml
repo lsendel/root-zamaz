@@ -1,0 +1,22 @@
+apiVersion: v2
+name: istio-mesh
+description: Istio Service Mesh Configuration for Zero Trust Authentication MVP
+type: application
+version: 1.0.0
+appVersion: "1.20.1"
+home: https://github.com/your-org/zamaz
+sources:
+  - https://github.com/your-org/zamaz
+maintainers:
+  - name: Platform Team
+    email: platform-team@company.com
+keywords:
+  - istio
+  - service-mesh
+  - zero-trust
+  - security
+  - networking
+# dependencies removed since Istio is already installed
+annotations:
+  category: Infrastructure
+  licenses: Apache-2.0

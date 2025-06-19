@@ -1,0 +1,305 @@
+# Falco security rules for runtime threat detection
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zamaz-falco-rules
+  namespace: zamaz-prod
+data:
+  zamaz_rules.yaml: |
+    # Custom Falco rules for Zamaz application security
+    
+    # Detect unauthorized file access
+    - rule: Unauthorized File Access in Zamaz
+      desc: Detect access to sensitive files in Zamaz containers
+      condition: >
+        spawned_process and
+        container.image.repository contains "zamaz" and
+        (fd.name startswith "/etc/passwd" or
+         fd.name startswith "/etc/shadow" or
+         fd.name startswith "/etc/hosts" or
+         fd.name startswith "/proc/")
+      output: >
+        Unauthorized file access in Zamaz container
+        (user=%user.name command=%proc.cmdline file=%fd.name container_id=%container.id image=%container.image.repository)
+      priority: WARNING
+      tags: [filesystem, zamaz]
+    
+    # Detect network connections to unexpected destinations
+    - rule: Zamaz Unexpected Network Connection
+      desc: Detect network connections from Zamaz to unexpected destinations
+      condition: >
+        inbound_outbound and
+        container.image.repository contains "zamaz" and
+        not (fd.rip in (postgresql_servers, redis_servers, monitoring_servers)) and
+        fd.rip != "127.0.0.1" and
+        fd.rport != 53
+      output: >
+        Unexpected network connection from Zamaz
+        (user=%user.name command=%proc.cmdline connection=%fd.name container_id=%container.id image=%container.image.repository)
+      priority: WARNING
+      tags: [network, zamaz]
+    
+    # Detect privilege escalation attempts
+    - rule: Zamaz Privilege Escalation Attempt
+      desc: Detect attempts to escalate privileges in Zamaz containers
+      condition: >
+        spawned_process and
+        container.image.repository contains "zamaz" and
+        (proc.name in (su, sudo, pkexec) or
+         proc.name startswith "sudo" or
+         proc.cmdline contains "chmod +s" or
+         proc.cmdline contains "setuid")
+      output: >
+        Privilege escalation attempt in Zamaz container
+        (user=%user.name command=%proc.cmdline container_id=%container.id image=%container.image.repository)
+      priority: HIGH
+      tags: [privilege_escalation, zamaz]
+    
+    # Detect shell spawning (potential compromise)
+    - rule: Shell Spawned in Zamaz Container
+      desc: Detect shell execution in Zamaz containers (potential compromise)
+      condition: >
+        spawned_process and
+        container.image.repository contains "zamaz" and
+        proc.name in (bash, sh, zsh, csh, ksh, ash, dash)
+      output: >
+        Shell spawned in Zamaz container (potential compromise)
+        (user=%user.name shell=%proc.name command=%proc.cmdline container_id=%container.id image=%container.image.repository)
+      priority: HIGH
+      tags: [shell, zamaz, compromise]
+---
+# OPA Gatekeeper constraint templates for policy enforcement
+apiVersion: templates.gatekeeper.sh/v1beta1
+kind: ConstraintTemplate
+metadata:
+  name: zamazcontainersecurity
+spec:
+  crd:
+    spec:
+      names:
+        kind: ZamazContainerSecurity
+      validation:
+        type: object
+        properties:
+          exemptImages:
+            type: array
+            items:
+              type: string
+          maxMemory:
+            type: string
+          maxCPU:
+            type: string
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package zamazcontainersecurity
+        
+        violation[{"msg": msg}] {
+          # Ensure containers run as non-root
+          input.review.object.spec.securityContext.runAsUser == 0
+          msg := "Container must not run as root user"
+        }
+        
+        violation[{"msg": msg}] {
+          # Ensure read-only root filesystem
+          container := input.review.object.spec.containers[_]
+          not container.securityContext.readOnlyRootFilesystem == true
+          msg := sprintf("Container %v must have read-only root filesystem", [container.name])
+        }
+        
+        violation[{"msg": msg}] {
+          # Ensure no privileged containers
+          container := input.review.object.spec.containers[_]
+          container.securityContext.privileged == true
+          msg := sprintf("Container %v must not be privileged", [container.name])
+        }
+        
+        violation[{"msg": msg}] {
+          # Ensure no privilege escalation
+          container := input.review.object.spec.containers[_]
+          container.securityContext.allowPrivilegeEscalation != false
+          msg := sprintf("Container %v must not allow privilege escalation", [container.name])
+        }
+        
+        violation[{"msg": msg}] {
+          # Ensure resource limits are set
+          container := input.review.object.spec.containers[_]
+          not container.resources.limits.memory
+          msg := sprintf("Container %v must have memory limits", [container.name])
+        }
+        
+        violation[{"msg": msg}] {
+          # Ensure resource limits are set
+          container := input.review.object.spec.containers[_]
+          not container.resources.limits.cpu
+          msg := sprintf("Container %v must have CPU limits", [container.name])
+        }
+---
+# Gatekeeper constraint instance
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: ZamazContainerSecurity
+metadata:
+  name: zamaz-container-security-policy
+spec:
+  match:
+    kinds:
+      - apiGroups: ["apps"]
+        kinds: ["Deployment", "ReplicaSet", "DaemonSet", "StatefulSet"]
+    namespaces: ["zamaz-prod", "zamaz-staging"]
+  parameters:
+    exemptImages: []
+    maxMemory: "2Gi"
+    maxCPU: "1000m"
+---
+# Polaris configuration for security scanning
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zamaz-polaris-config
+  namespace: zamaz-prod
+data:
+  polaris.yaml: |
+    checks:
+      # Security checks
+      runAsRootAllowed: error
+      runAsPrivileged: error
+      notReadOnlyRootFilesystem: error
+      privilegeEscalationAllowed: error
+      dangerousCapabilities: error
+      insecureCapabilities: error
+      hostNetworkSet: error
+      hostPIDSet: error
+      hostIPCSet: error
+      hostPortSet: error
+      
+      # Resource checks
+      cpuRequestsMissing: warning
+      cpuLimitsMissing: warning
+      memoryRequestsMissing: warning
+      memoryLimitsMissing: warning
+      
+      # Image checks
+      tagNotSpecified: error
+      pullPolicyNotAlways: ignore
+      
+      # Networking checks
+      hostNetworkSet: error
+      hostPortSet: error
+      
+      # Other checks
+      deploymentMissingReplicas: warning
+      priorityClassNotSet: ignore
+      metadataAndNameMismatched: ignore
+    
+    exemptions:
+      - namespace: kube-system
+      - namespace: kube-public
+      - namespace: istio-system
+---
+# Trivy security scanning policy
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zamaz-trivy-policy
+  namespace: zamaz-prod
+data:
+  trivy-policy.yaml: |
+    # Trivy security policy for Zamaz containers
+    policies:
+      - name: "High and Critical Vulnerabilities"
+        description: "Fail if high or critical vulnerabilities are found"
+        rules:
+          - selector:
+              vuln-type:
+                - "os"
+                - "library"
+            rego: |
+              package trivy
+              
+              deny[msg] {
+                input.Results[_].Vulnerabilities[_].Severity == "CRITICAL"
+                msg := "Critical vulnerability found"
+              }
+              
+              deny[msg] {
+                input.Results[_].Vulnerabilities[_].Severity == "HIGH"
+                count(input.Results[_].Vulnerabilities) > 5
+                msg := "Too many high severity vulnerabilities found"
+              }
+      
+      - name: "Secret Detection"
+        description: "Detect secrets in container images"
+        rules:
+          - selector:
+              secret-type:
+                - "aws-access-key-id"
+                - "aws-secret-access-key"
+                - "github-pat"
+                - "private-key"
+            rego: |
+              package trivy
+              
+              deny[msg] {
+                input.Results[_].Secrets[_]
+                msg := "Secret detected in container image"
+              }
+---
+# Kube-bench configuration for node security
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zamaz-kube-bench-config
+  namespace: zamaz-prod
+data:
+  kube-bench-job.yaml: |
+    apiVersion: batch/v1
+    kind: Job
+    metadata:
+      name: kube-bench-security-scan
+    spec:
+      template:
+        spec:
+          hostPID: true
+          nodeSelector:
+            kubernetes.io/os: linux
+          tolerations:
+          - key: node-role.kubernetes.io/master
+            operator: Exists
+            effect: NoSchedule
+          containers:
+          - name: kube-bench
+            image: aquasec/kube-bench:latest
+            command: ["kube-bench"]
+            volumeMounts:
+            - name: var-lib-etcd
+              mountPath: /var/lib/etcd
+              readOnly: true
+            - name: var-lib-kubelet
+              mountPath: /var/lib/kubelet
+              readOnly: true
+            - name: etc-systemd
+              mountPath: /etc/systemd
+              readOnly: true
+            - name: etc-kubernetes
+              mountPath: /etc/kubernetes
+              readOnly: true
+            - name: usr-bin
+              mountPath: /usr/local/mount-from-host/bin
+              readOnly: true
+          restartPolicy: Never
+          volumes:
+          - name: var-lib-etcd
+            hostPath:
+              path: "/var/lib/etcd"
+          - name: var-lib-kubelet
+            hostPath:
+              path: "/var/lib/kubelet"
+          - name: etc-systemd
+            hostPath:
+              path: "/etc/systemd"
+          - name: etc-kubernetes
+            hostPath:
+              path: "/etc/kubernetes"
+          - name: usr-bin
+            hostPath:
+              path: "/usr/bin"

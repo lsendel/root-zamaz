@@ -1,0 +1,132 @@
+# SPIRE Server ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spire-server-config
+  namespace: spire-system
+  labels:
+    app: spire-server
+    {{- include "spire-integration.labels" . | nindent 4 }}
+data:
+  server.conf: |
+    server {
+      bind_address = "{{ .Values.server.config.server.bind_address }}"
+      bind_port = "{{ .Values.server.config.server.bind_port }}"
+      trust_domain = "{{ .Values.global.trustDomain }}"
+      data_dir = "{{ .Values.server.config.server.data_dir }}"
+      log_level = "{{ .Values.server.config.server.log_level }}"
+      
+      ca_subject = {
+        {{- range .Values.server.config.server.ca_subject.country }}
+        country = ["{{ . }}"]
+        {{- end }}
+        {{- range .Values.server.config.server.ca_subject.organization }}
+        organization = ["{{ . }}"]
+        {{- end }}
+        common_name = "{{ .Values.server.config.server.ca_subject.common_name }}"
+      }
+    }
+
+    plugins {
+      DataStore "sql" {
+        plugin_data {
+          database_type = "sqlite3"
+          connection_string = "/opt/spire/data/datastore.sqlite3"
+        }
+      }
+
+      NodeAttestor "k8s_psat" {
+        plugin_data {
+          {{- range $cluster, $config := .Values.server.config.server.node_attestor.k8s_psat.clusters }}
+          clusters = {
+            "{{ $cluster }}" = {
+              {{- range $config.service_account_allow_list }}
+              service_account_allow_list = ["{{ . }}"]
+              {{- end }}
+            }
+          }
+          {{- end }}
+        }
+      }
+
+      KeyManager "disk" {
+        plugin_data {
+          keys_path = "{{ .Values.server.config.server.key_manager.disk.keys_path }}"
+        }
+      }
+
+      Notifier "k8sbundle" {
+        plugin_data {
+          namespace = "spire-system"
+          config_map = "spire-bundle"
+        }
+      }
+    }
+
+    health_checks {
+      listener_enabled = {{ .Values.server.config.server.health_checks.listener_enabled }}
+      bind_address = "{{ .Values.server.config.server.health_checks.bind_address }}"
+      bind_port = "{{ .Values.server.config.server.health_checks.bind_port }}"
+      live_path = "{{ .Values.server.config.server.health_checks.live_path }}"
+      ready_path = "{{ .Values.server.config.server.health_checks.ready_path }}"
+    }
+---
+# SPIRE Agent ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spire-agent-config
+  namespace: spire-system
+  labels:
+    app: spire-agent
+    {{- include "spire-integration.labels" . | nindent 4 }}
+data:
+  agent.conf: |
+    agent {
+      data_dir = "{{ .Values.agent.config.agent.data_dir }}"
+      log_level = "{{ .Values.agent.config.agent.log_level }}"
+      server_address = "{{ .Values.agent.config.agent.server_address }}"
+      server_port = "{{ .Values.agent.config.agent.server_port }}"
+      socket_path = "{{ .Values.agent.config.agent.socket_path }}"
+      trust_bundle_path = "{{ .Values.agent.config.agent.trust_bundle_path }}"
+      trust_domain = "{{ .Values.global.trustDomain }}"
+    }
+
+    plugins {
+      NodeAttestor "k8s_psat" {
+        plugin_data {
+          cluster = "{{ .Values.global.clusterName }}"
+        }
+      }
+
+      KeyManager "memory" {
+        plugin_data {
+        }
+      }
+
+      WorkloadAttestor "k8s" {
+        plugin_data {
+          skip_kubelet_verification = {{ .Values.agent.config.agent.workload_attestor.k8s.skip_kubelet_verification }}
+        }
+      }
+    }
+
+    health_checks {
+      listener_enabled = {{ .Values.agent.config.agent.health_checks.listener_enabled }}
+      bind_address = "{{ .Values.agent.config.agent.health_checks.bind_address }}"
+      bind_port = "{{ .Values.agent.config.agent.health_checks.bind_port }}"
+      live_path = "{{ .Values.agent.config.agent.health_checks.live_path }}"
+      ready_path = "{{ .Values.agent.config.agent.health_checks.ready_path }}"
+    }
+---
+# Initial bootstrap bundle (empty, will be populated by server)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spire-bundle
+  namespace: spire-system
+  labels:
+    app: spire-server
+    {{- include "spire-integration.labels" . | nindent 4 }}
+data:
+  bootstrap.crt: ""

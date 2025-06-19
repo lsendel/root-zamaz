@@ -1,0 +1,588 @@
+# Enhanced Observability Configuration
+# Comprehensive monitoring, logging, and tracing for Zero Trust Authentication MVP
+
+global:
+  # Namespaces
+  namespaces:
+    monitoring: monitoring
+    istio: istio-system
+    mesh: zamaz-mesh
+    
+  # Storage configuration
+  storageClass: ""
+  retention:
+    metrics: 30d
+    logs: 14d
+    traces: 7d
+
+# Prometheus configuration
+prometheus:
+  enabled: true
+  
+  # Use kube-prometheus-stack
+  kube-prometheus-stack:
+    prometheus:
+      prometheusSpec:
+        retention: 30d
+        retentionSize: 50GB
+        storageSpec:
+          volumeClaimTemplate:
+            spec:
+              storageClassName: ""
+              accessModes: ["ReadWriteOnce"]
+              resources:
+                requests:
+                  storage: 100Gi
+        
+        # Enhanced scrape configs
+        additionalScrapeConfigs:
+          # Istio proxy metrics
+          - job_name: 'istio-proxy'
+            kubernetes_sd_configs:
+            - role: endpoints
+              namespaces:
+                names:
+                - zamaz-mesh
+                - istio-system
+            relabel_configs:
+            - source_labels: [__meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+              action: keep
+              regex: .*-envoy-prom;.*
+            - source_labels: [__address__, __meta_kubernetes_endpoint_port]
+              action: replace
+              regex: ([^:]+)(?::\d+)?;(\d+)
+              replacement: $1:15090
+              target_label: __address__
+            - action: labelmap
+              regex: __meta_kubernetes_service_label_(.+)
+            - source_labels: [__meta_kubernetes_namespace]
+              action: replace
+              target_label: namespace
+            - source_labels: [__meta_kubernetes_service_name]
+              action: replace
+              target_label: service_name
+              
+          # SPIRE server metrics
+          - job_name: 'spire-server'
+            kubernetes_sd_configs:
+            - role: endpoints
+              namespaces:
+                names:
+                - spire-system
+            relabel_configs:
+            - source_labels: [__meta_kubernetes_service_name]
+              action: keep
+              regex: spire-server
+            - source_labels: [__meta_kubernetes_endpoint_port_name]
+              action: keep
+              regex: health
+              
+          # SPIRE agent metrics
+          - job_name: 'spire-agent'
+            kubernetes_sd_configs:
+            - role: endpoints
+              namespaces:
+                names:
+                - spire-system
+            relabel_configs:
+            - source_labels: [__meta_kubernetes_service_name]
+              action: keep
+              regex: spire-agent
+              
+          # Zamaz application metrics
+          - job_name: 'zamaz-apps'
+            kubernetes_sd_configs:
+            - role: endpoints
+              namespaces:
+                names:
+                - zamaz-mesh
+            relabel_configs:
+            - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
+              action: keep
+              regex: true
+            - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+              action: replace
+              target_label: __metrics_path__
+              regex: (.+)
+            - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
+              action: replace
+              regex: ([^:]+)(?::\d+)?;(\d+)
+              replacement: $1:$2
+              target_label: __address__
+            - action: labelmap
+              regex: __meta_kubernetes_service_label_(.+)
+              
+        # Alerting rules
+        ruleSelector:
+          matchLabels:
+            app: zamaz
+            prometheus: kube-prometheus
+            
+    # Grafana configuration
+    grafana:
+      enabled: true
+      adminPassword: admin
+      
+      # Data sources
+      additionalDataSources:
+        - name: Jaeger
+          type: jaeger
+          url: http://jaeger-query.monitoring.svc.cluster.local:16686
+          access: proxy
+          
+        - name: Loki
+          type: loki
+          url: http://loki.monitoring.svc.cluster.local:3100
+          access: proxy
+          
+      # Dashboard providers
+      dashboardProviders:
+        dashboardproviders.yaml:
+          apiVersion: 1
+          providers:
+          - name: 'zamaz-dashboards'
+            orgId: 1
+            folder: 'Zamaz'
+            type: file
+            disableDeletion: false
+            editable: true
+            options:
+              path: /var/lib/grafana/dashboards/zamaz
+              
+          - name: 'istio-dashboards'
+            orgId: 1
+            folder: 'Istio'
+            type: file
+            disableDeletion: false
+            editable: true
+            options:
+              path: /var/lib/grafana/dashboards/istio
+              
+          - name: 'security-dashboards'
+            orgId: 1
+            folder: 'Security'
+            type: file
+            disableDeletion: false
+            editable: true
+            options:
+              path: /var/lib/grafana/dashboards/security
+
+# Jaeger configuration
+jaeger:
+  enabled: true
+  
+  # Use Jaeger operator or standalone
+  jaeger:
+    # Production configuration
+    spec:
+      strategy: production
+      
+      # Storage configuration
+      storage:
+        type: elasticsearch
+        elasticsearch:
+          nodeCount: 3
+          storage:
+            size: 100Gi
+          redundancyPolicy: SingleRedundancy
+          
+      # Collector configuration
+      collector:
+        replicas: 3
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+            
+      # Query configuration
+      query:
+        replicas: 2
+        resources:
+          requests:
+            cpu: 200m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+            
+      # Agent configuration
+      agent:
+        strategy: DaemonSet
+        
+# Loki configuration
+loki:
+  enabled: true
+  
+  loki:
+    # Storage configuration
+    storage:
+      type: s3
+      s3:
+        region: us-west-2
+        bucketnames: zamaz-loki-logs
+        
+    # Retention configuration
+    limits_config:
+      retention_period: 14d
+      
+    # Compactor for retention
+    compactor:
+      working_directory: /tmp/loki/compactor
+      shared_store: s3
+      retention_enabled: true
+      retention_delete_delay: 2h
+      
+    # Schema configuration
+    schema_config:
+      configs:
+        - from: 2023-01-01
+          store: boltdb-shipper
+          object_store: s3
+          schema: v11
+          index:
+            prefix: index_
+            period: 24h
+
+# Custom ServiceMonitors
+serviceMonitors:
+  enabled: true
+  
+  # Istio service monitors
+  istio:
+    enabled: true
+    monitors:
+      - name: istio-proxy
+        namespace: monitoring
+        selector:
+          matchLabels:
+            app: istiod
+        endpoints:
+          - port: http-monitoring
+            interval: 15s
+            path: /stats/prometheus
+            
+      - name: istio-gateways
+        namespace: monitoring
+        selector:
+          matchLabels:
+            istio: gateway
+        endpoints:
+          - port: http-envoy-prom
+            interval: 15s
+            path: /stats/prometheus
+            
+  # SPIRE service monitors
+  spire:
+    enabled: true
+    monitors:
+      - name: spire-server
+        namespace: monitoring
+        selector:
+          matchLabels:
+            app: spire-server
+        endpoints:
+          - port: health
+            interval: 30s
+            path: /metrics
+            
+      - name: spire-agent
+        namespace: monitoring
+        selector:
+          matchLabels:
+            app: spire-agent
+        endpoints:
+          - port: health
+            interval: 30s
+            path: /metrics
+            
+  # Zamaz application monitors
+  zamaz:
+    enabled: true
+    monitors:
+      - name: zamaz-api
+        namespace: monitoring
+        selector:
+          matchLabels:
+            app: zamaz
+            component: api
+        endpoints:
+          - port: metrics
+            interval: 15s
+            path: /metrics
+            
+      - name: zamaz-frontend
+        namespace: monitoring
+        selector:
+          matchLabels:
+            app: zamaz
+            component: frontend
+        endpoints:
+          - port: http
+            interval: 30s
+            path: /health
+
+# Prometheus Rules
+prometheusRules:
+  enabled: true
+  
+  # Application-specific rules
+  zamaz:
+    enabled: true
+    rules:
+      # High-level SLO alerts
+      - alert: ZamazAPIHighErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{service_name="zamaz-api",response_code=~"5.."}[5m])) /
+            sum(rate(http_requests_total{service_name="zamaz-api"}[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          service: zamaz-api
+        annotations:
+          summary: "Zamaz API error rate is above 5%"
+          description: "The error rate for Zamaz API is {{ $value | humanizePercentage }} which is above the 5% threshold"
+          
+      - alert: ZamazAPIHighLatency
+        expr: |
+          histogram_quantile(0.95, 
+            sum(rate(http_request_duration_seconds_bucket{service_name="zamaz-api"}[5m])) by (le)
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          service: zamaz-api
+        annotations:
+          summary: "Zamaz API 95th percentile latency is high"
+          description: "The 95th percentile latency for Zamaz API is {{ $value }}s which is above 500ms"
+          
+      - alert: ZamazDatabaseConnectionHigh
+        expr: |
+          zamaz_database_connections_active / zamaz_database_connections_max > 0.8
+        for: 2m
+        labels:
+          severity: warning
+          service: database
+        annotations:
+          summary: "Database connection pool usage is high"
+          description: "Database connection pool usage is {{ $value | humanizePercentage }} which is above 80%"
+          
+  # Security-specific rules
+  security:
+    enabled: true
+    rules:
+      - alert: HighFailedAuthenticationRate
+        expr: |
+          rate(zamaz_auth_failures_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: warning
+          service: auth
+        annotations:
+          summary: "High authentication failure rate detected"
+          description: "Authentication failure rate is {{ $value }} failures/second"
+          
+      - alert: AccountLockoutIncident
+        expr: |
+          increase(zamaz_account_lockouts_total[5m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+          service: auth
+        annotations:
+          summary: "Account lockout detected"
+          description: "{{ $value }} account(s) have been locked out in the last 5 minutes"
+          
+      - alert: SuspiciousJWTActivity
+        expr: |
+          rate(zamaz_jwt_validation_failures_total[5m]) > 5
+        for: 1m
+        labels:
+          severity: critical
+          service: auth
+        annotations:
+          summary: "High JWT validation failure rate"
+          description: "JWT validation failure rate is {{ $value }} failures/second"
+          
+  # Infrastructure rules
+  infrastructure:
+    enabled: true
+    rules:
+      - alert: IstioSidecarDown
+        expr: |
+          up{job="istio-proxy"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: istio
+        annotations:
+          summary: "Istio sidecar is down"
+          description: "Istio sidecar on {{ $labels.instance }} is down"
+          
+      - alert: SPIREServerDown
+        expr: |
+          up{job="spire-server"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: spire
+        annotations:
+          summary: "SPIRE server is down"
+          description: "SPIRE server is not responding to health checks"
+
+# Grafana Dashboards
+dashboards:
+  enabled: true
+  
+  # Application dashboards
+  zamaz:
+    enabled: true
+    dashboards:
+      # Main application dashboard
+      - name: zamaz-overview
+        title: "Zamaz Application Overview"
+        datasource: Prometheus
+        panels:
+          - title: "Request Rate"
+            type: stat
+            targets:
+              - expr: sum(rate(http_requests_total{service_name=~"zamaz-.*"}[5m]))
+          - title: "Error Rate"
+            type: stat
+            targets:
+              - expr: sum(rate(http_requests_total{service_name=~"zamaz-.*",response_code=~"5.."}[5m])) / sum(rate(http_requests_total{service_name=~"zamaz-.*"}[5m]))
+          - title: "Response Time (95th percentile)"
+            type: stat
+            targets:
+              - expr: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{service_name=~"zamaz-.*"}[5m])) by (le))
+              
+      # Security dashboard
+      - name: zamaz-security
+        title: "Zamaz Security Metrics"
+        datasource: Prometheus
+        panels:
+          - title: "Authentication Attempts"
+            type: graph
+            targets:
+              - expr: rate(zamaz_auth_attempts_total[5m])
+          - title: "Failed Authentications"
+            type: graph
+            targets:
+              - expr: rate(zamaz_auth_failures_total[5m])
+          - title: "Account Lockouts"
+            type: stat
+            targets:
+              - expr: increase(zamaz_account_lockouts_total[1h])
+              
+  # Istio dashboards
+  istio:
+    enabled: true
+    dashboards:
+      # Service mesh overview
+      - name: istio-service-mesh
+        title: "Istio Service Mesh"
+        datasource: Prometheus
+        panels:
+          - title: "Service Success Rate"
+            type: stat
+            targets:
+              - expr: sum(rate(istio_requests_total{reporter="destination",response_code!~"5.."}[5m])) / sum(rate(istio_requests_total{reporter="destination"}[5m]))
+          - title: "P99 Latency"
+            type: graph
+            targets:
+              - expr: histogram_quantile(0.99, sum(rate(istio_request_duration_milliseconds_bucket{reporter="destination"}[5m])) by (le, destination_service_name))
+
+# OpenTelemetry configuration
+opentelemetry:
+  enabled: true
+  
+  # OTel Collector
+  collector:
+    enabled: true
+    mode: deployment
+    replicaCount: 3
+    
+    config:
+      receivers:
+        otlp:
+          protocols:
+            grpc:
+              endpoint: 0.0.0.0:4317
+            http:
+              endpoint: 0.0.0.0:4318
+              
+      processors:
+        batch:
+          timeout: 1s
+          send_batch_size: 1024
+        memory_limiter:
+          limit_mib: 512
+          
+      exporters:
+        jaeger:
+          endpoint: jaeger-collector.monitoring.svc.cluster.local:14250
+          tls:
+            insecure: true
+        prometheus:
+          endpoint: "0.0.0.0:8889"
+          
+      service:
+        pipelines:
+          traces:
+            receivers: [otlp]
+            processors: [memory_limiter, batch]
+            exporters: [jaeger]
+          metrics:
+            receivers: [otlp]
+            processors: [memory_limiter, batch]
+            exporters: [prometheus]
+
+# Log aggregation
+logging:
+  enabled: true
+  
+  # Fluent Bit configuration
+  fluentBit:
+    enabled: true
+    config:
+      inputs: |
+        [INPUT]
+            Name tail
+            Path /var/log/containers/*zamaz*.log
+            Parser docker
+            Tag zamaz.*
+            Refresh_Interval 5
+            
+        [INPUT]
+            Name tail
+            Path /var/log/containers/*istio-proxy*.log
+            Parser docker
+            Tag istio.*
+            Refresh_Interval 5
+            
+      filters: |
+        [FILTER]
+            Name kubernetes
+            Match *
+            Kube_URL https://kubernetes.default.svc:443
+            Kube_CA_File /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+            Kube_Token_File /var/run/secrets/kubernetes.io/serviceaccount/token
+            
+        [FILTER]
+            Name nest
+            Match zamaz.*
+            Operation lift
+            Nested_under kubernetes
+            
+      outputs: |
+        [OUTPUT]
+            Name loki
+            Match *
+            Host loki.monitoring.svc.cluster.local
+            Port 3100
+            Labels job=fluentbit
+            Auto_Kubernetes_Labels true

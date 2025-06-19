@@ -1,0 +1,403 @@
+# Network Policy for Zamaz API pods
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: zamaz-api-network-policy
+  namespace: zamaz-prod
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: zamaz
+      app.kubernetes.io/component: api
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow ingress from ingress controller
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 8080
+  # Allow ingress from Istio sidecar
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: istio-system
+    ports:
+    - protocol: TCP
+      port: 8080
+    - protocol: TCP
+      port: 15090  # Envoy admin
+  # Allow ingress from Prometheus for metrics
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    - podSelector:
+        matchLabels:
+          app: prometheus
+    ports:
+    - protocol: TCP
+      port: 9090  # Metrics port
+  egress:
+  # Allow egress to PostgreSQL
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: zamaz-prod
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: postgresql
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow egress to Redis
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: zamaz-prod
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+  # Allow egress to Jaeger for tracing
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    - podSelector:
+        matchLabels:
+          app: jaeger
+    ports:
+    - protocol: TCP
+      port: 14268  # Jaeger collector
+  # Allow DNS resolution
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    - podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Allow HTTPS egress for external services (certificates, etc.)
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+---
+# Network Policy for Zamaz Frontend pods
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: zamaz-frontend-network-policy
+  namespace: zamaz-prod
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: zamaz
+      app.kubernetes.io/component: frontend
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow ingress from ingress controller
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 3000
+  # Allow ingress from Istio sidecar
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: istio-system
+    ports:
+    - protocol: TCP
+      port: 3000
+  egress:
+  # Allow egress to Zamaz API
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: zamaz-prod
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: zamaz
+          app.kubernetes.io/component: api
+    ports:
+    - protocol: TCP
+      port: 8080
+  # Allow DNS resolution
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    - podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+---
+# Network Policy for PostgreSQL
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgresql-network-policy
+  namespace: zamaz-prod
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: postgresql
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Only allow ingress from Zamaz API pods
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: zamaz-prod
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: zamaz
+          app.kubernetes.io/component: api
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow monitoring from Prometheus
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    - podSelector:
+        matchLabels:
+          app: prometheus
+    ports:
+    - protocol: TCP
+      port: 9187  # PostgreSQL exporter
+  egress:
+  # Allow DNS resolution
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    - podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+---
+# Network Policy for Redis
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis-network-policy
+  namespace: zamaz-prod
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Only allow ingress from Zamaz API pods
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: zamaz-prod
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: zamaz
+          app.kubernetes.io/component: api
+    ports:
+    - protocol: TCP
+      port: 6379
+  # Allow monitoring from Prometheus
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    - podSelector:
+        matchLabels:
+          app: prometheus
+    ports:
+    - protocol: TCP
+      port: 9121  # Redis exporter
+  egress:
+  # Allow DNS resolution
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    - podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+---
+# Deny-all default policy (applied to entire namespace)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: zamaz-prod
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+# Network Policy for monitoring access
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: monitoring-access-policy
+  namespace: zamaz-prod
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: zamaz
+  policyTypes:
+  - Ingress
+  ingress:
+  # Allow monitoring scraping from Prometheus
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: monitoring
+    - podSelector:
+        matchLabels:
+          app: prometheus
+    ports:
+    - protocol: TCP
+      port: 9090  # Application metrics
+  # Allow log collection from Fluentd/Filebeat
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: logging
+    - podSelector:
+        matchLabels:
+          app: fluentd
+    ports:
+    - protocol: TCP
+      port: 24224
+---
+# Network Policy for external communication
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: external-communication-policy
+  namespace: zamaz-prod
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: zamaz
+      app.kubernetes.io/component: api
+  policyTypes:
+  - Egress
+  egress:
+  # Allow HTTPS to external services
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 443
+  # Allow SMTP for email notifications
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 587
+    - protocol: TCP
+      port: 465
+  # Allow NTP for time synchronization
+  - to: []
+    ports:
+    - protocol: UDP
+      port: 123
+---
+# Network Policy for Istio service mesh
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: istio-mesh-policy
+  namespace: zamaz-prod
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: zamaz
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow Istio sidecar communication
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: istio-system
+    ports:
+    - protocol: TCP
+      port: 15090  # Envoy admin
+    - protocol: TCP
+      port: 15000  # Envoy admin
+    - protocol: TCP
+      port: 15001  # Envoy outbound
+    - protocol: TCP
+      port: 15006  # Envoy inbound
+  egress:
+  # Allow Istio control plane communication
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: istio-system
+    ports:
+    - protocol: TCP
+      port: 15010  # Pilot
+    - protocol: TCP
+      port: 15011  # Pilot
+    - protocol: TCP
+      port: 15014  # Citadel
+---
+# Network Policy for emergency access (break-glass)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: emergency-access-policy
+  namespace: zamaz-prod
+  labels:
+    emergency: "true"
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: zamaz
+  policyTypes:
+  - Ingress
+  ingress:
+  # Allow access from emergency/admin namespace
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: emergency-access
+    - podSelector:
+        matchLabels:
+          role: emergency-admin
+    ports:
+    - protocol: TCP
+      port: 8080
+    - protocol: TCP
+      port: 22  # SSH for debugging (if enabled)

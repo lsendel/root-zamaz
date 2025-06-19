@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../hooks/useAuth'
+import { useAuthStore } from '../stores/auth-store'
+import { useLogin } from '../hooks/api/use-auth'
 
 export default function LoginPage() {
-  const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
   
-  const { login, isAuthenticated, error, isLoading } = useAuth()
+  const isAuthenticated = useAuthStore(state => state.isAuthenticated)
+  const isLoading = useAuthStore(state => state.isLoading)
+  const error = useAuthStore(state => state.error)
+  const clearError = useAuthStore(state => state.clearError)
+  
+  const loginMutation = useLogin()
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -19,17 +24,21 @@ export default function LoginPage() {
     }
   }, [isAuthenticated, navigate])
 
+  useEffect(() => {
+    // Clear error when component mounts or when inputs change
+    if (error) {
+      clearError()
+    }
+  }, [email, password, clearError, error])
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setIsSubmitting(true)
 
     try {
-      await login({ username, password })
+      await loginMutation.mutateAsync({ email, password })
       navigate('/dashboard')
     } catch (error) {
-      // Error is handled by the auth context
-    } finally {
-      setIsSubmitting(false)
+      // Error is handled by the mutation
     }
   }
 
@@ -57,16 +66,16 @@ export default function LoginPage() {
           )}
           
           <div className="form-group">
-            <label htmlFor="username">Username</label>
+            <label htmlFor="email">Email</label>
             <input
-              id="username"
-              name="username"
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              id="email"
+              name="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
-              disabled={isSubmitting}
-              placeholder="Enter your username"
+              disabled={loginMutation.isPending}
+              placeholder="Enter your email"
             />
           </div>
           
@@ -79,21 +88,21 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              disabled={isSubmitting}
+              disabled={loginMutation.isPending}
               placeholder="Enter your password"
             />
           </div>
           
           <button 
             type="submit" 
-            disabled={isSubmitting}
-            className={isSubmitting ? 'loading' : ''}
+            disabled={loginMutation.isPending}
+            className={loginMutation.isPending ? 'loading' : ''}
           >
-            {isSubmitting ? 'Signing In...' : 'Sign In'}
+            {loginMutation.isPending ? 'Signing In...' : 'Sign In'}
           </button>
           
           <div style={{ marginTop: '1rem', fontSize: '0.875rem', color: '#888' }}>
-            Demo credentials: admin / password
+            Demo credentials: admin@example.com / password
           </div>
         </form>
       </main>

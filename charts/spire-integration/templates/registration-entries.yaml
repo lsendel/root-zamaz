@@ -1,0 +1,122 @@
+{{- if .Values.registrationEntries.enabled }}
+# Job to create SPIRE registration entries
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: spire-registration-entries
+  namespace: spire-system
+  labels:
+    app: spire-registration
+    {{- include "spire-integration.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: spire-registration
+        {{- include "spire-integration.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ .Values.rbac.serviceAccount.server.name }}
+      restartPolicy: OnFailure
+      containers:
+      - name: spire-registration
+        image: "{{ .Values.global.image.registry }}/{{ .Values.server.image.repository }}:{{ .Values.server.image.tag }}"
+        imagePullPolicy: {{ .Values.global.image.pullPolicy }}
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          
+          # Wait for SPIRE server to be ready
+          echo "Waiting for SPIRE server to be ready..."
+          until /opt/spire/bin/spire-server healthcheck -socketPath /opt/spire/sockets/server.sock; do
+            echo "SPIRE server not ready, waiting..."
+            sleep 5
+          done
+          echo "SPIRE server is ready!"
+          
+          # Function to create registration entry
+          create_entry() {
+            local spiffe_id="$1"
+            local parent_id="$2"
+            shift 2
+            local selectors="$@"
+            
+            echo "Creating registration entry for $spiffe_id"
+            /opt/spire/bin/spire-server entry create \
+              -socketPath /opt/spire/sockets/server.sock \
+              -spiffeID "$spiffe_id" \
+              -parentID "$parent_id" \
+              $selectors \
+              || echo "Entry already exists or failed to create: $spiffe_id"
+          }
+          
+          # Create node entry for Kubernetes nodes
+          echo "Creating node entry for Kubernetes cluster"
+          /opt/spire/bin/spire-server entry create \
+            -socketPath /opt/spire/sockets/server.sock \
+            -spiffeID "spiffe://{{ .Values.global.trustDomain }}/node/{{ .Values.global.clusterName }}" \
+            -parentID "spiffe://{{ .Values.global.trustDomain }}/spire/server" \
+            -selector "k8s_psat:cluster:{{ .Values.global.clusterName }}" \
+            -selector "k8s_psat:agent_ns:spire-system" \
+            -selector "k8s_psat:agent_sa:{{ .Values.rbac.serviceAccount.agent.name }}" \
+            || echo "Node entry already exists or failed to create"
+          
+          {{- if .Values.registrationEntries.zamazApi }}
+          # Create Zamaz API workload entry
+          create_entry \
+            "{{ .Values.registrationEntries.zamazApi.spiffeId }}" \
+            "{{ .Values.registrationEntries.zamazApi.parentId }}" \
+            {{- range .Values.registrationEntries.zamazApi.selectors }}
+            -selector "{{ . }}" \
+            {{- end }}
+          {{- end }}
+          
+          {{- if .Values.registrationEntries.zamazFrontend }}
+          # Create Zamaz Frontend workload entry
+          create_entry \
+            "{{ .Values.registrationEntries.zamazFrontend.spiffeId }}" \
+            "{{ .Values.registrationEntries.zamazFrontend.parentId }}" \
+            {{- range .Values.registrationEntries.zamazFrontend.selectors }}
+            -selector "{{ . }}" \
+            {{- end }}
+          {{- end }}
+          
+          {{- if .Values.registrationEntries.istioGateway }}
+          # Create Istio Gateway workload entry
+          create_entry \
+            "{{ .Values.registrationEntries.istioGateway.spiffeId }}" \
+            "{{ .Values.registrationEntries.istioGateway.parentId }}" \
+            {{- range .Values.registrationEntries.istioGateway.selectors }}
+            -selector "{{ . }}" \
+            {{- end }}
+          {{- end }}
+          
+          echo "Registration entries creation completed!"
+          
+          # List all entries for verification
+          echo "Current registration entries:"
+          /opt/spire/bin/spire-server entry show -socketPath /opt/spire/sockets/server.sock
+        volumeMounts:
+        - name: spire-sockets
+          mountPath: /opt/spire/sockets
+          readOnly: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+      volumes:
+      - name: spire-sockets
+        hostPath:
+          path: /opt/spire/sockets
+          type: DirectoryOrCreate
+{{- end }}

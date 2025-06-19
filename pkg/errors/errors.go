@@ -138,6 +138,15 @@ func Validation(message string) *AppError {
 	return NewAppError(CodeValidation, message)
 }
 
+// ValidationWithDetails creates a validation error with context details
+func ValidationWithDetails(message string, details map[string]interface{}) *AppError {
+	return &AppError{
+		Code:    CodeValidation,
+		Message: message,
+		Context: details,
+	}
+}
+
 // Authentication creates an authentication error
 func Authentication(message string) *AppError {
 	return NewAppError(CodeAuthentication, message)

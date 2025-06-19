@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"mvp.local/pkg/config"
@@ -227,9 +228,11 @@ func (a *AuthMiddleware) AuditMiddleware() fiber.Handler {
 
 		detailsJSON, _ := json.Marshal(details)
 
-		var userIDPtr *string
+		var userIDPtr *uuid.UUID
 		if userID != "" {
-			userIDPtr = &userID
+			if parsed, err := uuid.Parse(userID); err == nil {
+				userIDPtr = &parsed
+			}
 		}
 
 		auditLog := models.AuditLog{
@@ -284,9 +287,11 @@ func (a *AuthMiddleware) sendInternalError(c *fiber.Ctx, message string) error {
 }
 
 func (a *AuthMiddleware) logAuthEvent(c *fiber.Ctx, userID string, event string, success bool, details string) {
-	var userIDPtr *string
+	var userIDPtr *uuid.UUID
 	if userID != "" {
-		userIDPtr = &userID
+		if parsed, err := uuid.Parse(userID); err == nil {
+			userIDPtr = &parsed
+		}
 	}
 
 	auditLog := models.AuditLog{

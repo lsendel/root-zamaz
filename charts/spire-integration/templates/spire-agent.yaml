@@ -1,0 +1,98 @@
+{{- if .Values.agent.enabled }}
+# SPIRE Agent DaemonSet
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: spire-agent
+  namespace: spire-system
+  labels:
+    app: spire-agent
+    {{- include "spire-integration.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      app: spire-agent
+  updateStrategy:
+    {{- toYaml .Values.agent.daemonset.updateStrategy | nindent 4 }}
+  template:
+    metadata:
+      labels:
+        app: spire-agent
+        {{- include "spire-integration.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ .Values.rbac.serviceAccount.agent.name }}
+      hostPID: true
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+      - name: spire-agent
+        image: "{{ .Values.global.image.registry }}/{{ .Values.agent.image.repository }}:{{ .Values.agent.image.tag }}"
+        imagePullPolicy: {{ .Values.global.image.pullPolicy }}
+        args:
+          - -config
+          - /opt/spire/conf/agent/agent.conf
+        ports:
+        - name: health
+          containerPort: 8080
+          protocol: TCP
+        livenessProbe:
+          httpGet:
+            path: /live
+            port: health
+          initialDelaySeconds: 15
+          periodSeconds: 60
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: health
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        resources:
+          {{- toYaml .Values.agent.resources | nindent 10 }}
+        volumeMounts:
+        - name: spire-config
+          mountPath: /opt/spire/conf/agent
+          readOnly: true
+        - name: spire-data
+          mountPath: /opt/spire/data
+        - name: spire-agent-socket
+          mountPath: /run/spire/sockets
+        - name: spire-bundle
+          mountPath: /opt/spire/conf/agent/bootstrap.crt
+          subPath: bootstrap.crt
+          readOnly: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+      volumes:
+      - name: spire-config
+        configMap:
+          name: spire-agent-config
+      - name: spire-data
+        emptyDir: {}
+      - name: spire-agent-socket
+        hostPath:
+          path: /run/spire/sockets
+          type: DirectoryOrCreate
+      - name: spire-bundle
+        configMap:
+          name: spire-bundle
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+      - operator: Exists
+        effect: NoSchedule
+      - operator: Exists
+        effect: NoExecute
+{{- end }}

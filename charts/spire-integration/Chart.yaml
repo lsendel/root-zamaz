@@ -1,0 +1,21 @@
+apiVersion: v2
+name: spire-integration
+description: SPIRE Integration for Zamaz Zero Trust Authentication
+type: application
+version: 1.0.0
+appVersion: "1.8.5"
+home: https://github.com/your-org/zamaz
+sources:
+  - https://github.com/your-org/zamaz
+maintainers:
+  - name: Platform Team
+    email: platform-team@company.com
+keywords:
+  - spire
+  - spiffe
+  - zero-trust
+  - workload-identity
+  - security
+annotations:
+  category: Security
+  licenses: Apache-2.0

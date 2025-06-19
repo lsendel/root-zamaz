@@ -1,0 +1,35 @@
+{{- if .Values.security.peerAuthentication.enabled }}
+# Default PeerAuthentication for the namespace
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: {{ .Values.virtualService.namespace }}
+  labels:
+    {{- include "istio-mesh.labels" . | nindent 4 }}
+spec:
+  mtls:
+    {{- toYaml .Values.security.peerAuthentication.default.mtls | nindent 4 }}
+---
+{{- if .Values.security.peerAuthentication.workloadSpecific }}
+{{- range $workload, $config := .Values.security.peerAuthentication.workloadSpecific }}
+# PeerAuthentication for {{ $workload }}
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: {{ $workload }}-peer-auth
+  namespace: {{ $.Values.virtualService.namespace }}
+  labels:
+    {{- include "istio-mesh.labels" $ | nindent 4 }}
+    workload: {{ $workload }}
+spec:
+  selector:
+    matchLabels:
+      app: zamaz
+      component: {{ if eq $workload "zamaz-api" }}api{{ else if eq $workload "zamaz-frontend" }}frontend{{ else }}{{ $workload }}{{ end }}
+  mtls:
+    {{- toYaml $config.mtls | nindent 4 }}
+---
+{{- end }}
+{{- end }}
+{{- end }}

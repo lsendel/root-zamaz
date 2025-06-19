@@ -1,0 +1,573 @@
+// Package handlers provides unit tests for session regeneration functionality in authentication.
+package handlers
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/bcrypt"
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
+
+	"mvp.local/pkg/auth"
+	"mvp.local/pkg/config"
+	"mvp.local/pkg/models"
+	"mvp.local/pkg/observability"
+	"mvp.local/pkg/security"
+	"mvp.local/pkg/session"
+)
+
+// Mock implementations for testing
+type MockJWTService struct {
+	mock.Mock
+}
+
+func (m *MockJWTService) GenerateToken(user *models.User, roles []string, permissions []string) (*auth.TokenResponse, error) {
+	args := m.Called(user, roles, permissions)
+	return args.Get(0).(*auth.TokenResponse), args.Error(1)
+}
+
+func (m *MockJWTService) ValidateToken(tokenString string) (*auth.Claims, error) {
+	args := m.Called(tokenString)
+	return args.Get(0).(*auth.Claims), args.Error(1)
+}
+
+func (m *MockJWTService) RefreshToken(refreshToken string) (*auth.TokenResponse, error) {
+	args := m.Called(refreshToken)
+	return args.Get(0).(*auth.TokenResponse), args.Error(1)
+}
+
+func (m *MockJWTService) GetUserRolesAndPermissions(userID string) ([]string, []string, error) {
+	args := m.Called(userID)
+	return args.Get(0).([]string), args.Get(1).([]string), args.Error(2)
+}
+
+type MockAuthzService struct {
+	mock.Mock
+}
+
+func (m *MockAuthzService) GetUserRoles(userID string) ([]string, error) {
+	args := m.Called(userID)
+	return args.Get(0).([]string), args.Error(1)
+}
+
+func (m *MockAuthzService) GetUserPermissions(userID string) ([]string, error) {
+	args := m.Called(userID)
+	return args.Get(0).([]string), args.Error(1)
+}
+
+func (m *MockAuthzService) HasPermission(userID string, permission string) (bool, error) {
+	args := m.Called(userID, permission)
+	return args.Bool(0), args.Error(1)
+}
+
+func (m *MockAuthzService) AddRoleToUser(userID string, role string) error {
+	args := m.Called(userID, role)
+	return args.Error(0)
+}
+
+func (m *MockAuthzService) RemoveRoleFromUser(userID string, role string) error {
+	args := m.Called(userID, role)
+	return args.Error(0)
+}
+
+type MockLockoutService struct {
+	mock.Mock
+}
+
+func (m *MockLockoutService) RecordFailedAttempt(identifier, ipAddress, userAgent, requestID string) error {
+	args := m.Called(identifier, ipAddress, userAgent, requestID)
+	return args.Error(0)
+}
+
+func (m *MockLockoutService) RecordSuccessfulAttempt(identifier, ipAddress, userAgent, requestID string) error {
+	args := m.Called(identifier, ipAddress, userAgent, requestID)
+	return args.Error(0)
+}
+
+func (m *MockLockoutService) IsLocked(identifier, ipAddress string) (bool, time.Duration, error) {
+	args := m.Called(identifier, ipAddress)
+	return args.Bool(0), args.Get(1).(time.Duration), args.Error(2)
+}
+
+func (m *MockLockoutService) ClearLockout(identifier, ipAddress string) error {
+	args := m.Called(identifier, ipAddress)
+	return args.Error(0)
+}
+
+// Test setup helpers
+func setupTestDB(t *testing.T) *gorm.DB {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+
+	// Auto-migrate test models
+	err = db.AutoMigrate(&models.User{}, &models.UserSession{}, &models.DeviceAttestation{})
+	require.NoError(t, err)
+
+	return db
+}
+
+func setupTestRedis(t *testing.T) *redis.Client {
+	// Use Redis server for integration tests or mock for unit tests
+	client := redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+		DB:   1, // Use test database
+	})
+
+	// Clean up test data
+	t.Cleanup(func() {
+		client.FlushDB(context.Background())
+		client.Close()
+	})
+
+	return client
+}
+
+func setupTestAuthHandler(t *testing.T) (*AuthHandler, *MockJWTService, *MockAuthzService, *MockLockoutService, *session.SessionManager) {
+	db := setupTestDB(t)
+	redisClient := setupTestRedis(t)
+
+	// Create mocks
+	mockJWT := &MockJWTService{}
+	mockAuthz := &MockAuthzService{}
+	mockLockout := &MockLockoutService{}
+
+	// Create session manager
+	sessionManager := session.NewSessionManager(redisClient)
+
+	// Create observability
+	obs, err := observability.New(observability.Config{
+		ServiceName: "test-auth",
+		LogLevel:    "debug",
+		LogFormat:   "console",
+	})
+	require.NoError(t, err)
+
+	// Create config
+	cfg := &config.Config{
+		HTTP: config.HTTPConfig{
+			TLS: config.TLSConfig{
+				Enabled: false, // Disable TLS for testing
+			},
+		},
+	}
+
+	// Create password validator
+	passwordValidator := security.NewPasswordValidator()
+
+	// Create auth handler
+	handler := NewAuthHandler(
+		db,
+		mockJWT,
+		mockAuthz,
+		mockLockout,
+		passwordValidator,
+		sessionManager,
+		obs,
+		cfg,
+	)
+
+	return handler, mockJWT, mockAuthz, mockLockout, sessionManager
+}
+
+func createTestUser(t *testing.T, db *gorm.DB) *models.User {
+	password, err := bcrypt.GenerateFromPassword([]byte("TestPassword123!"), bcrypt.DefaultCost)
+	require.NoError(t, err)
+
+	user := &models.User{
+		ID:           uuid.New(),
+		Username:     "testuser",
+		Email:        "test@example.com",
+		PasswordHash: string(password),
+		IsActive:     true,
+		IsVerified:   true,
+		IsAdmin:      false,
+	}
+
+	err = db.Create(user).Error
+	require.NoError(t, err)
+
+	return user
+}
+
+// Test cases for session regeneration after login
+func TestLogin_SessionRegeneration(t *testing.T) {
+	handler, mockJWT, mockAuthz, mockLockout, sessionManager := setupTestAuthHandler(t)
+	user := createTestUser(t, handler.db)
+
+	// Setup mocks
+	mockLockout.On("IsLocked", "testuser", mock.AnythingOfType("string")).Return(false, time.Duration(0), nil)
+	mockLockout.On("RecordSuccessfulAttempt", "testuser", mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+	mockJWT.On("GetUserRolesAndPermissions", user.ID.String()).Return([]string{"user"}, []string{"read"}, nil)
+	mockJWT.On("GenerateToken", user, []string{"user"}, []string{"read"}).Return(&auth.TokenResponse{
+		AccessToken:  "test-access-token",
+		RefreshToken: "test-refresh-token",
+		ExpiresAt:    time.Now().Add(time.Hour),
+		TokenType:    "Bearer",
+	}, nil)
+
+	// Create test app
+	app := fiber.New()
+	app.Post("/login", handler.Login)
+
+	// Create login request
+	loginReq := LoginRequest{
+		Username: "testuser",
+		Password: "TestPassword123!",
+	}
+	reqBody, _ := json.Marshal(loginReq)
+
+	// Send login request
+	req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Real-IP", "192.168.1.1")
+	req.Header.Set("User-Agent", "Test-Agent/1.0")
+
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Assert successful login
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	// Check that session cookie was set
+	cookies := resp.Cookies()
+	var sessionCookie *http.Cookie
+	for _, cookie := range cookies {
+		if cookie.Name == "session_id" {
+			sessionCookie = cookie
+			break
+		}
+	}
+	require.NotNil(t, sessionCookie, "Session cookie should be set after login")
+	assert.NotEmpty(t, sessionCookie.Value, "Session cookie should have a value")
+	assert.True(t, sessionCookie.HttpOnly, "Session cookie should be HTTP-only")
+	assert.Equal(t, "Strict", sessionCookie.SameSite.String(), "Session cookie should use Strict SameSite")
+
+	// Verify session exists in Redis
+	sessionData, err := sessionManager.GetSession(context.Background(), sessionCookie.Value)
+	require.NoError(t, err, "Session should exist in Redis")
+	assert.Equal(t, user.ID.String(), sessionData.UserID, "Session should belong to the correct user")
+	assert.Equal(t, user.Username, sessionData.Username, "Session should have correct username")
+	assert.Contains(t, sessionData.Roles, "user", "Session should have user role")
+
+	// Verify all mocks were called
+	mockJWT.AssertExpectations(t)
+	mockAuthz.AssertExpectations(t)
+	mockLockout.AssertExpectations(t)
+}
+
+func TestChangePassword_SessionRegeneration(t *testing.T) {
+	handler, mockJWT, mockAuthz, mockLockout, sessionManager := setupTestAuthHandler(t)
+	user := createTestUser(t, handler.db)
+
+	// Setup mocks for password change
+	mockJWT.On("GetUserRolesAndPermissions", user.ID.String()).Return([]string{"user"}, []string{"read"}, nil)
+
+	// Create initial session
+	sessionData := session.SessionData{
+		UserID:      user.ID.String(),
+		Email:       user.Email,
+		Username:    user.Username,
+		Roles:       []string{"user"},
+		Permissions: []string{"read"},
+		IPAddress:   "192.168.1.1",
+		UserAgent:   "Test-Agent/1.0",
+		DeviceID:    "",
+		IsActive:    true,
+		Metadata: map[string]interface{}{
+			"trust_level": "trusted",
+		},
+	}
+	initialSession, err := sessionManager.CreateSession(context.Background(), user.ID.String(), sessionData)
+	require.NoError(t, err)
+
+	// Create test app with auth middleware simulation
+	app := fiber.New()
+	app.Use(func(c *fiber.Ctx) error {
+		// Simulate authenticated user in context
+		c.Locals("user", user)
+		c.Locals("user_id", user.ID.String())
+		return c.Next()
+	})
+	app.Post("/change-password", handler.ChangePassword)
+
+	// Create password change request
+	changeReq := ChangePasswordRequest{
+		CurrentPassword: "TestPassword123!",
+		NewPassword:     "NewPassword123!",
+	}
+	reqBody, _ := json.Marshal(changeReq)
+
+	// Send password change request with session cookie
+	req := httptest.NewRequest(http.MethodPost, "/change-password", bytes.NewReader(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Real-IP", "192.168.1.1")
+	req.Header.Set("User-Agent", "Test-Agent/1.0")
+	req.AddCookie(&http.Cookie{Name: "session_id", Value: initialSession.SessionID})
+
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Assert successful password change
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	// Check that new session cookie was set
+	cookies := resp.Cookies()
+	var newSessionCookie *http.Cookie
+	for _, cookie := range cookies {
+		if cookie.Name == "session_id" {
+			newSessionCookie = cookie
+			break
+		}
+	}
+	require.NotNil(t, newSessionCookie, "New session cookie should be set after password change")
+	assert.NotEqual(t, initialSession.SessionID, newSessionCookie.Value, "Session ID should be different after password change")
+
+	// Verify new session exists in Redis
+	newSessionData, err := sessionManager.GetSession(context.Background(), newSessionCookie.Value)
+	require.NoError(t, err, "New session should exist in Redis")
+	assert.Equal(t, user.ID.String(), newSessionData.UserID, "New session should belong to the correct user")
+
+	// Verify old session was invalidated (should still exist but will be cleaned up by session manager)
+	// The session manager handles cleanup of old sessions based on max sessions limit
+
+	// Verify all mocks were called
+	mockJWT.AssertExpectations(t)
+}
+
+func TestLogout_SessionCleanup(t *testing.T) {
+	handler, mockJWT, mockAuthz, mockLockout, sessionManager := setupTestAuthHandler(t)
+	user := createTestUser(t, handler.db)
+
+	// Create initial session
+	sessionData := session.SessionData{
+		UserID:      user.ID.String(),
+		Email:       user.Email,
+		Username:    user.Username,
+		Roles:       []string{"user"},
+		Permissions: []string{"read"},
+		IPAddress:   "192.168.1.1",
+		UserAgent:   "Test-Agent/1.0",
+		DeviceID:    "",
+		IsActive:    true,
+		Metadata: map[string]interface{}{
+			"trust_level": "trusted",
+		},
+	}
+	testSession, err := sessionManager.CreateSession(context.Background(), user.ID.String(), sessionData)
+	require.NoError(t, err)
+
+	// Create test app with auth middleware simulation
+	app := fiber.New()
+	app.Use(func(c *fiber.Ctx) error {
+		// Simulate authenticated user in context
+		c.Locals("user", user)
+		c.Locals("user_id", user.ID.String())
+		return c.Next()
+	})
+	app.Post("/logout", handler.Logout)
+
+	// Send logout request with session cookie
+	req := httptest.NewRequest(http.MethodPost, "/logout", nil)
+	req.Header.Set("X-Real-IP", "192.168.1.1")
+	req.Header.Set("User-Agent", "Test-Agent/1.0")
+	req.AddCookie(&http.Cookie{Name: "session_id", Value: testSession.SessionID})
+
+	resp, err := app.Test(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Assert successful logout
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	// Check that session cookie was cleared
+	cookies := resp.Cookies()
+	var sessionCookie *http.Cookie
+	for _, cookie := range cookies {
+		if cookie.Name == "session_id" {
+			sessionCookie = cookie
+			break
+		}
+	}
+	require.NotNil(t, sessionCookie, "Session cookie should be present to clear it")
+	assert.Empty(t, sessionCookie.Value, "Session cookie should be empty after logout")
+	assert.True(t, sessionCookie.Expires.Before(time.Now()), "Session cookie should be expired")
+
+	// Verify session was invalidated in Redis
+	_, err = sessionManager.GetSession(context.Background(), testSession.SessionID)
+	assert.Error(t, err, "Session should not exist in Redis after logout")
+}
+
+func TestSessionRegeneration_SecurityProperties(t *testing.T) {
+	handler, mockJWT, mockAuthz, mockLockout, sessionManager := setupTestAuthHandler(t)
+	user := createTestUser(t, handler.db)
+
+	t.Run("Session regeneration prevents session fixation", func(t *testing.T) {
+		// Setup mocks
+		mockLockout.On("IsLocked", "testuser", mock.AnythingOfType("string")).Return(false, time.Duration(0), nil)
+		mockLockout.On("RecordSuccessfulAttempt", "testuser", mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+		mockJWT.On("GetUserRolesAndPermissions", user.ID.String()).Return([]string{"user"}, []string{"read"}, nil)
+		mockJWT.On("GenerateToken", user, []string{"user"}, []string{"read"}).Return(&auth.TokenResponse{
+			AccessToken:  "test-access-token",
+			RefreshToken: "test-refresh-token",
+			ExpiresAt:    time.Now().Add(time.Hour),
+			TokenType:    "Bearer",
+		}, nil)
+
+		// Simulate an attacker pre-setting a session ID
+		attackerSessionID := "attacker-controlled-session-id"
+
+		// Create test app
+		app := fiber.New()
+		app.Post("/login", handler.Login)
+
+		// Create login request with attacker's session cookie
+		loginReq := LoginRequest{
+			Username: "testuser",
+			Password: "TestPassword123!",
+		}
+		reqBody, _ := json.Marshal(loginReq)
+
+		req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(reqBody))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Real-IP", "192.168.1.1")
+		req.Header.Set("User-Agent", "Test-Agent/1.0")
+		req.AddCookie(&http.Cookie{Name: "session_id", Value: attackerSessionID})
+
+		resp, err := app.Test(req)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+
+		// Assert successful login
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+		// Check that a NEW session cookie was set (not the attacker's)
+		cookies := resp.Cookies()
+		var sessionCookie *http.Cookie
+		for _, cookie := range cookies {
+			if cookie.Name == "session_id" {
+				sessionCookie = cookie
+				break
+			}
+		}
+		require.NotNil(t, sessionCookie, "New session cookie should be set")
+		assert.NotEqual(t, attackerSessionID, sessionCookie.Value, "Session ID should be regenerated, not use attacker's ID")
+		assert.NotEmpty(t, sessionCookie.Value, "New session ID should not be empty")
+
+		// Verify the attacker's session doesn't exist or is invalid
+		_, err = sessionManager.GetSession(context.Background(), attackerSessionID)
+		assert.Error(t, err, "Attacker's session should not be valid")
+
+		// Verify the new session exists and is valid
+		newSessionData, err := sessionManager.GetSession(context.Background(), sessionCookie.Value)
+		require.NoError(t, err, "New session should be valid")
+		assert.Equal(t, user.ID.String(), newSessionData.UserID, "New session should belong to the correct user")
+	})
+
+	t.Run("Session has proper security attributes", func(t *testing.T) {
+		// Setup mocks
+		mockLockout.On("IsLocked", "testuser", mock.AnythingOfType("string")).Return(false, time.Duration(0), nil)
+		mockLockout.On("RecordSuccessfulAttempt", "testuser", mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+		mockJWT.On("GetUserRolesAndPermissions", user.ID.String()).Return([]string{"user"}, []string{"read"}, nil)
+		mockJWT.On("GenerateToken", user, []string{"user"}, []string{"read"}).Return(&auth.TokenResponse{
+			AccessToken:  "test-access-token",
+			RefreshToken: "test-refresh-token",
+			ExpiresAt:    time.Now().Add(time.Hour),
+			TokenType:    "Bearer",
+		}, nil)
+
+		// Create test app
+		app := fiber.New()
+		app.Post("/login", handler.Login)
+
+		// Create login request
+		loginReq := LoginRequest{
+			Username: "testuser",
+			Password: "TestPassword123!",
+		}
+		reqBody, _ := json.Marshal(loginReq)
+
+		req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(reqBody))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Real-IP", "192.168.1.1")
+		req.Header.Set("User-Agent", "Test-Agent/1.0")
+
+		resp, err := app.Test(req)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+
+		// Check session cookie security attributes
+		cookies := resp.Cookies()
+		var sessionCookie *http.Cookie
+		for _, cookie := range cookies {
+			if cookie.Name == "session_id" {
+				sessionCookie = cookie
+				break
+			}
+		}
+		require.NotNil(t, sessionCookie, "Session cookie should be set")
+
+		// Verify security attributes
+		assert.True(t, sessionCookie.HttpOnly, "Session cookie must be HttpOnly")
+		assert.Equal(t, "Strict", sessionCookie.SameSite.String(), "Session cookie must use Strict SameSite")
+		assert.Equal(t, "/", sessionCookie.Path, "Session cookie must have root path")
+		assert.False(t, sessionCookie.Secure, "Session cookie Secure flag should match TLS config (false in test)")
+		assert.True(t, sessionCookie.Expires.After(time.Now()), "Session cookie should have future expiration")
+	})
+}
+
+// Benchmark tests for session regeneration performance
+func BenchmarkSessionRegeneration(b *testing.B) {
+	handler, mockJWT, mockAuthz, mockLockout, _ := setupTestAuthHandler(&testing.T{})
+	user := createTestUser(&testing.T{}, handler.db)
+
+	// Setup mocks
+	mockLockout.On("IsLocked", "testuser", mock.AnythingOfType("string")).Return(false, time.Duration(0), nil)
+	mockLockout.On("RecordSuccessfulAttempt", "testuser", mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil)
+	mockJWT.On("GetUserRolesAndPermissions", user.ID.String()).Return([]string{"user"}, []string{"read"}, nil)
+	mockJWT.On("GenerateToken", user, []string{"user"}, []string{"read"}).Return(&auth.TokenResponse{
+		AccessToken:  "test-access-token",
+		RefreshToken: "test-refresh-token",
+		ExpiresAt:    time.Now().Add(time.Hour),
+		TokenType:    "Bearer",
+	}, nil)
+
+	// Create test app
+	app := fiber.New()
+	app.Post("/login", handler.Login)
+
+	// Create login request
+	loginReq := LoginRequest{
+		Username: "testuser",
+		Password: "TestPassword123!",
+	}
+	reqBody, _ := json.Marshal(loginReq)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		req := httptest.NewRequest(http.MethodPost, "/login", bytes.NewReader(reqBody))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Real-IP", fmt.Sprintf("192.168.1.%d", i%255+1))
+		req.Header.Set("User-Agent", "Test-Agent/1.0")
+
+		resp, err := app.Test(req)
+		if err != nil {
+			b.Fatal(err)
+		}
+		resp.Body.Close()
+	}
+}

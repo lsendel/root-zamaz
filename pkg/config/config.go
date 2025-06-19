@@ -260,7 +260,15 @@ func loadFromEnv(config *Config) error {
 	config.Database.SSLMode = getEnvWithDefault("DB_SSL_MODE", "disable")
 	config.Database.MaxConnections = getEnvIntWithDefault("DB_MAX_CONNECTIONS", 25)
 	config.Database.MaxIdleConns = getEnvIntWithDefault("DB_MAX_IDLE_CONNS", 5)
+	config.Database.MinIdleConns = getEnvIntWithDefault("DB_MIN_IDLE_CONNS", 2)
 	config.Database.ConnMaxLifetime = getEnvDurationWithDefault("DB_CONN_MAX_LIFETIME", 300*time.Second)
+	config.Database.ConnMaxIdleTime = getEnvDurationWithDefault("DB_CONN_MAX_IDLE_TIME", 60*time.Second)
+	config.Database.QueryTimeout = getEnvDurationWithDefault("DB_QUERY_TIMEOUT", 30*time.Second)
+	config.Database.ConnectTimeout = getEnvDurationWithDefault("DB_CONNECT_TIMEOUT", 10*time.Second)
+	config.Database.PrepareStmt = getEnvBoolWithDefault("DB_PREPARE_STMT", true)
+	config.Database.DisableForeignKey = getEnvBoolWithDefault("DB_DISABLE_FOREIGN_KEY", false)
+	config.Database.EnableMetrics = getEnvBoolWithDefault("DB_ENABLE_METRICS", true)
+	config.Database.SlowQueryThreshold = getEnvDurationWithDefault("DB_SLOW_QUERY_THRESHOLD", 1*time.Second)
 
 	// Set Redis config
 	config.Redis.Host = getEnvWithDefault("REDIS_HOST", "localhost")

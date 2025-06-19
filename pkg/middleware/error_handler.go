@@ -2,11 +2,20 @@
 package middleware
 
 import (
+	"runtime/debug"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
 	"mvp.local/pkg/errors"
 	"mvp.local/pkg/observability"
+)
+
+// Context key for storing database transaction
+type contextKey string
+
+const (
+	TransactionContextKey contextKey = "db_transaction"
 )
 
 // ErrorResponse represents the structure of error responses sent to clients
@@ -245,25 +254,68 @@ func sanitizeError(appErr *errors.AppError, statusCode int) *errors.AppError {
 	}
 }
 
+// SetTransactionInContext stores a database transaction in the fiber context
+func SetTransactionInContext(c *fiber.Ctx, tx *gorm.DB) {
+	c.Locals(string(TransactionContextKey), tx)
+}
+
+// GetTransactionFromContext retrieves a database transaction from the fiber context
+func GetTransactionFromContext(c *fiber.Ctx) *gorm.DB {
+	if tx := c.Locals(string(TransactionContextKey)); tx != nil {
+		if gormTx, ok := tx.(*gorm.DB); ok {
+			return gormTx
+		}
+	}
+	return nil
+}
+
 // RecoveryMiddleware creates a panic recovery middleware that converts panics to errors
 func RecoveryMiddleware(obs *observability.Observability) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		defer func() {
 			if r := recover(); r != nil {
-				// Log the panic
+				// Check if there's an active transaction and roll it back
+				if tx := GetTransactionFromContext(c); tx != nil {
+					if rollbackTx := tx.Rollback(); rollbackTx.Error != nil {
+						obs.Logger.Error().
+							Err(rollbackTx.Error).
+							Interface("panic", r).
+							Msg("Failed to rollback transaction during panic recovery")
+					} else {
+						obs.Logger.Warn().
+							Interface("panic", r).
+							Msg("Transaction rolled back due to panic")
+					}
+				}
+
+				// Log the panic with additional context
 				obs.Logger.Error().
 					Interface("panic", r).
 					Str("method", c.Method()).
 					Str("path", c.Path()).
 					Str("user_agent", c.Get("User-Agent")).
 					Str("remote_ip", c.IP()).
+					Bytes("stack_trace", debug.Stack()).
 					Msg("Panic recovered")
 
-				// Create an internal error
-				err := errors.Internal("An unexpected error occurred")
-				
-				// Convert panic to error and handle it
-				c.Next(err)
+				// Set error status and response
+				c.Status(fiber.StatusInternalServerError)
+				response := ErrorResponse{
+					Error:     &errors.AppError{
+						Code:    errors.CodeInternal,
+						Message: "An unexpected error occurred",
+						Details: "System panic recovered",
+						Context: map[string]interface{}{
+							"panic": true,
+						},
+					},
+					Success:   false,
+					Timestamp: time.Now(),
+					RequestID: c.Get("X-Request-ID"),
+					Path:      c.Path(),
+					Method:    c.Method(),
+				}
+				c.JSON(response)
 			}
 		}()
 

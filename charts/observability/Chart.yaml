@@ -1,0 +1,36 @@
+apiVersion: v2
+name: observability
+description: Enhanced Observability Stack for Zamaz with Istio Service Mesh Integration
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+home: https://github.com/your-org/zamaz
+sources:
+  - https://github.com/your-org/zamaz
+maintainers:
+  - name: Platform Team
+    email: platform-team@company.com
+keywords:
+  - monitoring
+  - observability
+  - prometheus
+  - grafana
+  - jaeger
+  - istio
+  - service-mesh
+dependencies:
+  - name: kube-prometheus-stack
+    version: "51.2.0"
+    repository: "https://prometheus-community.github.io/helm-charts"
+    condition: prometheus.enabled
+  - name: jaeger
+    version: "0.71.11"
+    repository: "https://jaegertracing.github.io/helm-charts"
+    condition: jaeger.enabled
+  - name: loki
+    version: "5.36.0"
+    repository: "https://grafana.github.io/helm-charts"
+    condition: loki.enabled
+annotations:
+  category: Monitoring
+  licenses: Apache-2.0

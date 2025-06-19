@@ -258,9 +258,9 @@ func (a *AuthorizationService) syncDatabaseToPolicy() error {
 		for _, role := range user.Roles {
 			if role.IsActive {
 				// Check if role assignment already exists to avoid duplicates
-				hasRole, _ := a.enforcer.HasRoleForUser(user.ID, role.Name)
+				hasRole, _ := a.enforcer.HasRoleForUser(user.ID.String(), role.Name)
 				if !hasRole {
-					_, err := a.enforcer.AddRoleForUser(user.ID, role.Name)
+					_, err := a.enforcer.AddRoleForUser(user.ID.String(), role.Name)
 					if err != nil {
 						return errors.Wrap(err, errors.CodeInternal, fmt.Sprintf("Failed to add role %s for user %s", role.Name, user.ID))
 					}

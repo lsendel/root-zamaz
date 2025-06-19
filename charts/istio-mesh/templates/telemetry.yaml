@@ -1,0 +1,64 @@
+{{- if .Values.telemetry.enabled }}
+# Telemetry configuration for metrics
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: zamaz-metrics
+  namespace: {{ .Values.virtualService.namespace }}
+  labels:
+    {{- include "istio-mesh.labels" . | nindent 4 }}
+spec:
+  metrics:
+  - providers:
+    - name: prometheus
+  - overrides:
+    - match:
+        metric: ALL_METRICS
+      tagOverrides:
+        destination_service_name:
+          value: "{{ `{{.destination_service_name | default \"unknown\"}}` }}"
+        source_app:
+          value: "{{ `{{.source_app | default \"unknown\"}}` }}"
+        destination_app:
+          value: "{{ `{{.destination_app | default \"unknown\"}}` }}"
+---
+{{- if .Values.telemetry.accessLog.enabled }}
+# Telemetry configuration for access logs
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: zamaz-access-logs
+  namespace: {{ .Values.virtualService.namespace }}
+  labels:
+    {{- include "istio-mesh.labels" . | nindent 4 }}
+spec:
+  accessLogging:
+  - providers:
+    - name: otel
+  - match:
+      mode: CLIENT
+    format: |
+{{ .Values.telemetry.accessLog.format | indent 6 }}
+{{- end }}
+---
+{{- if .Values.telemetry.tracing.enabled }}
+# Telemetry configuration for tracing
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: zamaz-tracing
+  namespace: {{ .Values.virtualService.namespace }}
+  labels:
+    {{- include "istio-mesh.labels" . | nindent 4 }}
+spec:
+  tracing:
+  - randomSamplingPercentage: {{ .Values.telemetry.tracing.sampling | mul 100 }}
+  {{- if .Values.telemetry.tracing.custom_tags }}
+    customTags:
+    {{- range $name, $config := .Values.telemetry.tracing.custom_tags }}
+      {{ $name }}:
+        {{- toYaml $config | nindent 8 }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}

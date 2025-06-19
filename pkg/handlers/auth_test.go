@@ -19,7 +19,7 @@ func TestAuthHandlerCreation(t *testing.T) {
 	cfg := &config.Config{}
 
 	// Create handler - this should not panic
-	handler := NewAuthHandler(db, jwtMock, authzMock, lockoutMock, obs, cfg)
+	handler := NewAuthHandler(db, jwtMock, authzMock, lockoutMock, nil, nil, obs, cfg)
 
 	if handler == nil {
 		t.Fatal("AuthHandler should not be nil")

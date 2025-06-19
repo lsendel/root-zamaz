@@ -1,0 +1,159 @@
+# Pod Security Standards configuration for enhanced container security
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: zamaz-prod
+  labels:
+    # Enforce restricted Pod Security Standards
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+    # Pin to specific version of Pod Security Standards
+    pod-security.kubernetes.io/enforce-version: v1.28
+---
+# Pod Security Policy (for clusters that still use PSP)
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: zamaz-restricted-psp
+spec:
+  # Security: Require non-root containers
+  runAsUser:
+    rule: MustRunAsNonRoot
+  runAsGroup:
+    rule: MustRunAs
+    ranges:
+    - min: 1000
+      max: 65535
+  
+  # Security: Disable privilege escalation
+  allowPrivilegeEscalation: false
+  
+  # Security: Require non-privileged containers
+  privileged: false
+  
+  # Security: Restrict volume types
+  volumes:
+  - 'configMap'
+  - 'downwardAPI'
+  - 'emptyDir'
+  - 'persistentVolumeClaim'
+  - 'projected'
+  - 'secret'
+  
+  # Security: Require read-only root filesystem
+  readOnlyRootFilesystem: true
+  
+  # Security: Restrict capabilities
+  requiredDropCapabilities:
+  - ALL
+  allowedCapabilities: []
+  defaultAddCapabilities: []
+  
+  # Security: Disable host access
+  hostNetwork: false
+  hostIPC: false
+  hostPID: false
+  hostPorts: []
+  
+  # Security: Configure seccomp
+  seccomp:
+    rule: MustRunAs
+    defaultProfile: runtime/default
+  
+  # Security: Configure AppArmor
+  annotations:
+    apparmor.security.beta.kubernetes.io/allowedProfileNames: 'runtime/default'
+    apparmor.security.beta.kubernetes.io/defaultProfileName: 'runtime/default'
+  
+  # Security: Configure SELinux
+  seLinux:
+    rule: RunAsAny
+  
+  # Security: File system group
+  fsGroup:
+    rule: MustRunAs
+    ranges:
+    - min: 1000
+      max: 65535
+  
+  # Security: Supplemental groups
+  supplementalGroups:
+    rule: MustRunAs
+    ranges:
+    - min: 1000
+      max: 65535
+---
+# ClusterRole for Pod Security Policy
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: zamaz-psp-use
+rules:
+- apiGroups: ['policy']
+  resources: ['podsecuritypolicies']
+  verbs: ['use']
+  resourceNames:
+  - zamaz-restricted-psp
+---
+# ClusterRoleBinding for Pod Security Policy
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: zamaz-psp-binding
+roleRef:
+  kind: ClusterRole
+  name: zamaz-psp-use
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+- kind: ServiceAccount
+  name: zamaz
+  namespace: zamaz-prod
+- kind: ServiceAccount
+  name: default
+  namespace: zamaz-prod
+---
+# Security Context Constraints (for OpenShift)
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: zamaz-restricted-scc
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegedContainer: false
+allowedCapabilities: []
+defaultAddCapabilities: []
+dropCapabilities:
+- ALL
+fsGroup:
+  type: MustRunAs
+  ranges:
+  - min: 1000
+    max: 65535
+readOnlyRootFilesystem: true
+requiredDropCapabilities:
+- ALL
+runAsUser:
+  type: MustRunAsNonRoot
+seccompProfiles:
+- runtime/default
+seLinuxContext:
+  type: MustRunAs
+supplementalGroups:
+  type: MustRunAs
+  ranges:
+  - min: 1000
+    max: 65535
+volumes:
+- configMap
+- downwardAPI
+- emptyDir
+- persistentVolumeClaim
+- projected
+- secret
+users:
+- system:serviceaccount:zamaz-prod:zamaz
+- system:serviceaccount:zamaz-prod:default

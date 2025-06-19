@@ -1,0 +1,71 @@
+{{- if .Values.serviceMonitors.enabled }}
+{{- if .Values.serviceMonitors.istio.enabled }}
+{{- range .Values.serviceMonitors.istio.monitors }}
+# ServiceMonitor for Istio: {{ .name }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .name }}
+  namespace: {{ .namespace }}
+  labels:
+    {{- include "observability.labels" $ | nindent 4 }}
+    component: istio
+spec:
+  selector:
+    {{- toYaml .selector | nindent 4 }}
+  namespaceSelector:
+    matchNames:
+      - {{ $.Values.global.namespaces.istio }}
+      - {{ $.Values.global.namespaces.mesh }}
+  endpoints:
+    {{- toYaml .endpoints | nindent 4 }}
+---
+{{- end }}
+{{- end }}
+
+{{- if .Values.serviceMonitors.spire.enabled }}
+{{- range .Values.serviceMonitors.spire.monitors }}
+# ServiceMonitor for SPIRE: {{ .name }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .name }}
+  namespace: {{ .namespace }}
+  labels:
+    {{- include "observability.labels" $ | nindent 4 }}
+    component: spire
+spec:
+  selector:
+    {{- toYaml .selector | nindent 4 }}
+  namespaceSelector:
+    matchNames:
+      - spire-system
+  endpoints:
+    {{- toYaml .endpoints | nindent 4 }}
+---
+{{- end }}
+{{- end }}
+
+{{- if .Values.serviceMonitors.zamaz.enabled }}
+{{- range .Values.serviceMonitors.zamaz.monitors }}
+# ServiceMonitor for Zamaz: {{ .name }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .name }}
+  namespace: {{ .namespace }}
+  labels:
+    {{- include "observability.labels" $ | nindent 4 }}
+    component: zamaz
+spec:
+  selector:
+    {{- toYaml .selector | nindent 4 }}
+  namespaceSelector:
+    matchNames:
+      - {{ $.Values.global.namespaces.mesh }}
+  endpoints:
+    {{- toYaml .endpoints | nindent 4 }}
+---
+{{- end }}
+{{- end }}
+{{- end }}

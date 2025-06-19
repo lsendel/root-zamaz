@@ -1,0 +1,36 @@
+{{- if .Values.networkPolicies.enabled }}
+{{- if .Values.networkPolicies.defaultDeny }}
+{{- range .Values.networkPolicies.defaultDenyPolicies }}
+# Default deny-all policy for {{ .namespace }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: {{ .namespace }}
+  labels:
+    {{- include "security-policies.labels" $ | nindent 4 }}
+    policy-type: default-deny
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+{{- end }}
+{{- end }}
+
+{{- range .Values.networkPolicies.policies }}
+# Network policy: {{ .name }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .name }}
+  namespace: {{ .namespace }}
+  labels:
+    {{- include "security-policies.labels" $ | nindent 4 }}
+    policy-type: custom
+spec:
+  {{- toYaml .spec | nindent 2 }}
+---
+{{- end }}
+{{- end }}

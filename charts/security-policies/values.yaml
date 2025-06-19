@@ -1,0 +1,517 @@
+# Security Policies Configuration
+# Comprehensive security policies for Zero Trust Authentication MVP
+
+global:
+  # Target namespaces for security policies
+  namespaces:
+    mesh: zamaz-mesh
+    legacy: zamaz
+    system: zamaz-system
+    istio: istio-system
+    spire: spire-system
+    monitoring: monitoring
+
+# Pod Security Standards
+podSecurityStandards:
+  enabled: true
+  
+  # Namespace-level Pod Security Standards
+  namespaces:
+    # Strict security for mesh namespace
+    mesh:
+      enforce: "restricted"
+      audit: "restricted"
+      warn: "restricted"
+      
+    # Baseline for legacy namespace during migration
+    legacy:
+      enforce: "baseline"
+      audit: "restricted"
+      warn: "restricted"
+      
+    # Privileged for system components
+    system:
+      enforce: "privileged"
+      audit: "privileged"
+      warn: "privileged"
+
+# Network Policies
+networkPolicies:
+  enabled: true
+  defaultDeny: true
+  
+  # Default deny-all policy for each namespace
+  defaultDenyPolicies:
+    - namespace: zamaz-mesh
+    - namespace: zamaz
+    - namespace: zamaz-system
+    
+  # Specific network policies
+  policies:
+    # Zamaz Mesh namespace policies
+    - name: zamaz-mesh-ingress
+      namespace: zamaz-mesh
+      spec:
+        podSelector: {}
+        policyTypes:
+          - Ingress
+        ingress:
+          # Allow traffic from Istio gateway
+          - from:
+            - namespaceSelector:
+                matchLabels:
+                  name: istio-system
+            ports:
+            - protocol: TCP
+              port: 8080
+            - protocol: TCP
+              port: 3000
+            - protocol: TCP
+              port: 15090  # Envoy admin
+            - protocol: TCP
+              port: 15001  # Envoy outbound
+            - protocol: TCP
+              port: 15006  # Envoy inbound
+          # Allow inter-pod communication within namespace
+          - from:
+            - namespaceSelector:
+                matchLabels:
+                  name: zamaz-mesh
+            ports:
+            - protocol: TCP
+              port: 8080
+            - protocol: TCP
+              port: 3000
+            - protocol: TCP
+              port: 9090  # Metrics
+              
+    - name: zamaz-mesh-egress
+      namespace: zamaz-mesh
+      spec:
+        podSelector: {}
+        policyTypes:
+          - Egress
+        egress:
+          # Allow DNS resolution
+          - to:
+            - namespaceSelector:
+                matchLabels:
+                  name: kube-system
+            ports:
+            - protocol: UDP
+              port: 53
+          # Allow access to external services (databases, etc.)
+          - to: []
+            ports:
+            - protocol: TCP
+              port: 5432  # PostgreSQL
+            - protocol: TCP
+              port: 6379  # Redis
+            - protocol: TCP
+              port: 4222  # NATS
+            - protocol: TCP
+              port: 443   # HTTPS
+            - protocol: TCP
+              port: 80    # HTTP
+          # Allow access to SPIRE
+          - to:
+            - namespaceSelector:
+                matchLabels:
+                  name: spire-system
+            ports:
+            - protocol: TCP
+              port: 8081
+          # Allow access to monitoring
+          - to:
+            - namespaceSelector:
+                matchLabels:
+                  name: monitoring
+            ports:
+            - protocol: TCP
+              port: 9090  # Prometheus
+            - protocol: TCP
+              port: 3100  # Loki
+            - protocol: TCP
+              port: 14268 # Jaeger
+              
+    # API-specific policies
+    - name: zamaz-api-specific
+      namespace: zamaz-mesh
+      spec:
+        podSelector:
+          matchLabels:
+            app: zamaz
+            component: api
+        policyTypes:
+          - Ingress
+          - Egress
+        ingress:
+          # Allow from frontend and gateway only
+          - from:
+            - podSelector:
+                matchLabels:
+                  app: zamaz
+                  component: frontend
+            - namespaceSelector:
+                matchLabels:
+                  name: istio-system
+            ports:
+            - protocol: TCP
+              port: 8080
+            - protocol: TCP
+              port: 9090
+        egress:
+          # Database access
+          - to: []
+            ports:
+            - protocol: TCP
+              port: 5432
+          # Redis access
+          - to: []
+            ports:
+            - protocol: TCP
+              port: 6379
+          # NATS access
+          - to: []
+            ports:
+            - protocol: TCP
+              port: 4222
+          # DNS
+          - to:
+            - namespaceSelector:
+                matchLabels:
+                  name: kube-system
+            ports:
+            - protocol: UDP
+              port: 53
+              
+    # Frontend-specific policies
+    - name: zamaz-frontend-specific
+      namespace: zamaz-mesh
+      spec:
+        podSelector:
+          matchLabels:
+            app: zamaz
+            component: frontend
+        policyTypes:
+          - Ingress
+          - Egress
+        ingress:
+          # Allow from gateway only
+          - from:
+            - namespaceSelector:
+                matchLabels:
+                  name: istio-system
+            ports:
+            - protocol: TCP
+              port: 3000
+        egress:
+          # API access
+          - to:
+            - podSelector:
+                matchLabels:
+                  app: zamaz
+                  component: api
+            ports:
+            - protocol: TCP
+              port: 8080
+          # DNS
+          - to:
+            - namespaceSelector:
+                matchLabels:
+                  name: kube-system
+            ports:
+            - protocol: UDP
+              port: 53
+              
+    # Monitoring namespace policies
+    - name: monitoring-ingress
+      namespace: monitoring
+      spec:
+        podSelector: {}
+        policyTypes:
+          - Ingress
+        ingress:
+          # Allow from mesh namespace for metrics
+          - from:
+            - namespaceSelector:
+                matchLabels:
+                  name: zamaz-mesh
+            - namespaceSelector:
+                matchLabels:
+                  name: istio-system
+            - namespaceSelector:
+                matchLabels:
+                  name: spire-system
+            ports:
+            - protocol: TCP
+              port: 9090
+            - protocol: TCP
+              port: 3000
+            - protocol: TCP
+              port: 3100
+            - protocol: TCP
+              port: 16686
+              
+    # SPIRE namespace policies
+    - name: spire-system-policies
+      namespace: spire-system
+      spec:
+        podSelector: {}
+        policyTypes:
+          - Ingress
+          - Egress
+        ingress:
+          # Allow from mesh namespaces
+          - from:
+            - namespaceSelector:
+                matchLabels:
+                  name: zamaz-mesh
+            - namespaceSelector:
+                matchLabels:
+                  name: istio-system
+            ports:
+            - protocol: TCP
+              port: 8081
+            - protocol: TCP
+              port: 8080
+        egress:
+          # DNS and API server access
+          - to:
+            - namespaceSelector:
+                matchLabels:
+                  name: kube-system
+            ports:
+            - protocol: UDP
+              port: 53
+            - protocol: TCP
+              port: 443
+
+# Istio Security Policies
+istioSecurity:
+  enabled: true
+  
+  # Authorization Policies
+  authorizationPolicies:
+    # Default deny policy
+    - name: default-deny
+      namespace: zamaz-mesh
+      spec:
+        {}  # Empty spec means deny all
+        
+    # Allow ingress gateway access
+    - name: allow-ingress-gateway
+      namespace: zamaz-mesh
+      spec:
+        rules:
+        - from:
+          - source:
+              principals:
+                - "cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account"
+        - from:
+          - source:
+              principals:
+                - "cluster.local/ns/istio-system/sa/zamaz-gateway"
+                
+    # API access policy
+    - name: zamaz-api-access
+      namespace: zamaz-mesh
+      spec:
+        selector:
+          matchLabels:
+            app: zamaz
+            component: api
+        rules:
+        - from:
+          - source:
+              principals:
+                - "cluster.local/ns/istio-system/sa/zamaz-gateway"
+                - "cluster.local/ns/zamaz-mesh/sa/zamaz-frontend"
+          to:
+          - operation:
+              methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
+              paths: ["/api/*"]
+        - from:
+          - source:
+              principals:
+                - "cluster.local/ns/monitoring/sa/prometheus"
+          to:
+          - operation:
+              methods: ["GET"]
+              paths: ["/metrics", "/health"]
+              
+    # Frontend access policy
+    - name: zamaz-frontend-access
+      namespace: zamaz-mesh
+      spec:
+        selector:
+          matchLabels:
+            app: zamaz
+            component: frontend
+        rules:
+        - from:
+          - source:
+              principals:
+                - "cluster.local/ns/istio-system/sa/zamaz-gateway"
+          to:
+          - operation:
+              methods: ["GET"]
+              paths: ["/*"]
+        - from:
+          - source:
+              principals:
+                - "cluster.local/ns/monitoring/sa/prometheus"
+          to:
+          - operation:
+              methods: ["GET"]
+              paths: ["/health"]
+              
+  # Peer Authentication policies
+  peerAuthentication:
+    # Strict mTLS for entire mesh
+    - name: default-strict-mtls
+      namespace: zamaz-mesh
+      spec:
+        mtls:
+          mode: STRICT
+          
+    # Permissive for health checks (if needed)
+    - name: api-health-permissive
+      namespace: zamaz-mesh
+      spec:
+        selector:
+          matchLabels:
+            app: zamaz
+            component: api
+        portLevelMtls:
+          8080:
+            mode: STRICT
+          9090:
+            mode: PERMISSIVE  # For Prometheus scraping
+            
+    - name: frontend-health-permissive
+      namespace: zamaz-mesh
+      spec:
+        selector:
+          matchLabels:
+            app: zamaz
+            component: frontend
+        portLevelMtls:
+          3000:
+            mode: STRICT
+
+# Service Security Policies
+serviceSecurity:
+  enabled: true
+  
+  # Service mesh security configuration
+  serviceAccounts:
+    # Dedicated service accounts for each component
+    - name: zamaz-api
+      namespace: zamaz-mesh
+      annotations:
+        spiffe.io/spire-managed-identity: "true"
+        
+    - name: zamaz-frontend
+      namespace: zamaz-mesh
+      annotations:
+        spiffe.io/spire-managed-identity: "true"
+        
+  # RBAC for application components
+  rbac:
+    - name: zamaz-api-rbac
+      namespace: zamaz-mesh
+      serviceAccount: zamaz-api
+      rules:
+        - apiGroups: [""]
+          resources: ["secrets"]
+          resourceNames: ["zamaz-secrets"]
+          verbs: ["get"]
+        - apiGroups: [""]
+          resources: ["configmaps"]
+          resourceNames: ["zamaz-config"]
+          verbs: ["get", "watch"]
+          
+    - name: zamaz-frontend-rbac
+      namespace: zamaz-mesh
+      serviceAccount: zamaz-frontend
+      rules:
+        - apiGroups: [""]
+          resources: ["configmaps"]
+          resourceNames: ["zamaz-frontend-config"]
+          verbs: ["get", "watch"]
+
+# Security Monitoring
+securityMonitoring:
+  enabled: true
+  
+  # Falco rules for runtime security
+  falcoRules:
+    enabled: true
+    customRules:
+      - name: zamaz-suspicious-network
+        description: "Detect suspicious network activity in Zamaz namespace"
+        condition: >
+          (k8s_ns = "zamaz-mesh") and
+          (fd.sip != "127.0.0.1") and
+          (not (fd.sport in (8080, 3000, 9090, 15001, 15006, 15090)))
+        output: >
+          Suspicious network activity detected in Zamaz
+          (command=%proc.cmdline connection=%fd.name)
+        priority: WARNING
+        
+      - name: zamaz-unauthorized-process
+        description: "Detect unauthorized processes in Zamaz containers"
+        condition: >
+          (k8s_ns = "zamaz-mesh") and
+          (spawned_process) and
+          (not proc.name in (zamaz, node, nginx))
+        output: >
+          Unauthorized process spawned in Zamaz container
+          (command=%proc.cmdline user=%user.name container=%container.name)
+        priority: ERROR
+        
+  # Network monitoring with Cilium (if available)
+  ciliumPolicies:
+    enabled: false  # Enable if using Cilium CNI
+    
+# Compliance and Auditing
+compliance:
+  enabled: true
+  
+  # Pod Security Policies (deprecated but shown for reference)
+  podSecurityPolicy:
+    enabled: false  # Use Pod Security Standards instead
+    
+  # Security Context Constraints (OpenShift)
+  securityContextConstraints:
+    enabled: false
+    
+  # OPA Gatekeeper policies
+  gatekeeper:
+    enabled: true
+    policies:
+      - name: require-security-context
+        description: "Require non-root security context"
+        rego: |
+          package zamaz.security
+          
+          violation[{"msg": msg}] {
+            input.review.object.kind == "Pod"
+            input.review.object.metadata.namespace == "zamaz-mesh"
+            not input.review.object.spec.securityContext.runAsNonRoot
+            msg := "Pods must run as non-root user"
+          }
+          
+      - name: require-resource-limits
+        description: "Require resource limits on containers"
+        rego: |
+          package zamaz.resources
+          
+          violation[{"msg": msg}] {
+            input.review.object.kind == "Pod"
+            input.review.object.metadata.namespace == "zamaz-mesh"
+            container := input.review.object.spec.containers[_]
+            not container.resources.limits
+            msg := sprintf("Container %v must have resource limits", [container.name])
+          }

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"mvp.local/pkg/auth"
@@ -177,9 +178,18 @@ func (h *DeviceHandler) AttestDevice(c *fiber.Ctx) error {
 		})
 	}
 
+	// Parse userID to UUID
+	userUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Bad Request",
+			"message": "Invalid user ID format",
+		})
+	}
+
 	// Create device attestation
 	device := models.DeviceAttestation{
-		UserID:           userID,
+		UserID:           userUUID,
 		DeviceID:         req.DeviceID,
 		DeviceName:       req.DeviceName,
 		TrustLevel:       h.calculateInitialTrustLevel(req.Platform, req.AttestationData),
@@ -198,7 +208,7 @@ func (h *DeviceHandler) AttestDevice(c *fiber.Ctx) error {
 		})
 	}
 
-	h.logDeviceEvent(c, userID, device.ID, "device_attested", true, "")
+	h.logDeviceEvent(c, userID, device.ID.String(), "device_attested", true, "")
 
 	response := h.convertToDeviceResponse(&device)
 	return c.Status(fiber.StatusCreated).JSON(response)
@@ -291,7 +301,7 @@ func (h *DeviceHandler) VerifyDevice(c *fiber.Ctx) error {
 		})
 	}
 
-	h.logDeviceEvent(c, userID, device.ID, "device_verified", true, "")
+	h.logDeviceEvent(c, userID, device.ID.String(), "device_verified", true, "")
 
 	response := h.convertToDeviceResponse(&device)
 	return c.JSON(response)
@@ -455,7 +465,7 @@ func (h *DeviceHandler) UpdateDevice(c *fiber.Ctx) error {
 		})
 	}
 
-	h.logDeviceEvent(c, userID, device.ID, "device_updated", true, "")
+	h.logDeviceEvent(c, userID, device.ID.String(), "device_updated", true, "")
 
 	response := h.convertToDeviceResponse(&device)
 	return c.JSON(response)
@@ -533,7 +543,7 @@ func (h *DeviceHandler) DeleteDevice(c *fiber.Ctx) error {
 		})
 	}
 
-	h.logDeviceEvent(c, userID, device.ID, "device_deleted", true, "")
+	h.logDeviceEvent(c, userID, device.ID.String(), "device_deleted", true, "")
 
 	return c.JSON(fiber.Map{
 		"message": "Device deleted successfully",
@@ -549,7 +559,7 @@ func (h *DeviceHandler) convertToDeviceResponse(device *models.DeviceAttestation
 	}
 
 	return DeviceResponse{
-		ID:               device.ID,
+		ID:               device.ID.String(),
 		DeviceID:         device.DeviceID,
 		DeviceName:       device.DeviceName,
 		TrustLevel:       device.TrustLevel,
@@ -605,9 +615,11 @@ func (h *DeviceHandler) logDeviceEvent(c *fiber.Ctx, userID, deviceID string, ev
 	}
 	detailsJSON, _ := json.Marshal(auditDetails)
 
-	var userIDPtr *string
+	var userIDPtr *uuid.UUID
 	if userID != "" {
-		userIDPtr = &userID
+		if parsed, err := uuid.Parse(userID); err == nil {
+			userIDPtr = &parsed
+		}
 	}
 
 	auditLog := models.AuditLog{

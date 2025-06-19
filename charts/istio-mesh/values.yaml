@@ -1,0 +1,423 @@
+# Default values for istio-mesh
+# This is a YAML-formatted file for Istio service mesh configuration
+
+global:
+  # Mesh configuration
+  meshID: zamaz-mesh
+  network: zamaz-network
+  
+  # Hub and tag for Istio images
+  hub: docker.io/istio
+  tag: 1.20.1
+  
+  # SPIRE integration
+  spire:
+    enabled: true
+    trustDomain: zamaz.cluster.local
+    socketPath: /run/spire/sockets/agent.sock
+
+# Istio components
+istio:
+  # Base components
+  base:
+    enabled: true
+    
+  # Control plane
+  controlPlane:
+    enabled: true
+    namespace: istio-system
+    
+  # Gateways
+  gateway:
+    enabled: true
+    name: zamaz-gateway
+    namespace: istio-system
+    
+  # Proxy configuration
+  proxy:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 200m
+        memory: 256Mi
+
+# Gateway configuration
+gateway:
+  name: zamaz-gateway
+  namespace: istio-system
+  labels:
+    app: zamaz-gateway
+    istio: gateway
+  
+  # Selector for gateway workload
+  selector:
+    istio: gateway
+    
+  # Servers configuration
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "api.zamaz.local"
+        - "app.zamaz.local"
+      redirect:
+        httpsRedirect: true
+        
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      hosts:
+        - "api.zamaz.local"
+        - "app.zamaz.local"
+      tls:
+        mode: SIMPLE
+        credentialName: zamaz-tls-cert
+
+# Virtual Service configuration
+virtualService:
+  enabled: true
+  name: zamaz-vs
+  namespace: zamaz-mesh
+  
+  hosts:
+    - "api.zamaz.local"
+    - "app.zamaz.local"
+    
+  gateways:
+    - istio-system/zamaz-gateway
+    
+  # HTTP routing rules
+  http:
+    # API routes
+    - match:
+        - headers:
+            ":authority":
+              exact: "api.zamaz.local"
+          uri:
+            prefix: "/api/"
+      route:
+        - destination:
+            host: zamaz-api.zamaz-mesh.svc.cluster.local
+            port:
+              number: 8080
+      timeout: 30s
+      retries:
+        attempts: 3
+        perTryTimeout: 10s
+        retryOn: "5xx,gateway-error,connect-failure,refused-stream"
+        
+    # Frontend routes
+    - match:
+        - headers:
+            ":authority":
+              exact: "app.zamaz.local"
+      route:
+        - destination:
+            host: zamaz-frontend.zamaz-mesh.svc.cluster.local
+            port:
+              number: 3000
+      timeout: 30s
+
+# Destination Rules
+destinationRule:
+  enabled: true
+  name: zamaz-dr
+  namespace: zamaz-mesh
+  
+  # API service destination rule
+  api:
+    host: zamaz-api.zamaz-mesh.svc.cluster.local
+    trafficPolicy:
+      loadBalancer:
+        simple: LEAST_CONN
+      connectionPool:
+        tcp:
+          maxConnections: 100
+          connectTimeout: 30s
+          tcpKeepalive:
+            time: 7200s
+            interval: 75s
+        http:
+          http1MaxPendingRequests: 1000
+          maxRequestsPerConnection: 10
+          maxRetries: 3
+          idleTimeout: 60s
+          h2UpgradePolicy: UPGRADE
+      circuitBreaker:
+        consecutiveGatewayErrors: 5
+        consecutive5xxErrors: 5
+        interval: 30s
+        baseEjectionTime: 30s
+        maxEjectionPercent: 50
+        minHealthPercent: 30
+        
+  # Frontend service destination rule
+  frontend:
+    host: zamaz-frontend.zamaz-mesh.svc.cluster.local
+    trafficPolicy:
+      loadBalancer:
+        simple: ROUND_ROBIN
+      connectionPool:
+        tcp:
+          maxConnections: 50
+          connectTimeout: 10s
+        http:
+          http1MaxPendingRequests: 100
+          maxRequestsPerConnection: 2
+          idleTimeout: 30s
+
+# Security configuration
+security:
+  # Peer Authentication (mTLS)
+  peerAuthentication:
+    enabled: true
+    default:
+      mtls:
+        mode: STRICT
+    workloadSpecific:
+      zamaz-api:
+        mtls:
+          mode: STRICT
+      zamaz-frontend:
+        mtls:
+          mode: PERMISSIVE  # Allow health checks
+          
+  # Authorization Policies
+  authorizationPolicy:
+    enabled: true
+    
+    # API authorization
+    api:
+      name: zamaz-api-authz
+      namespace: zamaz-mesh
+      selector:
+        matchLabels:
+          app: zamaz
+          component: api
+      rules:
+        - from:
+          - source:
+              principals: 
+                - "cluster.local/ns/istio-system/sa/zamaz-gateway"
+                - "cluster.local/ns/zamaz-mesh/sa/zamaz-frontend"
+          to:
+          - operation:
+              methods: ["GET", "POST", "PUT", "DELETE", "PATCH"]
+              paths: ["/api/*", "/health", "/metrics"]
+              
+    # Frontend authorization
+    frontend:
+      name: zamaz-frontend-authz
+      namespace: zamaz-mesh
+      selector:
+        matchLabels:
+          app: zamaz
+          component: frontend
+      rules:
+        - from:
+          - source:
+              principals: 
+                - "cluster.local/ns/istio-system/sa/zamaz-gateway"
+          to:
+          - operation:
+              methods: ["GET"]
+              paths: ["/*"]
+
+# Telemetry configuration
+telemetry:
+  enabled: true
+  
+  # Metrics configuration
+  metrics:
+    providers:
+      prometheus:
+        configOverride:
+          disable_host_header_fallback: true
+          metric_relabeling_configs:
+            - source_labels: [__name__]
+              regex: 'istio_request_(total|duration_milliseconds|bytes)'
+              target_label: __tmp_istio_request_metric
+              replacement: 'true'
+            - source_labels: [__name__]
+              regex: 'istio_tcp_(opened_total|closed_total|sent_bytes_total|received_bytes_total)'
+              target_label: __tmp_istio_tcp_metric
+              replacement: 'true'
+  
+  # Access logging
+  accessLog:
+    enabled: true
+    file: "/dev/stdout"
+    format: |
+      [%START_TIME%] "%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% %PROTOCOL%"
+      %RESPONSE_CODE% %RESPONSE_FLAGS% %BYTES_RECEIVED% %BYTES_SENT%
+      %DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% "%REQ(X-FORWARDED-FOR)%"
+      "%REQ(USER-AGENT)%" "%REQ(X-REQUEST-ID)%" "%REQ(:AUTHORITY)%" "%UPSTREAM_HOST%"
+      spire_id="%REQ(X-SPIFFE-ID)%" user_id="%REQ(X-USER-ID)%"
+      
+  # Distributed tracing
+  tracing:
+    enabled: true
+    sampling: 1.0  # 100% sampling for development, reduce for production
+    custom_tags:
+      user_id:
+        header:
+          name: "x-user-id"
+      request_id:
+        header:
+          name: "x-request-id"
+      trace_id:
+        header:
+          name: "x-trace-id"
+
+# Network policies
+networkPolicy:
+  enabled: true
+  defaultDeny: true
+  
+  # Policies for mesh namespace
+  policies:
+    # Allow ingress from Istio system
+    - name: allow-istio-system
+      namespace: zamaz-mesh
+      spec:
+        podSelector: {}
+        policyTypes:
+          - Ingress
+        ingress:
+          - from:
+            - namespaceSelector:
+                matchLabels:
+                  name: istio-system
+            ports:
+            - protocol: TCP
+              port: 15090  # Envoy admin
+            - protocol: TCP
+              port: 15001  # Envoy outbound
+            - protocol: TCP
+              port: 15006  # Envoy inbound
+              
+    # Allow DNS resolution
+    - name: allow-dns
+      namespace: zamaz-mesh
+      spec:
+        podSelector: {}
+        policyTypes:
+          - Egress
+        egress:
+          - to:
+            - namespaceSelector:
+                matchLabels:
+                  name: kube-system
+            ports:
+            - protocol: UDP
+              port: 53
+
+# Service Monitor for Prometheus
+serviceMonitor:
+  enabled: true
+  namespace: monitoring
+  labels:
+    app: zamaz
+    component: mesh
+  endpoints:
+    - port: http-monitoring
+      interval: 15s
+      path: /stats/prometheus
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: pod
+        - sourceLabels: [__meta_kubernetes_pod_container_name]
+          targetLabel: container
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace
+          
+# EnvoyFilter for custom configurations
+envoyFilter:
+  enabled: true
+  
+  # JWT validation filter
+  jwtValidation:
+    name: zamaz-jwt-validation
+    namespace: zamaz-mesh
+    workloadSelector:
+      labels:
+        app: zamaz
+        component: api
+    configPatches:
+      - applyTo: HTTP_FILTER
+        match:
+          context: SIDECAR_INBOUND
+          listener:
+            filterChain:
+              filter:
+                name: "envoy.filters.network.http_connection_manager"
+        patch:
+          operation: INSERT_BEFORE
+          value:
+            name: envoy.filters.http.jwt_authn
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.jwt_authn.v3.JwtAuthentication
+              providers:
+                zamaz-auth:
+                  issuer: "zamaz-auth-service"
+                  audiences:
+                    - "zamaz-api"
+                  remote_jwks:
+                    http_uri:
+                      uri: "http://zamaz-api.zamaz-mesh.svc.cluster.local:8080/.well-known/jwks.json"
+                      cluster: "outbound|8080||zamaz-api.zamaz-mesh.svc.cluster.local"
+                      timeout: 5s
+                    cache_duration: 300s
+              rules:
+                - match:
+                    prefix: "/api/"
+                  requires:
+                    provider_name: "zamaz-auth"
+                - match:
+                    prefix: "/health"
+                - match:
+                    prefix: "/metrics"
+
+# Environment-specific overrides
+environments:
+  development:
+    telemetry:
+      tracing:
+        sampling: 1.0
+    security:
+      peerAuthentication:
+        default:
+          mtls:
+            mode: PERMISSIVE
+            
+  staging:
+    telemetry:
+      tracing:
+        sampling: 0.1
+    security:
+      peerAuthentication:
+        default:
+          mtls:
+            mode: STRICT
+            
+  production:
+    telemetry:
+      tracing:
+        sampling: 0.01
+    security:
+      peerAuthentication:
+        default:
+          mtls:
+            mode: STRICT
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi

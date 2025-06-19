@@ -1,0 +1,70 @@
+# Multi-stage Dockerfile with security best practices
+# Build stage
+FROM golang:1.23.8-alpine3.19 AS builder
+
+# Security: Run as non-root user during build
+RUN adduser -D -s /bin/sh -u 1001 appuser
+
+# Security: Install only necessary packages and clean up
+RUN apk add --no-cache git ca-certificates tzdata && \
+    apk add --no-cache --virtual .build-deps gcc musl-dev && \
+    rm -rf /var/cache/apk/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy dependency files first for better caching
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN go mod download && go mod verify
+
+# Copy source code
+COPY . .
+
+# Security: Build with security flags
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags="-w -s -X main.version=${VERSION:-dev} -X main.buildTime=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    -a -installsuffix cgo \
+    -o zamaz-server ./cmd/server
+
+# Security: Remove build dependencies
+RUN apk del .build-deps
+
+# Production stage using distroless image
+FROM gcr.io/distroless/static-debian12:nonroot
+
+# Security: Copy CA certificates for HTTPS
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+
+# Security: Copy timezone data
+COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
+
+# Security: Copy the binary from builder stage
+COPY --from=builder /app/zamaz-server /app/zamaz-server
+
+# Security: Create and use non-root user (distroless already provides nonroot:65532)
+USER 65532:65532
+
+# Security: Use read-only root filesystem (will be enforced by K8s)
+# No need to explicitly set here as K8s deployment will handle it
+
+# Security: Expose only necessary port
+EXPOSE 8080
+
+# Health check (note: distroless doesn't have shell, so this won't work in distroless)
+# Health checks will be handled by Kubernetes probes instead
+
+# Security: Use ENTRYPOINT instead of CMD for better security
+ENTRYPOINT ["/app/zamaz-server"]
+
+# Labels for container metadata
+LABEL maintainer="Platform Team <platform-team@company.com>" \
+      version="${VERSION:-dev}" \
+      description="Zero Trust Authentication MVP - Secure Container" \
+      org.opencontainers.image.title="Zamaz Zero Trust Auth" \
+      org.opencontainers.image.description="Zero Trust Authentication MVP with comprehensive security" \
+      org.opencontainers.image.vendor="Company Name" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.source="https://github.com/company/zamaz" \
+      org.opencontainers.image.documentation="https://github.com/company/zamaz/blob/main/README.md"

@@ -55,9 +55,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       const response = await authAPI.login(credentials)
       
-      localStorage.setItem('authToken', response.token)
-      localStorage.setItem('user', JSON.stringify(response.user))
-      setUser(response.user)
+      localStorage.setItem('authToken', response.data.token)
+      localStorage.setItem('user', JSON.stringify(response.data.user))
+      setUser(response.data.user)
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || 'Login failed'
       setError(errorMessage)

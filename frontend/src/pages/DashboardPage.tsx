@@ -1,15 +1,20 @@
 import { useState, useEffect } from 'react'
-import { useAuth } from '../hooks/useAuth'
+import { useAuthStore } from '../stores/auth-store'
+import { useLogout } from '../hooks/api/use-auth'
 import { deviceAPI, healthAPI } from '../services/api'
 import { DeviceAttestation } from '../types/auth'
 import AdminPanel from '../components/AdminPanel'
 
 export default function DashboardPage() {
-  const { user, logout, isAdmin } = useAuth()
+  const user = useAuthStore(state => state.user)
+  const logoutMutation = useLogout()
+  
   const [devices, setDevices] = useState<DeviceAttestation[]>([])
   const [systemHealth, setSystemHealth] = useState<{ status: string; services: Record<string, string> } | null>(null)
   const [loading, setLoading] = useState(true)
   const [showAdminPanel, setShowAdminPanel] = useState(false)
+  
+  const isAdmin = user?.is_admin || false
 
   useEffect(() => {
     const loadDashboardData = async () => {
@@ -42,7 +47,7 @@ export default function DashboardPage() {
   }, [])
 
   const handleLogout = async () => {
-    await logout()
+    await logoutMutation.mutateAsync()
   }
 
   const getTrustLevelClass = (level: number) => {
@@ -74,7 +79,7 @@ export default function DashboardPage() {
         <h1>Zero Trust Dashboard</h1>
         <nav className="nav">
           <div className="user-menu" data-testid="user-menu">
-            <span>Welcome, {user?.username}</span>
+            <span>Welcome, {user?.first_name || user?.username}</span>
             {isAdmin && (
               <button onClick={() => setShowAdminPanel(true)} className="admin-btn">
                 Admin Panel

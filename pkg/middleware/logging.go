@@ -2,7 +2,6 @@
 package middleware
 
 import (
-	"bytes"
 	"fmt"
 	"strings"
 	"time"
@@ -142,36 +141,18 @@ func LoggingMiddleware(obs *observability.Observability, config ...LoggingConfig
 		}
 
 		// Capture response body if needed
-		var responseBody []byte
-		if cfg.LogResponseBody {
-			// Use a custom writer to capture response body
-			originalWrite := c.Response().BodyWriter()
-			bodyBuffer := &bytes.Buffer{}
-			c.Response().SetBodyWriter(bodyBuffer)
-			
-			// Execute next handlers
-			err := c.Next()
-			
-			// Get the response body
-			responseBody = bodyBuffer.Bytes()
-			
-			// Write to original writer
-			originalWrite.Write(responseBody)
-			
-			// Handle the error after logging
-			if err != nil {
-				return err
+		// Execute next handlers
+		if err := c.Next(); err != nil {
+			// Log error response
+			if cfg.LogFailedRequests {
+				logErrorResponse(obs, c, cfg, requestID, start, err)
 			}
-		} else {
-			// Normal execution
-			if err := c.Next(); err != nil {
-				// Log error response
-				if cfg.LogFailedRequests {
-					logErrorResponse(obs, c, cfg, requestID, start, err)
-				}
-				return err
-			}
+			return err
 		}
+		
+		// For now, we'll skip response body logging due to Fiber limitations
+		// TODO: Implement response body capture using Fiber's built-in mechanisms
+		var responseBody []byte
 
 		duration := time.Since(start)
 
@@ -219,7 +200,7 @@ func logRequest(obs *observability.Observability, c *fiber.Ctx, cfg LoggingConfi
 
 	// Add headers if enabled
 	if cfg.LogRequestHeaders {
-		entry.Headers = sanitizeHeaders(c.GetReqHeaders(), cfg)
+		entry.Headers = sanitizeHeaders(convertHeadersToStringMap(c.GetReqHeaders()), cfg)
 	}
 
 	// Add body if enabled and within size limit
@@ -256,7 +237,7 @@ func logResponse(obs *observability.Observability, c *fiber.Ctx, cfg LoggingConf
 
 	// Add headers if enabled
 	if cfg.LogResponseHeaders {
-		entry.Headers = sanitizeResponseHeaders(c.GetRespHeaders(), cfg)
+		entry.Headers = sanitizeResponseHeaders(convertHeadersToStringMap(c.GetRespHeaders()), cfg)
 	}
 
 	// Add body if enabled and available
@@ -371,6 +352,18 @@ func shouldSkipMethod(method string, skipMethods []string) bool {
 		}
 	}
 	return false
+}
+
+// convertHeadersToStringMap converts map[string][]string to map[string]string
+func convertHeadersToStringMap(headers map[string][]string) map[string]string {
+	result := make(map[string]string)
+	for key, values := range headers {
+		if len(values) > 0 {
+			// Join multiple values with comma (HTTP standard)
+			result[key] = strings.Join(values, ", ")
+		}
+	}
+	return result
 }
 
 // sanitizeHeaders removes or redacts sensitive headers

@@ -27,12 +27,12 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/swagger"
 	"github.com/redis/go-redis/v9"
 	// _ "mvp.local/docs" // Import generated docs - disabled for build
@@ -44,18 +44,21 @@ import (
 	"mvp.local/pkg/middleware"
 	"mvp.local/pkg/observability"
 	"mvp.local/pkg/security"
+	"mvp.local/pkg/session"
+	"mvp.local/pkg/validation"
 )
 
 // Server represents the main application server
 type Server struct {
-	app            *fiber.App
-	config         *config.Config
-	db             *database.Database
-	redisClient    *redis.Client
-	obs            *observability.Observability
-	authzService   *auth.AuthorizationService
-	jwtService     *auth.JWTService
-	lockoutService *security.LockoutService
+	app                  *fiber.App
+	config               *config.Config
+	db                   *database.Database
+	redisClient          *redis.Client
+	obs                  *observability.Observability
+	authzService         *auth.AuthorizationService
+	jwtService           *auth.JWTService
+	lockoutService       *security.LockoutService
+	validationMiddleware *validation.ValidationMiddleware
 }
 
 func main() {
@@ -142,19 +145,18 @@ func NewServer(cfg *config.Config) (*Server, error) {
 		}
 	}
 
-	// Initialize authorization service (temporarily disabled for UUID migration)
-	var authzService *auth.AuthorizationService
-	// authzService := auth.NewAuthorizationService()
+	// Initialize authorization service
+	authzService := auth.NewAuthorizationService()
 
 	// Get the absolute path to the RBAC model
-	// modelPath, err := filepath.Abs("configs/rbac_model.conf")
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to get absolute path for RBAC model: %w", err)
-	// }
+	modelPath, err := filepath.Abs("configs/rbac_model.conf")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get absolute path for RBAC model: %w", err)
+	}
 
-	// if err := authzService.Initialize(db.GetDB(), modelPath); err != nil {
-	// 	return nil, fmt.Errorf("failed to initialize authorization service: %w", err)
-	// }
+	if err := authzService.Initialize(db.GetDB(), modelPath); err != nil {
+		return nil, fmt.Errorf("failed to initialize authorization service: %w", err)
+	}
 
 	// Initialize JWT service
 	jwtService := auth.NewJWTService(&cfg.Security.JWT, authzService)
@@ -221,7 +223,8 @@ func (s *Server) setupMiddleware() {
 	s.app.Use(middleware.LoggingMiddleware(s.obs))
 
 	// Validation middleware
-	s.app.Use(middleware.ValidationMiddleware())
+	s.validationMiddleware = validation.NewValidationMiddleware(s.obs)
+	s.app.Use(s.validationMiddleware.ValidationMiddleware())
 
 	// Rate limiting middleware
 	if s.redisClient != nil {
@@ -236,8 +239,14 @@ func (s *Server) setupMiddleware() {
 
 // setupRoutes configures all application routes
 func (s *Server) setupRoutes() {
+	// Initialize session manager
+	var sessionManager *session.SessionManager
+	if s.redisClient != nil {
+		sessionManager = session.NewSessionManager(s.redisClient)
+	}
+
 	// Initialize handlers
-	authHandler := handlers.NewAuthHandler(s.db.GetDB(), s.jwtService, s.authzService, s.lockoutService, s.obs, s.config)
+	authHandler := handlers.NewAuthHandler(s.db.GetDB(), s.jwtService, s.authzService, s.lockoutService, nil, sessionManager, s.obs, s.config)
 	deviceHandler := handlers.NewDeviceHandler(s.db.GetDB(), s.authzService, s.obs)
 	systemHandler := handlers.NewSystemHandler(s.db, s.redisClient, nil, s.authzService, s.obs)
 	adminHandler := handlers.NewAdminHandler(s.db.GetDB(), s.authzService, s.obs)
@@ -254,9 +263,15 @@ func (s *Server) setupRoutes() {
 
 	// Authentication routes (public)
 	authRoutes := api.Group("/auth")
-	authRoutes.Post("/login", authHandler.Login)
-	authRoutes.Post("/register", authHandler.Register)
-	authRoutes.Post("/refresh", authHandler.RefreshToken)
+	authRoutes.Post("/login", 
+		s.validationMiddleware.ValidateRequest(auth.LoginRequest{}),
+		authHandler.Login)
+	authRoutes.Post("/register", 
+		s.validationMiddleware.ValidateRequest(handlers.RegisterRequest{}),
+		authHandler.Register)
+	authRoutes.Post("/refresh", 
+		s.validationMiddleware.ValidateRequest(auth.RefreshRequest{}),
+		authHandler.RefreshToken)
 
 	// Protected authentication routes
 	authProtected := authRoutes.Group("", authMiddleware.RequireAuth())
@@ -271,32 +286,15 @@ func (s *Server) setupRoutes() {
 	deviceRoutes.Get("/:id", deviceHandler.GetDeviceById)
 	deviceRoutes.Put("/:id", deviceHandler.UpdateDevice)
 	deviceRoutes.Delete("/:id", deviceHandler.DeleteDevice)
-	if s.authzService != nil {
-		deviceRoutes.Post("/:id/verify", authMiddleware.RequirePermission("device", "verify"), deviceHandler.VerifyDevice)
-	} else {
-		// Simplified device verify route when authorization service is disabled
-		deviceRoutes.Post("/:id/verify", deviceHandler.VerifyDevice)
-	}
+	deviceRoutes.Post("/:id/verify", authMiddleware.RequirePermission("device", "verify"), deviceHandler.VerifyDevice)
 
 	// System routes (protected)
 	systemRoutes := api.Group("/system", authMiddleware.RequireAuth())
 	systemRoutes.Get("/health", systemHandler.SystemHealth)
-	if s.authzService != nil {
-		systemRoutes.Get("/stats", authMiddleware.RequirePermission("system", "admin"), systemHandler.DatabaseStats)
-	} else {
-		// Simplified stats route when authorization service is disabled
-		systemRoutes.Get("/stats", systemHandler.DatabaseStats)
-	}
+	systemRoutes.Get("/stats", authMiddleware.RequirePermission("system", "admin"), systemHandler.DatabaseStats)
 
 	// Admin routes (protected, admin only)
-	// Note: Using RequireAuth only while authorization service is disabled
-	var adminRoutes fiber.Router
-	if s.authzService != nil {
-		adminRoutes = api.Group("/admin", authMiddleware.RequireAuth(), authMiddleware.RequirePermission("system", "admin"))
-	} else {
-		// Simplified admin routes when authorization service is disabled
-		adminRoutes = api.Group("/admin", authMiddleware.RequireAuth())
-	}
+	adminRoutes := api.Group("/admin", authMiddleware.RequireAuth(), authMiddleware.RequirePermission("system", "admin"))
 
 	// Role management
 	adminRoutes.Get("/roles", adminHandler.GetRoles)

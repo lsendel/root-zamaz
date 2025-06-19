@@ -1,0 +1,16 @@
+{{- if .Values.istioSecurity.enabled }}
+{{- range .Values.istioSecurity.peerAuthentication }}
+# Istio Peer Authentication: {{ .name }}
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: {{ .name }}
+  namespace: {{ .namespace }}
+  labels:
+    {{- include "security-policies.labels" $ | nindent 4 }}
+    security-type: peer-authentication
+spec:
+  {{- toYaml .spec | nindent 2 }}
+---
+{{- end }}
+{{- end }}

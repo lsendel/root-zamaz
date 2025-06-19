@@ -1,0 +1,117 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "zamaz.fullname" . }}-api
+  labels:
+    {{- include "zamaz.labels" . | nindent 4 }}
+    app: zamaz
+    component: api
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "zamaz.selectorLabels" . | nindent 6 }}
+      app: zamaz
+      component: api
+  template:
+    metadata:
+      annotations:
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- if .Values.global.serviceMesh.enabled }}
+        sidecar.istio.io/inject: "{{ .Values.global.serviceMesh.istio.injection }}"
+        {{- end }}
+      labels:
+        {{- include "zamaz.selectorLabels" . | nindent 8 }}
+        app: zamaz
+        component: api
+        version: v1
+    spec:
+      serviceAccountName: {{ include "zamaz.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+---
+{{- if .Values.frontend.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "zamaz.fullname" . }}-frontend
+  labels:
+    {{- include "zamaz.labels" . | nindent 4 }}
+    app: zamaz
+    component: frontend
+spec:
+  replicas: {{ .Values.frontend.replicaCount | default 1 }}
+  selector:
+    matchLabels:
+      {{- include "zamaz.selectorLabels" . | nindent 6 }}
+      app: zamaz
+      component: frontend
+  template:
+    metadata:
+      annotations:
+        {{- if .Values.global.serviceMesh.enabled }}
+        sidecar.istio.io/inject: "{{ .Values.global.serviceMesh.istio.injection }}"
+        {{- end }}
+      labels:
+        {{- include "zamaz.selectorLabels" . | nindent 8 }}
+        app: zamaz
+        component: frontend
+        version: v1
+    spec:
+      serviceAccountName: {{ include "zamaz.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: frontend
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.frontend.image.registry }}/{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag | default "latest" }}"
+          imagePullPolicy: {{ .Values.frontend.image.pullPolicy | default "IfNotPresent" }}
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          resources:
+            {{- toYaml (.Values.frontend.resources | default .Values.resources) | nindent 12 }}
+{{- end }}

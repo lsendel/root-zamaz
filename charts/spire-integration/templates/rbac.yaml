@@ -1,0 +1,171 @@
+{{- if .Values.rbac.create }}
+# SPIRE Server ServiceAccount
+{{- if .Values.rbac.serviceAccount.server.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.rbac.serviceAccount.server.name }}
+  namespace: spire-system
+  labels:
+    app: spire-server
+    {{- include "spire-integration.labels" . | nindent 4 }}
+  {{- with .Values.rbac.serviceAccount.server.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}
+---
+# SPIRE Agent ServiceAccount
+{{- if .Values.rbac.serviceAccount.agent.create }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ .Values.rbac.serviceAccount.agent.name }}
+  namespace: spire-system
+  labels:
+    app: spire-agent
+    {{- include "spire-integration.labels" . | nindent 4 }}
+  {{- with .Values.rbac.serviceAccount.agent.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}
+---
+# SPIRE Server ClusterRole
+{{- if .Values.rbac.clusterRole.server.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: spire-server-cluster-role
+  labels:
+    app: spire-server
+    {{- include "spire-integration.labels" . | nindent 4 }}
+rules:
+  {{- toYaml .Values.rbac.clusterRole.server.rules | nindent 2 }}
+{{- end }}
+---
+# SPIRE Agent ClusterRole
+{{- if .Values.rbac.clusterRole.agent.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: spire-agent-cluster-role
+  labels:
+    app: spire-agent
+    {{- include "spire-integration.labels" . | nindent 4 }}
+rules:
+  {{- toYaml .Values.rbac.clusterRole.agent.rules | nindent 2 }}
+{{- end }}
+---
+# SPIRE Server ClusterRoleBinding
+{{- if .Values.rbac.clusterRole.server.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: spire-server-cluster-role-binding
+  labels:
+    app: spire-server
+    {{- include "spire-integration.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: spire-server-cluster-role
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.rbac.serviceAccount.server.name }}
+  namespace: spire-system
+{{- end }}
+---
+# SPIRE Agent ClusterRoleBinding
+{{- if .Values.rbac.clusterRole.agent.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: spire-agent-cluster-role-binding
+  labels:
+    app: spire-agent
+    {{- include "spire-integration.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: spire-agent-cluster-role
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.rbac.serviceAccount.agent.name }}
+  namespace: spire-system
+{{- end }}
+---
+# Role for SPIRE Server to manage ConfigMaps in spire-system namespace
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: spire-server-configmap-role
+  namespace: spire-system
+  labels:
+    app: spire-server
+    {{- include "spire-integration.labels" . | nindent 4 }}
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "patch", "list", "watch"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  resourceNames: ["spire-bundle"]
+  verbs: ["update"]
+---
+# RoleBinding for SPIRE Server ConfigMap access
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: spire-server-configmap-role-binding
+  namespace: spire-system
+  labels:
+    app: spire-server
+    {{- include "spire-integration.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: spire-server-configmap-role
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.rbac.serviceAccount.server.name }}
+  namespace: spire-system
+{{- if .Values.istio.enabled }}
+---
+# Role for SPIRE Server to manage Istio root cert ConfigMap
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: spire-server-istio-role
+  namespace: istio-system
+  labels:
+    app: spire-server
+    {{- include "spire-integration.labels" . | nindent 4 }}
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "patch", "list", "watch"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  resourceNames: ["istio-ca-root-cert"]
+  verbs: ["update"]
+---
+# RoleBinding for SPIRE Server Istio access
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: spire-server-istio-role-binding
+  namespace: istio-system
+  labels:
+    app: spire-server
+    {{- include "spire-integration.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: spire-server-istio-role
+subjects:
+- kind: ServiceAccount
+  name: {{ .Values.rbac.serviceAccount.server.name }}
+  namespace: spire-system
+{{- end }}
+{{- end }}
