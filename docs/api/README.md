@@ -651,7 +651,7 @@ curl -X POST http://localhost:8080/api/devices \
 
 ### Using Postman
 
-Import the Swagger specification from `/swagger/doc.json` to automatically generate a Postman collection.
+Import the OpenAPI specification from `docs/openapi.yaml` to automatically generate a Postman collection.
 
 ### Interactive Testing
 
