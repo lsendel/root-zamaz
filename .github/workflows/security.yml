@@ -1,12 +1,16 @@
 name: Security Scan
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
-    branches: [ main ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main ]
+    branches: [main, develop]
   schedule:
-    - cron: '0 0 * * *' # Run daily
+    - cron: '0 0 * * *'
 
 env:
   GO_VERSION: '1.23'
@@ -18,10 +22,10 @@ jobs:
       security-events: write
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
       
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5.5.0
         with:
           go-version: ${{ env.GO_VERSION }}
       
@@ -45,13 +49,13 @@ jobs:
           fi
       
       - name: Run gosec security scanner
-        uses: securego/gosec@master
+        uses: securego/gosec@v2.22.5
         with:
           args: '-fmt sarif -out gosec-results.sarif ./...'
       
       - name: Upload gosec results
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v3.29.0
         with:
           sarif_file: gosec-results.sarif
 
@@ -61,7 +65,7 @@ jobs:
       security-events: write
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
       
       - name: Check if Dockerfile exists
         id: dockerfile-check
@@ -73,7 +77,7 @@ jobs:
           fi
       
       - name: Run Trivy vulnerability scanner on filesystem
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@v0.31.0
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -84,7 +88,7 @@ jobs:
       
       - name: Upload Trivy scan results
         if: always()
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v3.29.0
         with:
           sarif_file: 'trivy-results.sarif'
       
@@ -102,7 +106,7 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
         with:
           fetch-depth: 0
       
@@ -148,7 +152,7 @@ jobs:
           EOF
       
       - name: Run gitleaks
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@v2.3.9
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_CONFIG: .gitleaks.toml
@@ -158,10 +162,10 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
       
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5.5.0
         with:
           go-version: ${{ env.GO_VERSION }}
       
@@ -191,7 +195,7 @@ jobs:
       
       - name: Upload license report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: license-report
           path: license-report.md
@@ -199,7 +203,7 @@ jobs:
       
       - name: Check for FOSSA API key and run scan
         if: env.FOSSA_API_KEY != ''
-        uses: fossa-contrib/fossa-action@v2
+        uses: fossa-contrib/fossa-action@v3.0.1
         with:
           api-key: ${{ secrets.FOSSA_API_KEY }}
         env:
@@ -212,22 +216,22 @@ jobs:
       contents: read
       actions: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
       
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5.5.0
         with:
           go-version: ${{ env.GO_VERSION }}
       
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v4.4.0
         with:
           node-version: '18'
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
       
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v3.29.0
         with:
           languages: go, javascript
           queries: security-extended,security-and-quality
@@ -244,6 +248,6 @@ jobs:
           npm run build
       
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v3.29.0
         with:
           category: "/language:go,javascript"
