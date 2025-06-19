@@ -74,9 +74,11 @@ Password: password
 ## 📖 Documentation
 
 ### Development
+- [Development Overview](docs/development/README.md)
 - [Development Setup](docs/development/setup.md)
 - [Build System](examples/build-examples.md)
 - [Testing Guide](docs/development/testing.md)
+- [Code Style Guide](docs/development/code-style.md)
 - [Contributing Guidelines](docs/development/contributing.md)
 
 ### API Documentation
