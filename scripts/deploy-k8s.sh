@@ -19,7 +19,7 @@ KUBECONFIG="${KUBECONFIG:-$HOME/.kube/config}"
 # Base directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-K8S_DIR="${PROJECT_ROOT}/deployments/kubernetes"
+K8S_DIR="${PROJECT_ROOT}/kubernetes/apps/zamaz"
 
 # Log functions
 log_info() {

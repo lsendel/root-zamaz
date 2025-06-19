@@ -241,7 +241,7 @@ docker run -d -p 8080:8080 mvp-auth:latest
 
 ### Kubernetes (Production)
 ```bash
-kubectl apply -k deployments/kubernetes/overlays/production/
+kubectl apply -k kubernetes/apps/zamaz/overlays/production/
 ```
 
 ### Local Binary

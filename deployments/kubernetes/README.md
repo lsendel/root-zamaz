@@ -43,7 +43,7 @@ kubernetes/
 ./scripts/deploy-k8s.sh staging
 
 # Or manually with kubectl
-kubectl apply -k deployments/kubernetes/overlays/staging
+kubectl apply -k kubernetes/apps/zamaz/overlays/staging
 
 # Dry run
 DRY_RUN=true ./scripts/deploy-k8s.sh staging
@@ -53,7 +53,7 @@ DRY_RUN=true ./scripts/deploy-k8s.sh staging
 
 ```bash
 # First, ensure secrets.env is populated with production values
-cd deployments/kubernetes/overlays/production
+cd kubernetes/apps/zamaz/overlays/production
 cp secrets.env.example secrets.env
 # Edit secrets.env with actual production values
 
@@ -97,7 +97,7 @@ The base configuration includes:
 
 1. Create a new overlay directory:
 ```bash
-mkdir -p deployments/kubernetes/overlays/dev
+mkdir -p kubernetes/apps/zamaz/overlays/dev
 ```
 
 2. Create kustomization.yaml:

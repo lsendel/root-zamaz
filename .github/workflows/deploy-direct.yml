@@ -92,13 +92,13 @@ jobs:
 
       - name: Update image tags in manifests
         run: |
-          cd deployments/kubernetes/staging
+          cd kubernetes/apps/zamaz/overlays/staging
           kustomize edit set image auth-service=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/auth-service:${{ needs.determine-environment.outputs.image_tag }}
           kustomize edit set image frontend=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend:${{ needs.determine-environment.outputs.image_tag }}
 
       - name: Validate manifests
         run: |
-          kustomize build deployments/kubernetes/staging | kubectl apply --dry-run=client -f -
+          kustomize build kubernetes/apps/zamaz/overlays/staging | kubectl apply --dry-run=client -f -
           echo "✅ Manifests validation passed"
 
       - name: Deploy to staging
@@ -195,13 +195,13 @@ jobs:
 
       - name: Update image tags in manifests
         run: |
-          cd deployments/kubernetes/production
+          cd kubernetes/apps/zamaz/overlays/production
           kustomize edit set image auth-service=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/auth-service:${{ needs.determine-environment.outputs.image_tag }}
           kustomize edit set image frontend=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/frontend:${{ needs.determine-environment.outputs.image_tag }}
 
       - name: Validate manifests
         run: |
-          kustomize build deployments/kubernetes/production | kubectl apply --dry-run=client -f -
+          kustomize build kubernetes/apps/zamaz/overlays/production | kubectl apply --dry-run=client -f -
           echo "✅ Manifests validation passed"
 
       - name: Deploy to production
