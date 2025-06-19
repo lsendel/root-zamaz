@@ -576,16 +576,16 @@ func BenchmarkGetUserIDFromContext(b *testing.B) {
 	app := fiber.New()
 	app.Get("/bench", func(c *fiber.Ctx) error {
 		c.Locals("user_id", "test-user-123")
-		
+
 		for i := 0; i < 100; i++ {
 			_ = GetUserIDFromContext(c)
 		}
-		
+
 		return c.SendStatus(200)
 	})
 
 	req := httptest.NewRequest("GET", "/bench", nil)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _ = app.Test(req)

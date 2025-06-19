@@ -43,26 +43,26 @@ type ValidationResult struct {
 
 // Common weak passwords (subset for demonstration)
 var commonPasswords = map[string]bool{
-	"password":     true,
-	"123456":       true,
-	"12345678":     true,
-	"qwerty":       true,
-	"abc123":       true,
-	"password123":  true,
-	"admin":        true,
-	"letmein":      true,
-	"welcome":      true,
-	"monkey":       true,
-	"dragon":       true,
-	"princess":     true,
-	"sunshine":     true,
-	"football":     true,
-	"iloveyou":     true,
-	"trustno1":     true,
-	"password1":    true,
-	"welcome123":   true,
-	"admin123":     true,
-	"changeme":     true,
+	"password":    true,
+	"123456":      true,
+	"12345678":    true,
+	"qwerty":      true,
+	"abc123":      true,
+	"password123": true,
+	"admin":       true,
+	"letmein":     true,
+	"welcome":     true,
+	"monkey":      true,
+	"dragon":      true,
+	"princess":    true,
+	"sunshine":    true,
+	"football":    true,
+	"iloveyou":    true,
+	"trustno1":    true,
+	"password1":   true,
+	"welcome123":  true,
+	"admin123":    true,
+	"changeme":    true,
 }
 
 // ValidatePassword validates a password against the policy
@@ -323,13 +323,13 @@ func (pv *PasswordValidator) ValidatePassword(password string, userInfo ...strin
 // GetPasswordRequirements returns the password policy requirements
 func (pv *PasswordValidator) GetPasswordRequirements() map[string]interface{} {
 	return map[string]interface{}{
-		"min_length":         pv.policy.MinLength,
-		"max_length":         pv.policy.MaxLength,
-		"require_uppercase":  pv.policy.RequireUppercase,
-		"require_lowercase":  pv.policy.RequireLowercase,
-		"require_numbers":    pv.policy.RequireNumbers,
-		"require_symbols":    pv.policy.RequireSymbols,
-		"forbid_common":      pv.policy.ForbidCommon,
-		"forbid_user_info":   pv.policy.ForbidUserInfo,
+		"min_length":        pv.policy.MinLength,
+		"max_length":        pv.policy.MaxLength,
+		"require_uppercase": pv.policy.RequireUppercase,
+		"require_lowercase": pv.policy.RequireLowercase,
+		"require_numbers":   pv.policy.RequireNumbers,
+		"require_symbols":   pv.policy.RequireSymbols,
+		"forbid_common":     pv.policy.ForbidCommon,
+		"forbid_user_info":  pv.policy.ForbidUserInfo,
 	}
 }

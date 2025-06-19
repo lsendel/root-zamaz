@@ -3,9 +3,9 @@ package auth
 
 import (
 	"fmt"
-	"time"
 	"github.com/golang-jwt/jwt/v5"
 	"mvp.local/pkg/models"
+	"time"
 )
 
 // buildBaseRegisteredClaims creates common JWT registered claims
@@ -26,7 +26,7 @@ func (j *JWTService) buildAccessTokenClaims(user *models.User, roles, permission
 	now := time.Now()
 	baseClaims := j.buildBaseRegisteredClaims(user.ID.String(), expiresAt)
 	baseClaims.ID = fmt.Sprintf("%s-%d", user.ID.String(), now.Unix())
-	
+
 	return &JWTClaims{
 		UserID:           user.ID.String(),
 		Username:         user.Username,
@@ -50,17 +50,17 @@ func (j *JWTService) buildRefreshTokenClaims(userID string, expiresAt time.Time)
 // generateTokenFromClaims creates and signs a JWT token from claims
 func (j *JWTService) generateTokenFromClaims(claims jwt.Claims, secret []byte, keyID string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	
+
 	// Add key ID to token header if provided
 	if keyID != "" {
 		token.Header["kid"] = keyID
 	}
-	
+
 	tokenString, err := token.SignedString(secret)
 	if err != nil {
 		return "", fmt.Errorf("failed to sign JWT token: %w", err)
 	}
-	
+
 	return tokenString, nil
 }
 

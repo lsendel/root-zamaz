@@ -41,19 +41,19 @@ func (s CircuitBreakerState) String() string {
 type CircuitBreakerConfig struct {
 	// Name of the circuit breaker for logging and metrics
 	Name string
-	
+
 	// MaxFailures before opening the circuit
 	MaxFailures int
-	
+
 	// Timeout before attempting to close the circuit from open state
 	Timeout time.Duration
-	
+
 	// MaxRequests allowed when in half-open state
 	MaxRequests int
-	
+
 	// ReadinessCheck function to test if service is ready
 	ReadinessCheck func(ctx context.Context) error
-	
+
 	// OnStateChange callback when state changes
 	OnStateChange func(name string, from, to CircuitBreakerState)
 }
@@ -98,13 +98,13 @@ func NewCircuitBreaker(config CircuitBreakerConfig, obs *observability.Observabi
 	if config.Name == "" {
 		config.Name = "unnamed"
 	}
-	
+
 	cb := &CircuitBreaker{
 		config: config,
 		state:  StateClosed,
 		obs:    obs,
 	}
-	
+
 	return cb
 }
 
@@ -114,13 +114,13 @@ func (cb *CircuitBreaker) Execute(ctx context.Context, fn func(ctx context.Conte
 	if err := cb.beforeRequest(ctx); err != nil {
 		return err
 	}
-	
+
 	// Execute the function
 	err := fn(ctx)
-	
+
 	// Record the result
 	cb.afterRequest(err)
-	
+
 	return err
 }
 
@@ -128,12 +128,12 @@ func (cb *CircuitBreaker) Execute(ctx context.Context, fn func(ctx context.Conte
 func (cb *CircuitBreaker) beforeRequest(ctx context.Context) error {
 	cb.mutex.Lock()
 	defer cb.mutex.Unlock()
-	
+
 	switch cb.state {
 	case StateClosed:
 		// Allow request
 		return nil
-		
+
 	case StateOpen:
 		// Check if timeout has passed
 		if time.Since(cb.lastFailTime) >= cb.config.Timeout {
@@ -141,14 +141,14 @@ func (cb *CircuitBreaker) beforeRequest(ctx context.Context) error {
 			cb.requests = 0
 			return nil
 		}
-		
+
 		// Circuit is still open
 		return &CircuitBreakerError{
 			Name:    cb.config.Name,
 			State:   StateOpen,
 			Message: "circuit breaker is open",
 		}
-		
+
 	case StateHalfOpen:
 		// Allow limited requests
 		if cb.requests >= cb.config.MaxRequests {
@@ -158,10 +158,10 @@ func (cb *CircuitBreaker) beforeRequest(ctx context.Context) error {
 				Message: "circuit breaker is half-open with max requests reached",
 			}
 		}
-		
+
 		cb.requests++
 		return nil
-		
+
 	default:
 		return &CircuitBreakerError{
 			Name:    cb.config.Name,
@@ -175,7 +175,7 @@ func (cb *CircuitBreaker) beforeRequest(ctx context.Context) error {
 func (cb *CircuitBreaker) afterRequest(err error) {
 	cb.mutex.Lock()
 	defer cb.mutex.Unlock()
-	
+
 	if err != nil {
 		cb.onFailure()
 	} else {
@@ -187,7 +187,7 @@ func (cb *CircuitBreaker) afterRequest(err error) {
 func (cb *CircuitBreaker) onFailure() {
 	cb.failures++
 	cb.lastFailTime = time.Now()
-	
+
 	// Log failure
 	if cb.obs != nil {
 		cb.obs.Logger.Warn().
@@ -196,13 +196,13 @@ func (cb *CircuitBreaker) onFailure() {
 			Str("state", cb.state.String()).
 			Msg("Circuit breaker recorded failure")
 	}
-	
+
 	switch cb.state {
 	case StateClosed:
 		if cb.failures >= cb.config.MaxFailures {
 			cb.setState(StateOpen)
 		}
-		
+
 	case StateHalfOpen:
 		cb.setState(StateOpen)
 	}
@@ -211,7 +211,7 @@ func (cb *CircuitBreaker) onFailure() {
 // onSuccess handles a successful request
 func (cb *CircuitBreaker) onSuccess() {
 	cb.successes++
-	
+
 	switch cb.state {
 	case StateHalfOpen:
 		if cb.successes >= cb.config.MaxRequests {
@@ -224,23 +224,23 @@ func (cb *CircuitBreaker) onSuccess() {
 func (cb *CircuitBreaker) setState(newState CircuitBreakerState) {
 	oldState := cb.state
 	cb.state = newState
-	
+
 	// Reset counters based on new state
 	switch newState {
 	case StateClosed:
 		cb.failures = 0
 		cb.successes = 0
 		cb.requests = 0
-		
+
 	case StateOpen:
 		cb.successes = 0
 		cb.requests = 0
-		
+
 	case StateHalfOpen:
 		cb.successes = 0
 		cb.requests = 0
 	}
-	
+
 	// Log state change
 	if cb.obs != nil {
 		cb.obs.Logger.Info().
@@ -249,7 +249,7 @@ func (cb *CircuitBreaker) setState(newState CircuitBreakerState) {
 			Str("to_state", newState.String()).
 			Msg("Circuit breaker state changed")
 	}
-	
+
 	// Call state change callback
 	if cb.config.OnStateChange != nil {
 		cb.config.OnStateChange(cb.config.Name, oldState, newState)
@@ -267,7 +267,7 @@ func (cb *CircuitBreaker) GetState() CircuitBreakerState {
 func (cb *CircuitBreaker) GetMetrics() map[string]interface{} {
 	cb.mutex.RLock()
 	defer cb.mutex.RUnlock()
-	
+
 	return map[string]interface{}{
 		"name":           cb.config.Name,
 		"state":          cb.state.String(),
@@ -307,22 +307,22 @@ func IsFailureError(err error) bool {
 	if err == nil {
 		return false
 	}
-	
+
 	// Don't count context cancellation as failure
 	if errors.Is(err, context.Canceled) {
 		return false
 	}
-	
+
 	// Don't count deadline exceeded as failure (might be expected)
 	if errors.Is(err, context.DeadlineExceeded) {
 		return false
 	}
-	
+
 	// Don't count circuit breaker errors as additional failures
 	var cbErr *CircuitBreakerError
 	if errors.As(err, &cbErr) {
 		return false
 	}
-	
+
 	return true
 }

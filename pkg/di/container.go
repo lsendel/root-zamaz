@@ -206,6 +206,7 @@ func (c *Container) Resolve(serviceType interface{}) (interface{}, error) {
 // Example:
 //
 //	obs := container.MustResolve((*observability.Observability)(nil)).(*observability.Observability)
+//
 // Deprecated: Use Resolve instead. This function will be removed in a future version.
 func (c *Container) MustResolve(serviceType interface{}) (interface{}, error) {
 	instance, err := c.Resolve(serviceType)

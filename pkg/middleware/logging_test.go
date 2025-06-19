@@ -273,7 +273,7 @@ func TestLoggingMiddleware(t *testing.T) {
 
 		app := fiber.New()
 		app.Use(LoggingMiddleware(obs))
-		
+
 		app.Get("/get", func(c *fiber.Ctx) error {
 			return c.JSON(fiber.Map{"method": "GET"})
 		})
@@ -302,7 +302,7 @@ func TestLoggingMiddleware(t *testing.T) {
 		}
 
 		logOutput := logBuffer.String()
-		
+
 		// Verify all methods were logged
 		for _, method := range methods {
 			assert.Contains(t, logOutput, method)

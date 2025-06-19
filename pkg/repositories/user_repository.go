@@ -26,14 +26,14 @@ func (r *UserRepository) GetUserWithRolesAndPermissions(userID string) (*models.
 		Preload("Roles.Permissions", "is_active = ?", true).
 		Where("id = ? AND is_active = ?", userID, true).
 		First(&user).Error
-	
+
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, errors.NotFound("User not found")
 		}
 		return nil, errors.Wrap(err, errors.CodeInternal, "Failed to fetch user with roles and permissions")
 	}
-	
+
 	return &user, nil
 }
 
@@ -44,14 +44,14 @@ func (r *UserRepository) GetUserByEmailWithRoles(email string) (*models.User, er
 		Preload("Roles", "is_active = ?", true).
 		Where("email = ? AND is_active = ?", email, true).
 		First(&user).Error
-	
+
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, errors.NotFound("User not found")
 		}
 		return nil, errors.Wrap(err, errors.CodeInternal, "Failed to fetch user by email")
 	}
-	
+
 	return &user, nil
 }
 
@@ -62,14 +62,14 @@ func (r *UserRepository) GetUserByUsernameWithRoles(username string) (*models.Us
 		Preload("Roles", "is_active = ?", true).
 		Where("username = ? AND is_active = ?", username, true).
 		First(&user).Error
-	
+
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, errors.NotFound("User not found")
 		}
 		return nil, errors.Wrap(err, errors.CodeInternal, "Failed to fetch user by username")
 	}
-	
+
 	return &user, nil
 }
 
@@ -77,12 +77,12 @@ func (r *UserRepository) GetUserByUsernameWithRoles(username string) (*models.Us
 func (r *UserRepository) GetUsersWithRolesPaginated(offset, limit int) ([]models.User, int64, error) {
 	var users []models.User
 	var total int64
-	
+
 	// Get total count
 	if err := r.db.Model(&models.User{}).Where("is_active = ?", true).Count(&total).Error; err != nil {
 		return nil, 0, errors.Wrap(err, errors.CodeInternal, "Failed to count users")
 	}
-	
+
 	// Get users with roles
 	err := r.db.
 		Preload("Roles", "is_active = ?", true).
@@ -91,11 +91,11 @@ func (r *UserRepository) GetUsersWithRolesPaginated(offset, limit int) ([]models
 		Limit(limit).
 		Order("created_at DESC").
 		Find(&users).Error
-	
+
 	if err != nil {
 		return nil, 0, errors.Wrap(err, errors.CodeInternal, "Failed to fetch users")
 	}
-	
+
 	return users, total, nil
 }
 
@@ -106,11 +106,11 @@ func (r *UserRepository) GetUserSessionsWithDeviceInfo(userID string) ([]models.
 		Where("user_id = ? AND is_active = ?", userID, true).
 		Order("created_at DESC").
 		Find(&sessions).Error
-	
+
 	if err != nil {
 		return nil, errors.Wrap(err, errors.CodeInternal, "Failed to fetch user sessions")
 	}
-	
+
 	return sessions, nil
 }
 
@@ -121,11 +121,11 @@ func (r *UserRepository) GetUserDeviceAttestations(userID string) ([]models.Devi
 		Where("user_id = ?", userID).
 		Order("created_at DESC").
 		Find(&attestations).Error
-	
+
 	if err != nil {
 		return nil, errors.Wrap(err, errors.CodeInternal, "Failed to fetch device attestations")
 	}
-	
+
 	return attestations, nil
 }
 
@@ -134,13 +134,13 @@ func (r *UserRepository) BulkGetUserRoles(userIDs []string) (map[string][]models
 	if len(userIDs) == 0 {
 		return make(map[string][]models.Role), nil
 	}
-	
+
 	type UserRole struct {
-		UserID   string       `json:"user_id"`
-		RoleID   int64        `json:"role_id"`
-		Role     models.Role  `json:"role"`
+		UserID string      `json:"user_id"`
+		RoleID int64       `json:"role_id"`
+		Role   models.Role `json:"role"`
 	}
-	
+
 	var userRoles []UserRole
 	err := r.db.
 		Table("user_roles").
@@ -148,17 +148,17 @@ func (r *UserRepository) BulkGetUserRoles(userIDs []string) (map[string][]models
 		Joins("JOIN roles ON roles.id = user_roles.role_id").
 		Where("user_roles.user_id IN ? AND roles.is_active = ?", userIDs, true).
 		Scan(&userRoles).Error
-	
+
 	if err != nil {
 		return nil, errors.Wrap(err, errors.CodeInternal, "Failed to bulk fetch user roles")
 	}
-	
+
 	// Group roles by user ID
 	result := make(map[string][]models.Role)
 	for _, ur := range userRoles {
 		result[ur.UserID] = append(result[ur.UserID], ur.Role)
 	}
-	
+
 	return result, nil
 }
 
@@ -167,13 +167,13 @@ func (r *UserRepository) BulkGetRolePermissions(roleIDs []int64) (map[int64][]mo
 	if len(roleIDs) == 0 {
 		return make(map[int64][]models.Permission), nil
 	}
-	
+
 	type RolePermission struct {
 		RoleID       int64             `json:"role_id"`
 		PermissionID int64             `json:"permission_id"`
 		Permission   models.Permission `json:"permission"`
 	}
-	
+
 	var rolePermissions []RolePermission
 	err := r.db.
 		Table("role_permissions").
@@ -181,17 +181,17 @@ func (r *UserRepository) BulkGetRolePermissions(roleIDs []int64) (map[int64][]mo
 		Joins("JOIN permissions ON permissions.id = role_permissions.permission_id").
 		Where("role_permissions.role_id IN ? AND permissions.is_active = ?", roleIDs, true).
 		Scan(&rolePermissions).Error
-	
+
 	if err != nil {
 		return nil, errors.Wrap(err, errors.CodeInternal, "Failed to bulk fetch role permissions")
 	}
-	
+
 	// Group permissions by role ID
 	result := make(map[int64][]models.Permission)
 	for _, rp := range rolePermissions {
 		result[rp.RoleID] = append(result[rp.RoleID], rp.Permission)
 	}
-	
+
 	return result, nil
 }
 
@@ -199,12 +199,12 @@ func (r *UserRepository) BulkGetRolePermissions(roleIDs []int64) (map[int64][]mo
 func (r *UserRepository) GetRecentAuditLogs(offset, limit int) ([]models.AuditLog, int64, error) {
 	var auditLogs []models.AuditLog
 	var total int64
-	
+
 	// Get total count
 	if err := r.db.Model(&models.AuditLog{}).Count(&total).Error; err != nil {
 		return nil, 0, errors.Wrap(err, errors.CodeInternal, "Failed to count audit logs")
 	}
-	
+
 	// Get audit logs with user information
 	err := r.db.
 		Preload("User").
@@ -212,11 +212,11 @@ func (r *UserRepository) GetRecentAuditLogs(offset, limit int) ([]models.AuditLo
 		Limit(limit).
 		Order("created_at DESC").
 		Find(&auditLogs).Error
-	
+
 	if err != nil {
 		return nil, 0, errors.Wrap(err, errors.CodeInternal, "Failed to fetch audit logs")
 	}
-	
+
 	return auditLogs, total, nil
 }
 
@@ -224,12 +224,12 @@ func (r *UserRepository) GetRecentAuditLogs(offset, limit int) ([]models.AuditLo
 func (r *UserRepository) GetLoginAttemptsByUser(userID string, offset, limit int) ([]models.LoginAttempt, int64, error) {
 	var attempts []models.LoginAttempt
 	var total int64
-	
+
 	// Get total count
 	if err := r.db.Model(&models.LoginAttempt{}).Where("user_id = ?", userID).Count(&total).Error; err != nil {
 		return nil, 0, errors.Wrap(err, errors.CodeInternal, "Failed to count login attempts")
 	}
-	
+
 	// Get login attempts
 	err := r.db.
 		Where("user_id = ?", userID).
@@ -237,11 +237,11 @@ func (r *UserRepository) GetLoginAttemptsByUser(userID string, offset, limit int
 		Limit(limit).
 		Order("created_at DESC").
 		Find(&attempts).Error
-	
+
 	if err != nil {
 		return nil, 0, errors.Wrap(err, errors.CodeInternal, "Failed to fetch login attempts")
 	}
-	
+
 	return attempts, total, nil
 }
 
@@ -249,12 +249,12 @@ func (r *UserRepository) GetLoginAttemptsByUser(userID string, offset, limit int
 func (r *UserRepository) GetSuspiciousLoginAttempts(offset, limit int) ([]models.LoginAttempt, int64, error) {
 	var attempts []models.LoginAttempt
 	var total int64
-	
+
 	// Get total count
 	if err := r.db.Model(&models.LoginAttempt{}).Where("is_suspicious = ?", true).Count(&total).Error; err != nil {
 		return nil, 0, errors.Wrap(err, errors.CodeInternal, "Failed to count suspicious login attempts")
 	}
-	
+
 	// Get suspicious login attempts with user information
 	err := r.db.
 		Preload("User").
@@ -263,11 +263,11 @@ func (r *UserRepository) GetSuspiciousLoginAttempts(offset, limit int) ([]models
 		Limit(limit).
 		Order("created_at DESC").
 		Find(&attempts).Error
-	
+
 	if err != nil {
 		return nil, 0, errors.Wrap(err, errors.CodeInternal, "Failed to fetch suspicious login attempts")
 	}
-	
+
 	return attempts, total, nil
 }
 

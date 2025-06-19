@@ -3,8 +3,8 @@ package common
 
 import (
 	"fmt"
-	"strconv"
 	"github.com/gofiber/fiber/v2"
+	"strconv"
 )
 
 // ParseUintParam parses a URL parameter as uint with standardized error handling
@@ -16,15 +16,15 @@ func ParseUintParam(c *fiber.Ctx, paramName, displayName string) (uint, error) {
 			"message": fmt.Sprintf("Missing %s parameter", displayName),
 		})
 	}
-	
+
 	id, err := strconv.ParseUint(paramStr, 10, 32)
 	if err != nil {
 		return 0, c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request", 
+			"error":   "Bad Request",
 			"message": fmt.Sprintf("Invalid %s", displayName),
 		})
 	}
-	
+
 	return uint(id), nil
 }
 
@@ -34,12 +34,12 @@ func ParseOptionalUintParam(c *fiber.Ctx, paramName string) (uint, bool) {
 	if paramStr == "" {
 		return 0, false
 	}
-	
+
 	id, err := strconv.ParseUint(paramStr, 10, 32)
 	if err != nil {
 		return 0, false
 	}
-	
+
 	return uint(id), true
 }
 
@@ -67,11 +67,11 @@ func ParseIntQueryParam(c *fiber.Ctx, paramName string, defaultValue int) (int, 
 	if valueStr == "" {
 		return defaultValue, nil
 	}
-	
+
 	value, err := strconv.Atoi(valueStr)
 	if err != nil {
 		return defaultValue, fmt.Errorf("invalid %s parameter", paramName)
 	}
-	
+
 	return value, nil
 }

@@ -19,14 +19,14 @@ type SessionMiddlewareConfig struct {
 	CookieHTTPOnly   bool          `default:"true"`
 	CookieSameSite   string        `default:"Strict"`
 	CookieExpiration time.Duration `default:"24h"`
-	
+
 	// Behavior
-	RequireSession   bool `default:"false"` // Whether to require a valid session
-	AutoRefresh      bool `default:"true"`  // Automatically refresh sessions near expiration
-	
+	RequireSession bool `default:"false"` // Whether to require a valid session
+	AutoRefresh    bool `default:"true"`  // Automatically refresh sessions near expiration
+
 	// Error handling
-	RedirectOnError  string // URL to redirect to on session errors
-	ErrorResponse    func(c *fiber.Ctx, err error) error
+	RedirectOnError string // URL to redirect to on session errors
+	ErrorResponse   func(c *fiber.Ctx, err error) error
 }
 
 // DefaultSessionMiddlewareConfig returns default session middleware configuration
@@ -55,7 +55,7 @@ func SessionMiddleware(sessionManager *session.SessionManager, config ...Session
 	return func(c *fiber.Ctx) error {
 		// Get session ID from cookie
 		sessionID := c.Cookies(cfg.CookieName)
-		
+
 		if sessionID == "" {
 			// No session cookie
 			if cfg.RequireSession {
@@ -69,7 +69,7 @@ func SessionMiddleware(sessionManager *session.SessionManager, config ...Session
 		if err != nil {
 			// Clear invalid session cookie
 			clearSessionCookie(c, cfg)
-			
+
 			if cfg.RequireSession {
 				return handleSessionError(c, cfg, err)
 			}
@@ -92,7 +92,7 @@ func SessionMiddleware(sessionManager *session.SessionManager, config ...Session
 		if sessionData.IPAddress != currentIP {
 			sessionData.IPAddress = currentIP
 			sessionData.LastActivity = time.Now()
-			
+
 			// Update session in Redis
 			if err := cfg.SessionManager.UpdateSession(c.Context(), sessionID, *sessionData); err != nil {
 				// Log error but don't fail the request
@@ -103,7 +103,7 @@ func SessionMiddleware(sessionManager *session.SessionManager, config ...Session
 		c.Locals("session", sessionData)
 		c.Locals("session_id", sessionID)
 		c.Locals("user_id", sessionData.UserID)
-		
+
 		if sessionData.TenantID != "" {
 			c.Locals("tenant_id", sessionData.TenantID)
 		}
@@ -149,7 +149,7 @@ func CreateSessionHandler(sessionManager *session.SessionManager, config ...Sess
 		c.Locals("session", createdSession)
 		c.Locals("session_id", createdSession.SessionID)
 		c.Locals("user_id", userID)
-		
+
 		if createdSession.TenantID != "" {
 			c.Locals("tenant_id", createdSession.TenantID)
 		}
@@ -265,17 +265,17 @@ func handleSessionError(c *fiber.Ctx, cfg SessionMiddlewareConfig, err error) er
 		switch appErr.Code {
 		case errors.CodeUnauthorized, errors.CodeAuthentication:
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "Unauthorized",
+				"error":   "Unauthorized",
 				"message": appErr.Message,
 			})
 		case errors.CodeForbidden, errors.CodeAuthorization:
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-				"error": "Forbidden", 
+				"error":   "Forbidden",
 				"message": appErr.Message,
 			})
 		default:
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-				"error": "Internal Server Error",
+				"error":   "Internal Server Error",
 				"message": "An error occurred",
 			})
 		}
@@ -283,7 +283,7 @@ func handleSessionError(c *fiber.Ctx, cfg SessionMiddlewareConfig, err error) er
 
 	// For non-AppError, return unauthorized by default for session errors
 	return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-		"error": "Unauthorized",
+		"error":   "Unauthorized",
 		"message": "Session required",
 	})
 }

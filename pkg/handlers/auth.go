@@ -316,14 +316,14 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 			Permissions: permissions,
 			IPAddress:   ipAddress,
 			UserAgent:   userAgent,
-			DeviceID:    "",  // Could be extracted from headers
+			DeviceID:    "", // Could be extracted from headers
 			IsActive:    true,
 			Metadata: map[string]interface{}{
 				"login_method": "password",
 				"trust_level":  "trusted",
 			},
 		}
-		
+
 		createdSession, err := h.sessionManager.CreateSession(c.Context(), user.ID.String(), sessionData)
 		if err != nil {
 			h.obs.Logger.Error().Err(err).Str("user_id", user.ID.String()).Msg("Failed to create session after login")
@@ -339,7 +339,7 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 				SameSite: "Strict",
 				Path:     "/",
 			})
-			
+
 			h.obs.Logger.Info().
 				Str("user_id", user.ID.String()).
 				Str("session_id", createdSession.SessionID).
@@ -573,7 +573,7 @@ func (h *AuthHandler) Logout(c *fiber.Ctx) error {
 				h.obs.Logger.Info().Str("session_id", sessionID).Msg("Redis session deleted during logout")
 			}
 		}
-		
+
 		// Clear session cookie
 		c.Cookie(&fiber.Cookie{
 			Name:     "session_id",
@@ -713,7 +713,7 @@ func (h *AuthHandler) ChangePassword(c *fiber.Ctx) error {
 		// Get client info for new session
 		ipAddress := c.IP()
 		userAgent := c.Get("User-Agent")
-		
+
 		// Get user roles and permissions for new session
 		roles, permissions, err := h.jwtService.GetUserRolesAndPermissions(user.ID.String())
 		if err != nil {
@@ -725,7 +725,7 @@ func (h *AuthHandler) ChangePassword(c *fiber.Ctx) error {
 				roles = append(roles, "admin")
 			}
 		}
-		
+
 		sessionData := session.SessionData{
 			UserID:      user.ID.String(),
 			Email:       user.Email,
@@ -734,14 +734,14 @@ func (h *AuthHandler) ChangePassword(c *fiber.Ctx) error {
 			Permissions: permissions,
 			IPAddress:   ipAddress,
 			UserAgent:   userAgent,
-			DeviceID:    "",  // Could be extracted from headers
+			DeviceID:    "", // Could be extracted from headers
 			IsActive:    true,
 			Metadata: map[string]interface{}{
 				"regenerated_reason": "password_change",
 				"trust_level":        "trusted",
 			},
 		}
-		
+
 		createdSession, err := h.sessionManager.CreateSession(c.Context(), user.ID.String(), sessionData)
 		if err != nil {
 			h.obs.Logger.Error().Err(err).Str("user_id", user.ID.String()).Msg("Failed to regenerate session after password change")
@@ -757,7 +757,7 @@ func (h *AuthHandler) ChangePassword(c *fiber.Ctx) error {
 				SameSite: "Strict",
 				Path:     "/",
 			})
-			
+
 			h.obs.Logger.Info().
 				Str("user_id", user.ID.String()).
 				Str("session_id", createdSession.SessionID).
@@ -820,7 +820,7 @@ func (h *AuthHandler) logAuthEvent(c *fiber.Ctx, userID string, event string, su
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		
+
 		if err := h.db.WithContext(ctx).Create(&auditLog).Error; err != nil {
 			h.obs.Logger.Error().Err(err).Msg("Failed to save audit log")
 		}
@@ -836,7 +836,7 @@ func (h *AuthHandler) logAuthEvent(c *fiber.Ctx, userID string, event string, su
 // @Router /auth/password-requirements [get]
 func (h *AuthHandler) GetPasswordRequirements(c *fiber.Ctx) error {
 	requirements := h.passwordValidator.GetPasswordRequirements()
-	
+
 	return c.JSON(fiber.Map{
 		"success":      true,
 		"requirements": requirements,

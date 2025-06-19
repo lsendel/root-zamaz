@@ -101,14 +101,14 @@ func (rl *RateLimiter) RateLimitMiddleware() fiber.Handler {
 
 		// Generate rate limit key
 		key := rl.generateKey(c)
-		
+
 		// Check blacklist
 		if rl.isBlacklisted(c) {
 			rl.obs.Logger.Warn().
 				Str("ip", c.IP()).
 				Str("key", key).
 				Msg("Request blocked: IP blacklisted")
-			
+
 			return errors.RateLimit("Access denied").
 				WithContext("reason", "blacklisted").
 				WithContext("ip", c.IP())
@@ -126,7 +126,7 @@ func (rl *RateLimiter) RateLimitMiddleware() fiber.Handler {
 				Err(err).
 				Str("key", key).
 				Msg("Rate limit check failed")
-			
+
 			if rl.config.AllowOnRedisFailure {
 				return c.Next()
 			}
@@ -194,13 +194,13 @@ func (rl *RateLimiter) generateKey(c *fiber.Ctx) string {
 func (rl *RateLimiter) checkRateLimit(ctx context.Context, key string) (allowed bool, remaining int, resetTime time.Time, err error) {
 	// Use Redis pipeline for atomic operations
 	pipe := rl.redisClient.Pipeline()
-	
+
 	// Increment counter
 	incr := pipe.Incr(ctx, key)
-	
+
 	// Set expiration if this is a new key
 	pipe.Expire(ctx, key, rl.config.WindowSize)
-	
+
 	// Execute pipeline
 	_, err = pipe.Exec(ctx)
 	if err != nil {
@@ -231,7 +231,7 @@ func (rl *RateLimiter) checkRateLimit(ctx context.Context, key string) (allowed 
 // addRateLimitHeaders adds rate limit information to response headers
 func (rl *RateLimiter) addRateLimitHeaders(c *fiber.Ctx, remaining int, resetTime time.Time) {
 	prefix := rl.config.HeaderPrefix
-	
+
 	c.Set(prefix+"-Limit", strconv.Itoa(rl.config.RequestsPerMinute))
 	c.Set(prefix+"-Remaining", strconv.Itoa(remaining))
 	c.Set(prefix+"-Reset", strconv.FormatInt(resetTime.Unix(), 10))
@@ -304,7 +304,7 @@ func joinStringSlice(slice []string, sep string) string {
 	if len(slice) == 0 {
 		return ""
 	}
-	
+
 	result := slice[0]
 	for i := 1; i < len(slice); i++ {
 		result += sep + slice[i]
@@ -348,7 +348,7 @@ func (rl *RateLimiter) PerUserRateLimiter(requestsPerMinute int) fiber.Handler {
 // GetRateLimitStatus returns current rate limit status for debugging
 func (rl *RateLimiter) GetRateLimitStatus(ctx context.Context, c *fiber.Ctx) (map[string]interface{}, error) {
 	key := rl.generateKey(c)
-	
+
 	// Get current count
 	count, err := rl.redisClient.Get(ctx, key).Int()
 	if err != nil && err != redis.Nil {
@@ -367,12 +367,12 @@ func (rl *RateLimiter) GetRateLimitStatus(ctx context.Context, c *fiber.Ctx) (ma
 	}
 
 	return map[string]interface{}{
-		"key":            key,
-		"limit":          rl.config.RequestsPerMinute,
-		"current":        count,
-		"remaining":      remaining,
-		"window_size":    rl.config.WindowSize.String(),
-		"reset_time":     time.Now().Add(ttl).Unix(),
+		"key":             key,
+		"limit":           rl.config.RequestsPerMinute,
+		"current":         count,
+		"remaining":       remaining,
+		"window_size":     rl.config.WindowSize.String(),
+		"reset_time":      time.Now().Add(ttl).Unix(),
 		"is_rate_limited": count >= rl.config.RequestsPerMinute,
 	}, nil
 }

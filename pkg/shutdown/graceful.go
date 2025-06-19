@@ -11,19 +11,19 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"gorm.io/gorm"
 	"github.com/redis/go-redis/v9"
+	"gorm.io/gorm"
 
 	"mvp.local/pkg/observability"
 )
 
 // ShutdownConfig holds configuration for graceful shutdown
 type ShutdownConfig struct {
-	GracePeriod     time.Duration `default:"30s"`  // Maximum time to wait for graceful shutdown
-	DrainPeriod     time.Duration `default:"5s"`   // Time to drain active connections
-	HealthDelay     time.Duration `default:"2s"`   // Delay before marking unhealthy
-	ForceTimeout    time.Duration `default:"60s"`  // Maximum time before force shutdown
-	PreShutdownHook func() error  `default:"nil"`  // Hook to run before shutdown starts
+	GracePeriod     time.Duration `default:"30s"` // Maximum time to wait for graceful shutdown
+	DrainPeriod     time.Duration `default:"5s"`  // Time to drain active connections
+	HealthDelay     time.Duration `default:"2s"`  // Delay before marking unhealthy
+	ForceTimeout    time.Duration `default:"60s"` // Maximum time before force shutdown
+	PreShutdownHook func() error  `default:"nil"` // Hook to run before shutdown starts
 }
 
 // DefaultShutdownConfig returns sensible defaults
@@ -38,22 +38,22 @@ func DefaultShutdownConfig() ShutdownConfig {
 
 // ShutdownManager manages graceful shutdown of the application
 type ShutdownManager struct {
-	config     ShutdownConfig
-	obs        *observability.Observability
-	
+	config ShutdownConfig
+	obs    *observability.Observability
+
 	// Application components
-	fiberApp   *fiber.App
-	db         *gorm.DB
+	fiberApp    *fiber.App
+	db          *gorm.DB
 	redisClient *redis.Client
-	
+
 	// Shutdown state
 	mu           sync.RWMutex
 	shutdownFlag bool
 	shutdownChan chan os.Signal
-	
+
 	// Component managers
-	components   []ShutdownComponent
-	hooks        []ShutdownHook
+	components []ShutdownComponent
+	hooks      []ShutdownHook
 }
 
 // ShutdownComponent represents a component that needs graceful shutdown
@@ -94,9 +94,9 @@ func NewShutdownManager(
 func (sm *ShutdownManager) RegisterComponent(component ShutdownComponent) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
-	
+
 	sm.components = append(sm.components, component)
-	
+
 	sm.obs.Logger.Info().
 		Str("component", component.Name()).
 		Msg("Registered component for graceful shutdown")
@@ -106,9 +106,9 @@ func (sm *ShutdownManager) RegisterComponent(component ShutdownComponent) {
 func (sm *ShutdownManager) RegisterHook(hook ShutdownHook) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
-	
+
 	sm.hooks = append(sm.hooks, hook)
-	
+
 	// Sort hooks by priority
 	for i := len(sm.hooks) - 1; i > 0; i-- {
 		if sm.hooks[i].Priority < sm.hooks[i-1].Priority {
@@ -117,7 +117,7 @@ func (sm *ShutdownManager) RegisterHook(hook ShutdownHook) {
 			break
 		}
 	}
-	
+
 	sm.obs.Logger.Info().
 		Str("hook", hook.Name).
 		Int("priority", hook.Priority).
@@ -128,7 +128,7 @@ func (sm *ShutdownManager) RegisterHook(hook ShutdownHook) {
 func (sm *ShutdownManager) Start() {
 	// Listen for shutdown signals
 	signal.Notify(sm.shutdownChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGUSR1)
-	
+
 	sm.obs.Logger.Info().Msg("Graceful shutdown manager started, listening for signals")
 }
 
@@ -136,11 +136,11 @@ func (sm *ShutdownManager) Start() {
 func (sm *ShutdownManager) Wait() error {
 	// Wait for shutdown signal
 	sig := <-sm.shutdownChan
-	
+
 	sm.obs.Logger.Info().
 		Str("signal", sig.String()).
 		Msg("Received shutdown signal, initiating graceful shutdown")
-	
+
 	return sm.Shutdown()
 }
 
@@ -153,15 +153,15 @@ func (sm *ShutdownManager) Shutdown() error {
 	}
 	sm.shutdownFlag = true
 	sm.mu.Unlock()
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), sm.config.ForceTimeout)
 	defer cancel()
-	
+
 	sm.obs.Logger.Info().
 		Dur("grace_period", sm.config.GracePeriod).
 		Dur("drain_period", sm.config.DrainPeriod).
 		Msg("Starting graceful shutdown sequence")
-	
+
 	// Phase 1: Run pre-shutdown hook if configured
 	if sm.config.PreShutdownHook != nil {
 		sm.obs.Logger.Info().Msg("Running pre-shutdown hook")
@@ -169,45 +169,45 @@ func (sm *ShutdownManager) Shutdown() error {
 			sm.obs.Logger.Error().Err(err).Msg("Pre-shutdown hook failed")
 		}
 	}
-	
+
 	// Phase 2: Mark service as unhealthy (after delay)
 	sm.obs.Logger.Info().
 		Dur("delay", sm.config.HealthDelay).
 		Msg("Waiting before marking service unhealthy")
-	
+
 	time.Sleep(sm.config.HealthDelay)
 	sm.markUnhealthy()
-	
+
 	// Phase 3: Stop accepting new connections
 	sm.obs.Logger.Info().Msg("Stopping acceptance of new connections")
 	if err := sm.stopAcceptingConnections(ctx); err != nil {
 		sm.obs.Logger.Error().Err(err).Msg("Failed to stop accepting connections")
 	}
-	
+
 	// Phase 4: Drain existing connections
 	sm.obs.Logger.Info().
 		Dur("drain_period", sm.config.DrainPeriod).
 		Msg("Draining existing connections")
-	
+
 	time.Sleep(sm.config.DrainPeriod)
-	
+
 	// Phase 5: Execute shutdown hooks in priority order
 	if err := sm.executeShutdownHooks(ctx); err != nil {
 		sm.obs.Logger.Error().Err(err).Msg("Shutdown hooks execution failed")
 	}
-	
+
 	// Phase 6: Shutdown registered components
 	if err := sm.shutdownComponents(ctx); err != nil {
 		sm.obs.Logger.Error().Err(err).Msg("Component shutdown failed")
 		return err
 	}
-	
+
 	// Phase 7: Shutdown core services
 	if err := sm.shutdownCoreServices(ctx); err != nil {
 		sm.obs.Logger.Error().Err(err).Msg("Core services shutdown failed")
 		return err
 	}
-	
+
 	sm.obs.Logger.Info().Msg("Graceful shutdown completed successfully")
 	return nil
 }
@@ -216,7 +216,7 @@ func (sm *ShutdownManager) Shutdown() error {
 func (sm *ShutdownManager) markUnhealthy() {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
-	
+
 	// This will cause health checks to fail, signaling load balancers to remove this instance
 	sm.obs.Logger.Info().Msg("Service marked as unhealthy for load balancer removal")
 }
@@ -233,16 +233,16 @@ func (sm *ShutdownManager) stopAcceptingConnections(ctx context.Context) error {
 	if sm.fiberApp == nil {
 		return nil
 	}
-	
+
 	// Fiber's graceful shutdown
 	shutdownCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	
+
 	done := make(chan error, 1)
 	go func() {
 		done <- sm.fiberApp.ShutdownWithContext(shutdownCtx)
 	}()
-	
+
 	select {
 	case err := <-done:
 		if err != nil {
@@ -262,15 +262,15 @@ func (sm *ShutdownManager) executeShutdownHooks(ctx context.Context) error {
 	hooks := make([]ShutdownHook, len(sm.hooks))
 	copy(hooks, sm.hooks)
 	sm.mu.RUnlock()
-	
+
 	for _, hook := range hooks {
 		hookCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-		
+
 		sm.obs.Logger.Info().
 			Str("hook", hook.Name).
 			Int("priority", hook.Priority).
 			Msg("Executing shutdown hook")
-		
+
 		if err := hook.Func(hookCtx); err != nil {
 			cancel()
 			sm.obs.Logger.Error().
@@ -279,13 +279,13 @@ func (sm *ShutdownManager) executeShutdownHooks(ctx context.Context) error {
 				Msg("Shutdown hook failed")
 			return err
 		}
-		
+
 		cancel()
 		sm.obs.Logger.Info().
 			Str("hook", hook.Name).
 			Msg("Shutdown hook completed successfully")
 	}
-	
+
 	return nil
 }
 
@@ -295,23 +295,23 @@ func (sm *ShutdownManager) shutdownComponents(ctx context.Context) error {
 	components := make([]ShutdownComponent, len(sm.components))
 	copy(components, sm.components)
 	sm.mu.RUnlock()
-	
+
 	// Shutdown components in parallel with individual timeouts
 	var wg sync.WaitGroup
 	errors := make(chan error, len(components))
-	
+
 	for _, component := range components {
 		wg.Add(1)
 		go func(comp ShutdownComponent) {
 			defer wg.Done()
-			
+
 			compCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
 			defer cancel()
-			
+
 			sm.obs.Logger.Info().
 				Str("component", comp.Name()).
 				Msg("Shutting down component")
-			
+
 			if err := comp.Shutdown(compCtx); err != nil {
 				sm.obs.Logger.Error().
 					Err(err).
@@ -325,16 +325,16 @@ func (sm *ShutdownManager) shutdownComponents(ctx context.Context) error {
 			}
 		}(component)
 	}
-	
+
 	// Wait for all components to shutdown
 	wg.Wait()
 	close(errors)
-	
+
 	// Check for errors
 	for err := range errors {
 		return err
 	}
-	
+
 	return nil
 }
 
@@ -342,21 +342,21 @@ func (sm *ShutdownManager) shutdownComponents(ctx context.Context) error {
 func (sm *ShutdownManager) shutdownCoreServices(ctx context.Context) error {
 	var wg sync.WaitGroup
 	errors := make(chan error, 2)
-	
+
 	// Shutdown database connections
 	if sm.db != nil {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			
+
 			sm.obs.Logger.Info().Msg("Closing database connections")
-			
+
 			sqlDB, err := sm.db.DB()
 			if err != nil {
 				errors <- fmt.Errorf("failed to get underlying sql.DB: %w", err)
 				return
 			}
-			
+
 			if err := sqlDB.Close(); err != nil {
 				errors <- fmt.Errorf("database connection close failed: %w", err)
 			} else {
@@ -364,15 +364,15 @@ func (sm *ShutdownManager) shutdownCoreServices(ctx context.Context) error {
 			}
 		}()
 	}
-	
+
 	// Shutdown Redis connections
 	if sm.redisClient != nil {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			
+
 			sm.obs.Logger.Info().Msg("Closing Redis connections")
-			
+
 			if err := sm.redisClient.Close(); err != nil {
 				errors <- fmt.Errorf("redis connection close failed: %w", err)
 			} else {
@@ -380,16 +380,16 @@ func (sm *ShutdownManager) shutdownCoreServices(ctx context.Context) error {
 			}
 		}()
 	}
-	
+
 	// Wait for core services to shutdown
 	wg.Wait()
 	close(errors)
-	
+
 	// Check for errors
 	for err := range errors {
 		return err
 	}
-	
+
 	return nil
 }
 
@@ -397,20 +397,20 @@ func (sm *ShutdownManager) shutdownCoreServices(ctx context.Context) error {
 func (sm *ShutdownManager) GetStatus() map[string]interface{} {
 	sm.mu.RLock()
 	defer sm.mu.RUnlock()
-	
+
 	componentStatus := make(map[string]bool)
 	for _, component := range sm.components {
 		componentStatus[component.Name()] = component.IsHealthy()
 	}
-	
+
 	return map[string]interface{}{
-		"shutting_down":      sm.shutdownFlag,
-		"grace_period":       sm.config.GracePeriod.String(),
-		"drain_period":       sm.config.DrainPeriod.String(),
-		"force_timeout":      sm.config.ForceTimeout.String(),
+		"shutting_down":         sm.shutdownFlag,
+		"grace_period":          sm.config.GracePeriod.String(),
+		"drain_period":          sm.config.DrainPeriod.String(),
+		"force_timeout":         sm.config.ForceTimeout.String(),
 		"registered_components": len(sm.components),
-		"registered_hooks":   len(sm.hooks),
-		"component_status":   componentStatus,
+		"registered_hooks":      len(sm.hooks),
+		"component_status":      componentStatus,
 	}
 }
 

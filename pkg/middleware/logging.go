@@ -22,21 +22,21 @@ type LoggingConfig struct {
 	LogResponses       bool `default:"true"`
 	LogResponseHeaders bool `default:"false"`
 	LogResponseBody    bool `default:"false"`
-	
+
 	// Performance logging
-	LogSlowRequests    bool          `default:"true"`
+	LogSlowRequests      bool          `default:"true"`
 	SlowRequestThreshold time.Duration `default:"1s"`
 
 	// Security logging
-	LogFailedRequests  bool `default:"true"`
+	LogFailedRequests     bool `default:"true"`
 	LogSuspiciousRequests bool `default:"true"`
 
 	// Filtering
-	SkipPaths         []string // Paths to skip logging (e.g., /health, /metrics)
-	SkipMethods       []string // Methods to skip
-	SensitiveHeaders  []string // Headers to redact
-	SensitiveParams   []string // Query parameters to redact
-	
+	SkipPaths        []string // Paths to skip logging (e.g., /health, /metrics)
+	SkipMethods      []string // Methods to skip
+	SensitiveHeaders []string // Headers to redact
+	SensitiveParams  []string // Query parameters to redact
+
 	// Privacy
 	RedactSensitiveData bool `default:"true"`
 	LogClientIP         bool `default:"true"`
@@ -130,7 +130,7 @@ func LoggingMiddleware(obs *observability.Observability, config ...LoggingConfig
 		}
 
 		start := time.Now()
-		
+
 		// Get request ID
 		requestID := getRequestID(c)
 
@@ -142,7 +142,7 @@ func LoggingMiddleware(obs *observability.Observability, config ...LoggingConfig
 			}
 			return err
 		}
-		
+
 		duration := time.Since(start)
 
 		// Log combined request/response in flat format
@@ -158,7 +158,7 @@ func LoggingMiddleware(obs *observability.Observability, config ...LoggingConfig
 		if userAgent := c.Get("User-Agent"); userAgent != "" {
 			logEvent = logEvent.Str("user_agent", userAgent)
 		}
-		
+
 		if clientIP := c.IP(); clientIP != "" {
 			logEvent = logEvent.Str("client_ip", clientIP)
 		}
@@ -456,7 +456,7 @@ func isJSONContent(contentType string) bool {
 // isSuspiciousRequest checks if a request might be suspicious
 func isSuspiciousRequest(c *fiber.Ctx) bool {
 	userAgent := strings.ToLower(c.Get("User-Agent"))
-	
+
 	// Check for suspicious user agents
 	suspiciousAgents := []string{
 		"sqlmap",
@@ -467,7 +467,7 @@ func isSuspiciousRequest(c *fiber.Ctx) bool {
 		"masscan",
 		"nmap",
 	}
-	
+
 	for _, agent := range suspiciousAgents {
 		if strings.Contains(userAgent, agent) {
 			return true
@@ -486,7 +486,7 @@ func isSuspiciousRequest(c *fiber.Ctx) bool {
 		".env",
 		"config.php",
 	}
-	
+
 	for _, suspPath := range suspiciousPaths {
 		if strings.Contains(path, suspPath) {
 			return true

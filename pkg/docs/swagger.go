@@ -43,11 +43,11 @@ func SetupSwagger(app *fiber.App, config ...SwaggerConfig) {
 
 	// Configure Swagger middleware
 	swaggerConfig := swagger.Config{
-		URL:         cfg.DocsURL,
-		DeepLinking: cfg.DeepLinking,
-		DocExpansion: cfg.DocExpansion,
+		URL:                      cfg.DocsURL,
+		DeepLinking:              cfg.DeepLinking,
+		DocExpansion:             cfg.DocExpansion,
 		DefaultModelsExpandDepth: -1,
-		Title: cfg.Title,
+		Title:                    cfg.Title,
 	}
 
 	if cfg.DefaultModels {
@@ -56,7 +56,7 @@ func SetupSwagger(app *fiber.App, config ...SwaggerConfig) {
 
 	// Add Swagger routes
 	app.Get("/swagger/*", swagger.New(swaggerConfig))
-	
+
 	// Alternative documentation endpoints
 	app.Get("/docs/*", swagger.New(swaggerConfig))
 	app.Get("/api-docs/*", swagger.New(swaggerConfig))
@@ -64,14 +64,14 @@ func SetupSwagger(app *fiber.App, config ...SwaggerConfig) {
 
 // APIInfo provides structured API information
 type APIInfo struct {
-	Title       string            `json:"title"`
-	Description string            `json:"description"`
-	Version     string            `json:"version"`
-	Contact     ContactInfo       `json:"contact"`
-	License     LicenseInfo       `json:"license"`
-	Servers     []ServerInfo      `json:"servers"`
-	Tags        []TagInfo         `json:"tags"`
-	Security    []SecurityScheme  `json:"security"`
+	Title       string           `json:"title"`
+	Description string           `json:"description"`
+	Version     string           `json:"version"`
+	Contact     ContactInfo      `json:"contact"`
+	License     LicenseInfo      `json:"license"`
+	Servers     []ServerInfo     `json:"servers"`
+	Tags        []TagInfo        `json:"tags"`
+	Security    []SecurityScheme `json:"security"`
 }
 
 // ContactInfo provides API contact information

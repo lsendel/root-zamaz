@@ -224,7 +224,7 @@ func sanitizeError(appErr *errors.AppError, statusCode int) *errors.AppError {
 			RequestID: appErr.RequestID,
 			TenantID:  appErr.TenantID,
 		}
-		
+
 		// Only include details in development/staging
 		// This would typically check an environment variable
 		// For now, we'll keep it simple
@@ -283,7 +283,7 @@ func RecoveryMiddleware(obs *observability.Observability) fiber.Handler {
 									Msg("Panic occurred during transaction rollback")
 							}
 						}()
-						
+
 						if err := tx.Rollback().Error; err != nil {
 							obs.Logger.Error().
 								Err(err).
@@ -310,7 +310,7 @@ func RecoveryMiddleware(obs *observability.Observability) fiber.Handler {
 				// Set error status and response
 				c.Status(fiber.StatusInternalServerError)
 				response := ErrorResponse{
-					Error:     &errors.AppError{
+					Error: &errors.AppError{
 						Code:    errors.CodeInternal,
 						Message: "An unexpected error occurred",
 						Details: "System panic recovered",

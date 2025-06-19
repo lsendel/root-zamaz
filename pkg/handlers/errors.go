@@ -9,26 +9,26 @@ import (
 
 // Error message constants for consistent error responses
 const (
-	ErrMsgInvalidRequestBody    = "Invalid request body"
-	ErrMsgNotAuthenticated      = "Not authenticated"
-	ErrMsgInsufficientPerms     = "Insufficient permissions"
-	ErrMsgDatabaseError         = "Database operation failed"
-	ErrMsgInternalError         = "An unexpected error occurred"
-	ErrMsgUserNotFound          = "User not found"
-	ErrMsgResourceNotFound      = "Resource not found"
-	ErrMsgInvalidCredentials    = "Invalid credentials"
-	ErrMsgAccountDisabled       = "Account is disabled"
-	ErrMsgAccountLocked         = "Account is temporarily locked"
-	ErrMsgUserAlreadyExists     = "User already exists"
-	ErrMsgRoleNotFound          = "Role not found"
-	ErrMsgPermissionNotFound    = "Permission not found"
-	ErrMsgDeviceNotFound        = "Device not found"
-	ErrMsgDeviceAlreadyExists   = "Device already exists"
-	ErrMsgInvalidDeviceID       = "Invalid device ID"
-	ErrMsgInvalidUserID         = "Invalid user ID"
-	ErrMsgInvalidRoleID         = "Invalid role ID"
-	ErrMsgInvalidPermissionID   = "Invalid permission ID"
-	ErrMsgCannotDeleteOwnUser   = "Cannot delete your own user account"
+	ErrMsgInvalidRequestBody     = "Invalid request body"
+	ErrMsgNotAuthenticated       = "Not authenticated"
+	ErrMsgInsufficientPerms      = "Insufficient permissions"
+	ErrMsgDatabaseError          = "Database operation failed"
+	ErrMsgInternalError          = "An unexpected error occurred"
+	ErrMsgUserNotFound           = "User not found"
+	ErrMsgResourceNotFound       = "Resource not found"
+	ErrMsgInvalidCredentials     = "Invalid credentials"
+	ErrMsgAccountDisabled        = "Account is disabled"
+	ErrMsgAccountLocked          = "Account is temporarily locked"
+	ErrMsgUserAlreadyExists      = "User already exists"
+	ErrMsgRoleNotFound           = "Role not found"
+	ErrMsgPermissionNotFound     = "Permission not found"
+	ErrMsgDeviceNotFound         = "Device not found"
+	ErrMsgDeviceAlreadyExists    = "Device already exists"
+	ErrMsgInvalidDeviceID        = "Invalid device ID"
+	ErrMsgInvalidUserID          = "Invalid user ID"
+	ErrMsgInvalidRoleID          = "Invalid role ID"
+	ErrMsgInvalidPermissionID    = "Invalid permission ID"
+	ErrMsgCannotDeleteOwnUser    = "Cannot delete your own user account"
 	ErrMsgCannotDeleteSystemRole = "Cannot delete system roles"
 )
 
@@ -74,7 +74,7 @@ func GetErrorContext(c *fiber.Ctx) ErrorContext {
 // HandleValidationError creates a standardized validation error response
 func HandleValidationError(c *fiber.Ctx, err error) error {
 	ctx := GetErrorContext(c)
-	
+
 	appErr := errors.ValidationWithDetails(ErrMsgInvalidRequestBody, map[string]interface{}{
 		"details": err.Error(),
 	}).WithRequest(ctx.RequestID)
@@ -91,13 +91,13 @@ func HandleValidationError(c *fiber.Ctx, err error) error {
 // HandleAuthenticationError creates a standardized authentication error response
 func HandleAuthenticationError(c *fiber.Ctx, message string) error {
 	ctx := GetErrorContext(c)
-	
+
 	if message == "" {
 		message = ErrMsgNotAuthenticated
 	}
 
 	appErr := errors.Authentication(message).WithRequest(ctx.RequestID)
-	
+
 	if ctx.UserID != "" {
 		appErr = appErr.WithContext("user_id", ctx.UserID).
 			WithContext("path", ctx.Path).
@@ -110,13 +110,13 @@ func HandleAuthenticationError(c *fiber.Ctx, message string) error {
 // HandleAuthorizationError creates a standardized authorization error response
 func HandleAuthorizationError(c *fiber.Ctx, message string) error {
 	ctx := GetErrorContext(c)
-	
+
 	if message == "" {
 		message = ErrMsgInsufficientPerms
 	}
 
 	appErr := errors.Authorization(message).WithRequest(ctx.RequestID)
-	
+
 	if ctx.UserID != "" {
 		appErr = appErr.WithContext("user_id", ctx.UserID).
 			WithContext("path", ctx.Path).
@@ -129,7 +129,7 @@ func HandleAuthorizationError(c *fiber.Ctx, message string) error {
 // HandleDatabaseError creates a standardized database error response
 func HandleDatabaseError(c *fiber.Ctx, err error, operation string) error {
 	ctx := GetErrorContext(c)
-	
+
 	appErr := errors.Internal(ErrMsgDatabaseError).
 		WithRequest(ctx.RequestID).
 		WithDetails(err.Error()).
@@ -150,7 +150,7 @@ func HandleDatabaseError(c *fiber.Ctx, err error, operation string) error {
 // HandleNotFoundError creates a standardized not found error response
 func HandleNotFoundError(c *fiber.Ctx, resource string) error {
 	ctx := GetErrorContext(c)
-	
+
 	message := ErrMsgResourceNotFound
 	if resource != "" {
 		switch resource {
@@ -166,7 +166,7 @@ func HandleNotFoundError(c *fiber.Ctx, resource string) error {
 	}
 
 	appErr := errors.NotFound(message).WithRequest(ctx.RequestID)
-	
+
 	if ctx.UserID != "" {
 		appErr = appErr.WithContext("user_id", ctx.UserID).
 			WithContext("resource", resource).
@@ -180,7 +180,7 @@ func HandleNotFoundError(c *fiber.Ctx, resource string) error {
 // HandleConflictError creates a standardized conflict error response
 func HandleConflictError(c *fiber.Ctx, resource string) error {
 	ctx := GetErrorContext(c)
-	
+
 	message := "Resource already exists"
 	if resource != "" {
 		switch resource {
@@ -192,7 +192,7 @@ func HandleConflictError(c *fiber.Ctx, resource string) error {
 	}
 
 	appErr := errors.Conflict(message).WithRequest(ctx.RequestID)
-	
+
 	if ctx.UserID != "" {
 		appErr = appErr.WithContext("user_id", ctx.UserID).
 			WithContext("resource", resource).
@@ -206,7 +206,7 @@ func HandleConflictError(c *fiber.Ctx, resource string) error {
 // HandleInternalError creates a standardized internal server error response
 func HandleInternalError(c *fiber.Ctx, err error, operation string) error {
 	ctx := GetErrorContext(c)
-	
+
 	appErr := errors.Internal(ErrMsgInternalError).
 		WithRequest(ctx.RequestID)
 
@@ -216,11 +216,11 @@ func HandleInternalError(c *fiber.Ctx, err error, operation string) error {
 
 	appErr = appErr.WithContext("path", ctx.Path).
 		WithContext("method", ctx.Method)
-	
+
 	if operation != "" {
 		appErr = appErr.WithContext("operation", operation)
 	}
-	
+
 	if ctx.UserID != "" {
 		appErr = appErr.WithContext("user_id", ctx.UserID)
 	}
@@ -231,9 +231,9 @@ func HandleInternalError(c *fiber.Ctx, err error, operation string) error {
 // HandleBusinessLogicError creates a standardized business logic error response
 func HandleBusinessLogicError(c *fiber.Ctx, message string, code errors.ErrorCode) error {
 	ctx := GetErrorContext(c)
-	
+
 	appErr := errors.NewAppError(code, message).WithRequest(ctx.RequestID)
-	
+
 	if ctx.UserID != "" {
 		appErr = appErr.WithContext("user_id", ctx.UserID).
 			WithContext("path", ctx.Path).

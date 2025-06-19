@@ -16,9 +16,9 @@ func HandleDatabaseError(c *fiber.Ctx, err error, resourceName string) error {
 			"message": fmt.Sprintf("%s not found", resourceName),
 		})
 	}
-	
+
 	return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-		"error":   "Internal Server Error", 
+		"error":   "Internal Server Error",
 		"message": "Database error",
 	})
 }

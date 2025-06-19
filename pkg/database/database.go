@@ -52,9 +52,9 @@ func (d *Database) Connect() error {
 
 	// GORM configuration
 	gormConfig := &gorm.Config{
-		Logger:         gormLogger,
-		NamingStrategy: nil, // Use default naming strategy
-		PrepareStmt:    d.config.PrepareStmt,
+		Logger:                                   gormLogger,
+		NamingStrategy:                           nil, // Use default naming strategy
+		PrepareStmt:                              d.config.PrepareStmt,
 		DisableForeignKeyConstraintWhenMigrating: d.config.DisableForeignKey,
 	}
 
@@ -204,7 +204,7 @@ func (d *Database) GetStats() (map[string]interface{}, error) {
 func (d *Database) configureConnectionPool(sqlDB *sql.DB) {
 	// Calculate optimal connection pool size based on CPU cores and expected workload
 	numCPU := runtime.NumCPU()
-	
+
 	// Default values from config
 	maxConnections := d.config.MaxConnections
 	maxIdleConns := d.config.MaxIdleConns

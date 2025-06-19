@@ -14,14 +14,14 @@ func GetUserID(c *fiber.Ctx) string {
 			return id
 		}
 	}
-	
+
 	// Fallback to JWT claims
 	if claims := c.Locals("jwt_claims"); claims != nil {
 		if jwtClaims, ok := claims.(*auth.JWTClaims); ok {
 			return jwtClaims.UserID
 		}
 	}
-	
+
 	return ""
 }
 

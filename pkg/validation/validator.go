@@ -55,7 +55,7 @@ func (v *Validator) ValidateStruct(s interface{}) error {
 	}
 
 	var validationErrors []ValidationError
-	
+
 	// Handle validation errors
 	if validatorErrors, ok := err.(validator.ValidationErrors); ok {
 		for _, validatorErr := range validatorErrors {
@@ -79,19 +79,19 @@ func (v *Validator) ValidateStruct(s interface{}) error {
 func registerCustomValidators(validate *validator.Validate) {
 	// UUID validation
 	validate.RegisterValidation("uuid", validateUUID)
-	
+
 	// Strong password validation
 	validate.RegisterValidation("strong_password", validateStrongPassword)
-	
+
 	// Device ID format validation
 	validate.RegisterValidation("device_id", validateDeviceID)
-	
+
 	// SPIFFE ID validation
 	validate.RegisterValidation("spiffe_id", validateSPIFFEID)
-	
+
 	// Username format validation
 	validate.RegisterValidation("username", validateUsername)
-	
+
 	// Trust level validation
 	validate.RegisterValidation("trust_level", validateTrustLevel)
 }
@@ -105,31 +105,31 @@ func validateUUID(fl validator.FieldLevel) bool {
 // validateStrongPassword validates password complexity
 func validateStrongPassword(fl validator.FieldLevel) bool {
 	password := fl.Field().String()
-	
+
 	// Minimum 8 characters
 	if len(password) < 8 {
 		return false
 	}
-	
+
 	// Check for at least one uppercase letter
 	hasUpper := regexp.MustCompile(`[A-Z]`).MatchString(password)
-	
+
 	// Check for at least one lowercase letter
 	hasLower := regexp.MustCompile(`[a-z]`).MatchString(password)
-	
+
 	// Check for at least one digit
 	hasDigit := regexp.MustCompile(`\d`).MatchString(password)
-	
+
 	// Check for at least one special character
 	hasSpecial := regexp.MustCompile(`[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]`).MatchString(password)
-	
+
 	return hasUpper && hasLower && hasDigit && hasSpecial
 }
 
 // validateDeviceID validates device ID format
 func validateDeviceID(fl validator.FieldLevel) bool {
 	deviceID := fl.Field().String()
-	
+
 	// Device ID should be alphanumeric with hyphens, 8-64 characters
 	pattern := `^[a-zA-Z0-9\-]{8,64}$`
 	matched, _ := regexp.MatchString(pattern, deviceID)
@@ -139,7 +139,7 @@ func validateDeviceID(fl validator.FieldLevel) bool {
 // validateSPIFFEID validates SPIFFE ID format
 func validateSPIFFEID(fl validator.FieldLevel) bool {
 	spiffeID := fl.Field().String()
-	
+
 	// SPIFFE ID format: spiffe://trust-domain/path
 	pattern := `^spiffe://[a-zA-Z0-9\-\.]+(/[a-zA-Z0-9\-\._/]*)?$`
 	matched, _ := regexp.MatchString(pattern, spiffeID)
@@ -149,7 +149,7 @@ func validateSPIFFEID(fl validator.FieldLevel) bool {
 // validateUsername validates username format
 func validateUsername(fl validator.FieldLevel) bool {
 	username := fl.Field().String()
-	
+
 	// Username: alphanumeric, underscore, hyphen, 3-50 characters
 	pattern := `^[a-zA-Z0-9_\-]{3,50}$`
 	matched, _ := regexp.MatchString(pattern, username)

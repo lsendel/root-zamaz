@@ -238,17 +238,17 @@ func (c *Client) Health() error {
 	if c.conn == nil {
 		return fmt.Errorf("NATS connection is nil")
 	}
-	
+
 	if !c.conn.IsConnected() {
 		return fmt.Errorf("NATS connection is not connected")
 	}
-	
+
 	// Test JetStream connectivity
 	_, err := c.js.AccountInfo()
 	if err != nil {
 		return fmt.Errorf("JetStream health check failed: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -259,7 +259,7 @@ func (c *Client) Stats() map[string]interface{} {
 			"status": "disconnected",
 		}
 	}
-	
+
 	stats := c.conn.Stats()
 	return map[string]interface{}{
 		"status":           "connected",

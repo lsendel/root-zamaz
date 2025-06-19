@@ -18,13 +18,13 @@ type ValidationMiddleware struct {
 type ValidationConfig struct {
 	// SkipValidation allows certain paths to skip validation
 	SkipPaths []string
-	
+
 	// ValidateHeaders enables header validation
 	ValidateHeaders bool
-	
+
 	// ValidateQuery enables query parameter validation
 	ValidateQuery bool
-	
+
 	// LogValidationErrors enables logging of validation errors
 	LogValidationErrors bool
 }
@@ -34,7 +34,7 @@ func DefaultValidationConfig() ValidationConfig {
 	return ValidationConfig{
 		SkipPaths: []string{
 			"/health",
-			"/metrics", 
+			"/metrics",
 			"/swagger",
 		},
 		ValidateHeaders:     false,

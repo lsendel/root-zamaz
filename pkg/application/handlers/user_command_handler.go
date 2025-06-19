@@ -16,9 +16,9 @@ import (
 
 // UserCommandHandler handles user-related commands
 type UserCommandHandler struct {
-	userRepo   repositories.UserRepository
-	eventBus   EventBus
-	obs        *observability.Observability
+	userRepo    repositories.UserRepository
+	eventBus    EventBus
+	obs         *observability.Observability
 	userFactory *entities.UserFactory
 }
 

@@ -14,51 +14,51 @@ func AddPerformanceIndexes(db *gorm.DB) error {
 		// Active users lookup - very common query pattern
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_email_active ON users(email) WHERE is_active = true",
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_username_active ON users(username) WHERE is_active = true",
-		
+
 		// Login security indexes
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_failed_login_attempts ON users(failed_login_attempts) WHERE failed_login_attempts > 0",
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_account_locked ON users(account_locked_until) WHERE account_locked_until IS NOT NULL",
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_last_login ON users(last_login_at DESC)",
-		
+
 		// Audit logs table indexes - for security analysis and reporting
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_logs_user_created ON audit_logs(user_id, created_at DESC)",
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_logs_action_created ON audit_logs(action, created_at DESC)",
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_logs_success_created ON audit_logs(success, created_at DESC)",
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_logs_ip_created ON audit_logs(ip_address, created_at DESC)",
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_logs_resource_action ON audit_logs(resource, action)",
-		
+
 		// Login attempts table indexes - for rate limiting and security analysis
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_login_attempts_username_created ON login_attempts(username, created_at DESC)",
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_login_attempts_ip_created ON login_attempts(ip_address, created_at DESC)",
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_login_attempts_success_created ON login_attempts(success, created_at DESC)",
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_login_attempts_suspicious ON login_attempts(is_suspicious) WHERE is_suspicious = true",
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_login_attempts_user_success ON login_attempts(user_id, success, created_at DESC)",
-		
+
 		// User sessions table indexes - for session management and cleanup
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_sessions_user_active ON user_sessions(user_id, is_active) WHERE is_active = true",
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at)",
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_sessions_device_user ON user_sessions(device_id, user_id)",
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_sessions_ip_created ON user_sessions(ip_address, created_at DESC)",
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_sessions_token_active ON user_sessions(session_token) WHERE is_active = true",
-		
+
 		// Device attestations table indexes - for Zero Trust device verification
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_device_attestations_user_status ON device_attestations(user_id, is_verified, trust_level)",
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_device_attestations_device_verified ON device_attestations(device_id, is_verified)",
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_device_attestations_platform_trust ON device_attestations(platform, trust_level)",
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_device_attestations_spiffe_id ON device_attestations(spiffe_id)",
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_device_attestations_verified_at ON device_attestations(verified_at DESC) WHERE verified_at IS NOT NULL",
-		
+
 		// Roles and permissions indexes - for RBAC performance
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_roles_name_active ON roles(name) WHERE is_active = true",
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_permissions_resource_action ON permissions(resource, action) WHERE is_active = true",
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_permissions_name_active ON permissions(name) WHERE is_active = true",
-		
+
 		// Junction table indexes for many-to-many relationships
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_roles_user_id ON user_roles(user_id)",
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_roles_role_id ON user_roles(role_id)",
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_role_permissions_role_id ON role_permissions(role_id)",
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_role_permissions_permission_id ON role_permissions(permission_id)",
-		
+
 		// Composite indexes for common query patterns
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_logs_user_action_time ON audit_logs(user_id, action, created_at DESC)",
 		"CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_login_attempts_username_ip_time ON login_attempts(username, ip_address, created_at DESC)",
@@ -68,7 +68,7 @@ func AddPerformanceIndexes(db *gorm.DB) error {
 	// Execute each index creation
 	for i, indexSQL := range indexes {
 		fmt.Printf("Creating performance index %d/%d...\n", i+1, len(indexes))
-		
+
 		if err := db.Exec(indexSQL).Error; err != nil {
 			// Log the error but continue with other indexes
 			fmt.Printf("Warning: Failed to create index %d: %v\n", i+1, err)
@@ -123,7 +123,7 @@ func DropPerformanceIndexes(db *gorm.DB) error {
 
 	for i, indexSQL := range indexes {
 		fmt.Printf("Dropping performance index %d/%d...\n", i+1, len(indexes))
-		
+
 		if err := db.Exec(indexSQL).Error; err != nil {
 			fmt.Printf("Warning: Failed to drop index %d: %v\n", i+1, err)
 		}
@@ -176,7 +176,7 @@ func AddPartitioning(db *gorm.DB) error {
 			END IF;
 		END
 		$$`,
-		
+
 		// Similar partitioning for login_attempts
 		`DO $$
 		BEGIN
@@ -215,7 +215,7 @@ func AddPartitioning(db *gorm.DB) error {
 
 	for i, sql := range partitionSQL {
 		fmt.Printf("Setting up table partitioning %d/%d...\n", i+1, len(partitionSQL))
-		
+
 		if err := db.Exec(sql).Error; err != nil {
 			fmt.Printf("Warning: Failed to setup partitioning %d: %v\n", i+1, err)
 			// Continue with other operations
@@ -229,20 +229,20 @@ func AddPartitioning(db *gorm.DB) error {
 // OptimizeDatabase runs VACUUM and ANALYZE on all tables for performance
 func OptimizeDatabase(db *gorm.DB) error {
 	fmt.Printf("Starting database optimization...\n")
-	
+
 	// Whitelist of allowed table names for security (prevents SQL injection)
 	allowedTables := map[string]bool{
-		"users":              true,
-		"user_sessions":      true,
+		"users":               true,
+		"user_sessions":       true,
 		"device_attestations": true,
-		"roles":              true,
-		"permissions":        true,
-		"user_roles":         true,
-		"role_permissions":   true,
-		"login_attempts":     true,
-		"audit_logs":         true,
+		"roles":               true,
+		"permissions":         true,
+		"user_roles":          true,
+		"role_permissions":    true,
+		"login_attempts":      true,
+		"audit_logs":          true,
 	}
-	
+
 	tables := []string{
 		"users", "user_sessions", "device_attestations", "roles", "permissions",
 		"user_roles", "role_permissions", "login_attempts", "audit_logs",
@@ -253,17 +253,17 @@ func OptimizeDatabase(db *gorm.DB) error {
 		if !allowedTables[table] {
 			return fmt.Errorf("security error: invalid table name: %s", table)
 		}
-		
+
 		fmt.Printf("Optimizing table: %s\n", table)
-		
+
 		// Use identifier quoting for safety - PostgreSQL supports this
 		quotedTable := `"` + table + `"`
-		
+
 		// ANALYZE to update statistics (safe: uses quoted identifier)
 		if err := db.Exec("ANALYZE " + quotedTable).Error; err != nil {
 			fmt.Printf("Warning: Failed to analyze table %s: %v\n", table, err)
 		}
-		
+
 		// VACUUM to reclaim storage and update statistics (safe: uses quoted identifier)
 		if err := db.Exec("VACUUM " + quotedTable).Error; err != nil {
 			fmt.Printf("Warning: Failed to vacuum table %s: %v\n", table, err)

@@ -2,10 +2,10 @@
 package session
 
 import (
-	"time"
 	"github.com/gofiber/fiber/v2"
 	"mvp.local/pkg/config"
 	"mvp.local/pkg/observability"
+	"time"
 )
 
 // SessionCreator provides utilities for creating user sessions
@@ -43,7 +43,7 @@ func (sc *SessionCreator) CreateUserSession(c *fiber.Ctx, params SessionParams) 
 	if sc.sessionManager == nil {
 		return nil, nil // No error if session manager not available
 	}
-	
+
 	sessionData := SessionData{
 		UserID:      params.UserID,
 		Email:       params.Email,
@@ -57,21 +57,21 @@ func (sc *SessionCreator) CreateUserSession(c *fiber.Ctx, params SessionParams) 
 		IsActive:    true,
 		Metadata:    params.Metadata,
 	}
-	
+
 	createdSession, err := sc.sessionManager.CreateSession(c.Context(), params.UserID, sessionData)
 	if err != nil {
 		sc.obs.Logger.Error().Err(err).Str("user_id", params.UserID).Msg("Failed to create session")
 		return nil, err
 	}
-	
+
 	// Set secure session cookie
 	sc.setSessionCookie(c, createdSession.SessionID, createdSession.ExpiresAt)
-	
+
 	sc.obs.Logger.Info().
 		Str("user_id", params.UserID).
 		Str("session_id", createdSession.SessionID).
 		Msg("Session created successfully")
-		
+
 	return createdSession, nil
 }
 
@@ -80,21 +80,21 @@ func (sc *SessionCreator) RefreshUserSession(c *fiber.Ctx, sessionID string) (*S
 	if sc.sessionManager == nil {
 		return nil, nil
 	}
-	
+
 	refreshedSession, err := sc.sessionManager.RefreshSession(c.Context(), sessionID)
 	if err != nil {
 		sc.obs.Logger.Error().Err(err).Str("session_id", sessionID).Msg("Failed to refresh session")
 		return nil, err
 	}
-	
+
 	// Update session cookie with new expiration
 	sc.setSessionCookie(c, refreshedSession.SessionID, refreshedSession.ExpiresAt)
-	
+
 	sc.obs.Logger.Info().
 		Str("session_id", sessionID).
 		Str("user_id", refreshedSession.UserID).
 		Msg("Session refreshed successfully")
-		
+
 	return refreshedSession, nil
 }
 
@@ -103,20 +103,20 @@ func (sc *SessionCreator) DestroyUserSession(c *fiber.Ctx, sessionID string) err
 	if sc.sessionManager == nil {
 		return nil
 	}
-	
+
 	err := sc.sessionManager.DeleteSession(c.Context(), sessionID)
 	if err != nil {
 		sc.obs.Logger.Error().Err(err).Str("session_id", sessionID).Msg("Failed to destroy session")
 		return err
 	}
-	
+
 	// Clear session cookie
 	sc.clearSessionCookie(c)
-	
+
 	sc.obs.Logger.Info().
 		Str("session_id", sessionID).
 		Msg("Session destroyed successfully")
-		
+
 	return nil
 }
 
@@ -164,11 +164,11 @@ func (sc *SessionCreator) GetSessionFromCookie(c *fiber.Ctx) (*SessionData, erro
 	if sc.sessionManager == nil {
 		return nil, nil
 	}
-	
+
 	sessionID := c.Cookies("session_id")
 	if sessionID == "" {
 		return nil, nil
 	}
-	
+
 	return sc.sessionManager.GetSession(c.Context(), sessionID)
 }

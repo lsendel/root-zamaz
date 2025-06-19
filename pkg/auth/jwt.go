@@ -95,7 +95,7 @@ type JWTServiceInterface interface {
 func NewJWTKeyManager(initialSecret []byte, rotationDur time.Duration) *JWTKeyManager {
 	keyID := generateKeyID()
 	now := time.Now()
-	
+
 	key := &JWTKey{
 		ID:        keyID,
 		Key:       initialSecret,
@@ -103,7 +103,7 @@ func NewJWTKeyManager(initialSecret []byte, rotationDur time.Duration) *JWTKeyMa
 		ExpiresAt: now.Add(rotationDur * 2), // Allow overlap for token validation
 		IsActive:  true,
 	}
-	
+
 	return &JWTKeyManager{
 		keys:         map[string]*JWTKey{keyID: key},
 		currentKeyID: keyID,
@@ -205,7 +205,7 @@ func (j *JWTService) ValidateToken(tokenString string) (*JWTClaims, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		
+
 		// Check for key ID in token header
 		if kidInterface, ok := token.Header["kid"]; ok {
 			if kid, ok := kidInterface.(string); ok {
@@ -215,12 +215,12 @@ func (j *JWTService) ValidateToken(tokenString string) (*JWTClaims, error) {
 				}
 			}
 		}
-		
+
 		// Fallback to current key for tokens without key ID (backward compatibility)
 		if currentKey := j.keyManager.GetCurrentKey(); currentKey != nil {
 			return currentKey.Key, nil
 		}
-		
+
 		return nil, fmt.Errorf("no valid signing key found")
 	})
 
@@ -355,7 +355,7 @@ func (j *JWTService) GetUserRolesAndPermissions(userID string) ([]string, []stri
 func (km *JWTKeyManager) GetCurrentKey() *JWTKey {
 	km.mu.RLock()
 	defer km.mu.RUnlock()
-	
+
 	if key, exists := km.keys[km.currentKeyID]; exists {
 		return key
 	}
@@ -366,7 +366,7 @@ func (km *JWTKeyManager) GetCurrentKey() *JWTKey {
 func (km *JWTKeyManager) GetKey(keyID string) *JWTKey {
 	km.mu.RLock()
 	defer km.mu.RUnlock()
-	
+
 	return km.keys[keyID]
 }
 
@@ -374,16 +374,16 @@ func (km *JWTKeyManager) GetKey(keyID string) *JWTKey {
 func (km *JWTKeyManager) RotateKey() error {
 	km.mu.Lock()
 	defer km.mu.Unlock()
-	
+
 	// Generate new key
 	newKeyBytes := make([]byte, 32)
 	if _, err := rand.Read(newKeyBytes); err != nil {
 		return fmt.Errorf("failed to generate new key: %w", err)
 	}
-	
+
 	newKeyID := generateKeyID()
 	now := time.Now()
-	
+
 	newKey := &JWTKey{
 		ID:        newKeyID,
 		Key:       newKeyBytes,
@@ -391,19 +391,19 @@ func (km *JWTKeyManager) RotateKey() error {
 		ExpiresAt: now.Add(km.rotationDur * 2), // Allow overlap for token validation
 		IsActive:  true,
 	}
-	
+
 	// Mark current key as inactive
 	if currentKey, exists := km.keys[km.currentKeyID]; exists {
 		currentKey.IsActive = false
 	}
-	
+
 	// Add new key and update current
 	km.keys[newKeyID] = newKey
 	km.currentKeyID = newKeyID
-	
+
 	// Clean up expired keys
 	km.cleanupExpiredKeys()
-	
+
 	return nil
 }
 
@@ -421,11 +421,11 @@ func (km *JWTKeyManager) cleanupExpiredKeys() {
 func (km *JWTKeyManager) GetStats() map[string]interface{} {
 	km.mu.RLock()
 	defer km.mu.RUnlock()
-	
+
 	activeKeys := 0
 	expiredKeys := 0
 	now := time.Now()
-	
+
 	for _, key := range km.keys {
 		if key.IsActive && now.Before(key.ExpiresAt) {
 			activeKeys++
@@ -433,13 +433,13 @@ func (km *JWTKeyManager) GetStats() map[string]interface{} {
 			expiredKeys++
 		}
 	}
-	
+
 	return map[string]interface{}{
-		"total_keys":       len(km.keys),
-		"active_keys":      activeKeys,
-		"expired_keys":     expiredKeys,
-		"current_key_id":   km.currentKeyID,
-		"rotation_period":  km.rotationDur.String(),
+		"total_keys":      len(km.keys),
+		"active_keys":     activeKeys,
+		"expired_keys":    expiredKeys,
+		"current_key_id":  km.currentKeyID,
+		"rotation_period": km.rotationDur.String(),
 	}
 }
 

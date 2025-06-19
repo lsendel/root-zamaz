@@ -16,19 +16,19 @@ import (
 type RetryPolicy struct {
 	// MaxAttempts is the maximum number of retry attempts
 	MaxAttempts int
-	
+
 	// InitialDelay is the delay before the first retry
 	InitialDelay time.Duration
-	
+
 	// MaxDelay is the maximum delay between retries
 	MaxDelay time.Duration
-	
+
 	// BackoffMultiplier for exponential backoff
 	BackoffMultiplier float64
-	
+
 	// Jitter adds randomness to prevent thundering herd
 	Jitter bool
-	
+
 	// RetryableErrors function to determine if an error is retryable
 	RetryableErrors func(error) bool
 }
@@ -95,12 +95,12 @@ func ExternalAPIRetryPolicy() RetryPolicy {
 
 // RetryResult contains information about the retry execution
 type RetryResult struct {
-	Attempts    int
-	TotalDelay  time.Duration
-	LastError   error
-	Success     bool
-	StartTime   time.Time
-	EndTime     time.Time
+	Attempts   int
+	TotalDelay time.Duration
+	LastError  error
+	Success    bool
+	StartTime  time.Time
+	EndTime    time.Time
 }
 
 // Retryer provides retry functionality with circuit breaker integration
@@ -122,12 +122,12 @@ func (r *Retryer) Execute(ctx context.Context, name string, fn func(ctx context.
 	result := &RetryResult{
 		StartTime: time.Now(),
 	}
-	
+
 	var lastError error
-	
+
 	for attempt := 1; attempt <= r.policy.MaxAttempts; attempt++ {
 		result.Attempts = attempt
-		
+
 		// Create context with timeout for this attempt
 		attemptCtx := ctx
 		if deadline, hasDeadline := ctx.Deadline(); hasDeadline {
@@ -138,10 +138,10 @@ func (r *Retryer) Execute(ctx context.Context, name string, fn func(ctx context.
 				break
 			}
 		}
-		
+
 		// Execute the function
 		err := fn(attemptCtx)
-		
+
 		// Log attempt
 		if r.obs != nil {
 			if err != nil {
@@ -158,16 +158,16 @@ func (r *Retryer) Execute(ctx context.Context, name string, fn func(ctx context.
 					Msg("Retry attempt succeeded")
 			}
 		}
-		
+
 		if err == nil {
 			// Success!
 			result.Success = true
 			result.EndTime = time.Now()
 			return result, nil
 		}
-		
+
 		lastError = err
-		
+
 		// Check if error is retryable
 		if r.policy.RetryableErrors != nil && !r.policy.RetryableErrors(err) {
 			// Error is not retryable, stop immediately
@@ -179,12 +179,12 @@ func (r *Retryer) Execute(ctx context.Context, name string, fn func(ctx context.
 			}
 			break
 		}
-		
+
 		// Don't delay after the last attempt
 		if attempt < r.policy.MaxAttempts {
 			delay := r.calculateDelay(attempt)
 			result.TotalDelay += delay
-			
+
 			// Sleep with context cancellation support
 			select {
 			case <-ctx.Done():
@@ -195,11 +195,11 @@ func (r *Retryer) Execute(ctx context.Context, name string, fn func(ctx context.
 			}
 		}
 	}
-	
+
 done:
 	result.LastError = lastError
 	result.EndTime = time.Now()
-	
+
 	// Log final result
 	if r.obs != nil {
 		r.obs.Logger.Warn().
@@ -209,35 +209,35 @@ done:
 			Err(lastError).
 			Msg("All retry attempts failed")
 	}
-	
+
 	return result, lastError
 }
 
 // calculateDelay calculates the delay for the given attempt
 func (r *Retryer) calculateDelay(attempt int) time.Duration {
 	delay := float64(r.policy.InitialDelay)
-	
+
 	// Apply exponential backoff
 	if attempt > 1 {
 		delay = delay * math.Pow(r.policy.BackoffMultiplier, float64(attempt-1))
 	}
-	
+
 	// Apply jitter to prevent thundering herd
 	if r.policy.Jitter {
 		jitter := delay * 0.1 * (2*rand.Float64() - 1) // ±10% jitter
 		delay += jitter
 	}
-	
+
 	// Cap at max delay
 	if delay > float64(r.policy.MaxDelay) {
 		delay = float64(r.policy.MaxDelay)
 	}
-	
+
 	// Ensure minimum delay
 	if delay < float64(r.policy.InitialDelay) {
 		delay = float64(r.policy.InitialDelay)
 	}
-	
+
 	return time.Duration(delay)
 }
 
@@ -245,16 +245,16 @@ func (r *Retryer) calculateDelay(attempt int) time.Duration {
 type TimeoutConfig struct {
 	// Operation timeout for the entire operation
 	Operation time.Duration
-	
+
 	// Individual attempt timeout
 	Attempt time.Duration
-	
+
 	// Connection timeout for network operations
 	Connection time.Duration
-	
+
 	// Read timeout for read operations
 	Read time.Duration
-	
+
 	// Write timeout for write operations
 	Write time.Duration
 }
@@ -268,7 +268,7 @@ var (
 		Read:       15 * time.Second,
 		Write:      10 * time.Second,
 	}
-	
+
 	CacheTimeouts = TimeoutConfig{
 		Operation:  5 * time.Second,
 		Attempt:    2 * time.Second,
@@ -276,7 +276,7 @@ var (
 		Read:       3 * time.Second,
 		Write:      2 * time.Second,
 	}
-	
+
 	MessagingTimeouts = TimeoutConfig{
 		Operation:  20 * time.Second,
 		Attempt:    10 * time.Second,
@@ -284,7 +284,7 @@ var (
 		Read:       10 * time.Second,
 		Write:      10 * time.Second,
 	}
-	
+
 	ExternalAPITimeouts = TimeoutConfig{
 		Operation:  60 * time.Second,
 		Attempt:    30 * time.Second,
@@ -335,7 +335,7 @@ func ExecuteWithRetryAndBreaker(
 	fn func(ctx context.Context) error,
 ) error {
 	manager := GetGlobalManager(obs)
-	
+
 	return manager.ExecuteWithBreaker(ctx, name, func(ctx context.Context) error {
 		return ExecuteWithRetry(ctx, obs, name, policy, fn)
 	}, breakerConfig)
@@ -347,7 +347,7 @@ func ExecuteWithRetryAndBreaker(
 func RetryDatabase(ctx context.Context, obs *observability.Observability, name string, fn func(ctx context.Context) error) error {
 	ctx, cancel := WithOperationTimeout(ctx, DatabaseTimeouts)
 	defer cancel()
-	
+
 	return ExecuteWithRetryAndBreaker(ctx, obs, fmt.Sprintf("db-%s", name), DatabaseRetryPolicy(), DatabaseConfig, fn)
 }
 
@@ -355,7 +355,7 @@ func RetryDatabase(ctx context.Context, obs *observability.Observability, name s
 func RetryCache(ctx context.Context, obs *observability.Observability, name string, fn func(ctx context.Context) error) error {
 	ctx, cancel := WithOperationTimeout(ctx, CacheTimeouts)
 	defer cancel()
-	
+
 	return ExecuteWithRetryAndBreaker(ctx, obs, fmt.Sprintf("cache-%s", name), CacheRetryPolicy(), CacheConfig, fn)
 }
 
@@ -363,7 +363,7 @@ func RetryCache(ctx context.Context, obs *observability.Observability, name stri
 func RetryMessaging(ctx context.Context, obs *observability.Observability, name string, fn func(ctx context.Context) error) error {
 	ctx, cancel := WithOperationTimeout(ctx, MessagingTimeouts)
 	defer cancel()
-	
+
 	return ExecuteWithRetryAndBreaker(ctx, obs, fmt.Sprintf("messaging-%s", name), MessagingRetryPolicy(), MessagingConfig, fn)
 }
 
@@ -371,7 +371,7 @@ func RetryMessaging(ctx context.Context, obs *observability.Observability, name 
 func RetryExternalAPI(ctx context.Context, obs *observability.Observability, name string, fn func(ctx context.Context) error) error {
 	ctx, cancel := WithOperationTimeout(ctx, ExternalAPITimeouts)
 	defer cancel()
-	
+
 	return ExecuteWithRetryAndBreaker(ctx, obs, fmt.Sprintf("api-%s", name), ExternalAPIRetryPolicy(), ExternalAPIConfig, fn)
 }
 
@@ -382,18 +382,18 @@ func DefaultRetryableErrors(err error) bool {
 	if err == nil {
 		return false
 	}
-	
+
 	// Don't retry context cancellation or deadline exceeded
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return false
 	}
-	
+
 	// Don't retry circuit breaker errors
 	var cbErr *CircuitBreakerError
 	if errors.As(err, &cbErr) {
 		return false
 	}
-	
+
 	// Retry most other errors
 	return true
 }
@@ -403,20 +403,20 @@ func DatabaseRetryableErrors(err error) bool {
 	if err == nil {
 		return false
 	}
-	
+
 	// Don't retry context errors
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return false
 	}
-	
+
 	// Don't retry circuit breaker errors
 	var cbErr *CircuitBreakerError
 	if errors.As(err, &cbErr) {
 		return false
 	}
-	
+
 	errStr := err.Error()
-	
+
 	// Retry connection errors
 	if containsAny(errStr, []string{
 		"connection refused",
@@ -429,7 +429,7 @@ func DatabaseRetryableErrors(err error) bool {
 	}) {
 		return true
 	}
-	
+
 	// Don't retry constraint violations or syntax errors
 	if containsAny(errStr, []string{
 		"unique constraint",
@@ -442,7 +442,7 @@ func DatabaseRetryableErrors(err error) bool {
 	}) {
 		return false
 	}
-	
+
 	// Retry most other database errors
 	return true
 }
@@ -452,24 +452,24 @@ func CacheRetryableErrors(err error) bool {
 	if err == nil {
 		return false
 	}
-	
+
 	// Don't retry context errors
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return false
 	}
-	
+
 	// Don't retry circuit breaker errors
 	var cbErr *CircuitBreakerError
 	if errors.As(err, &cbErr) {
 		return false
 	}
-	
+
 	errStr := err.Error()
-	
+
 	// Retry connection and network errors
 	if containsAny(errStr, []string{
 		"connection refused",
-		"connection reset", 
+		"connection reset",
 		"connection timeout",
 		"network error",
 		"timeout",
@@ -479,7 +479,7 @@ func CacheRetryableErrors(err error) bool {
 	}) {
 		return true
 	}
-	
+
 	// Don't retry authentication or permission errors
 	if containsAny(errStr, []string{
 		"authentication failed",
@@ -488,7 +488,7 @@ func CacheRetryableErrors(err error) bool {
 	}) {
 		return false
 	}
-	
+
 	// Retry most other cache errors (cache should be tolerant)
 	return true
 }
@@ -498,20 +498,20 @@ func MessagingRetryableErrors(err error) bool {
 	if err == nil {
 		return false
 	}
-	
+
 	// Don't retry context errors
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return false
 	}
-	
+
 	// Don't retry circuit breaker errors
 	var cbErr *CircuitBreakerError
 	if errors.As(err, &cbErr) {
 		return false
 	}
-	
+
 	errStr := err.Error()
-	
+
 	// Retry connection and network errors
 	if containsAny(errStr, []string{
 		"connection refused",
@@ -525,7 +525,7 @@ func MessagingRetryableErrors(err error) bool {
 	}) {
 		return true
 	}
-	
+
 	// Don't retry authentication or authorization errors
 	if containsAny(errStr, []string{
 		"authentication timeout",
@@ -536,7 +536,7 @@ func MessagingRetryableErrors(err error) bool {
 	}) {
 		return false
 	}
-	
+
 	// Retry most other messaging errors
 	return true
 }
@@ -546,20 +546,20 @@ func ExternalAPIRetryableErrors(err error) bool {
 	if err == nil {
 		return false
 	}
-	
+
 	// Don't retry context errors
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return false
 	}
-	
+
 	// Don't retry circuit breaker errors
 	var cbErr *CircuitBreakerError
 	if errors.As(err, &cbErr) {
 		return false
 	}
-	
+
 	errStr := err.Error()
-	
+
 	// Retry network and connection errors
 	if containsAny(errStr, []string{
 		"connection refused",
@@ -575,11 +575,11 @@ func ExternalAPIRetryableErrors(err error) bool {
 	}) {
 		return true
 	}
-	
+
 	// Don't retry client errors (4xx)
 	if containsAny(errStr, []string{
 		"400 Bad Request",
-		"401 Unauthorized", 
+		"401 Unauthorized",
 		"403 Forbidden",
 		"404 Not Found",
 		"405 Method Not Allowed",
@@ -590,7 +590,7 @@ func ExternalAPIRetryableErrors(err error) bool {
 	}) {
 		return false
 	}
-	
+
 	// Retry server errors (5xx) except for some specific ones
 	if containsAny(errStr, []string{
 		"500 Internal Server Error",
@@ -600,7 +600,7 @@ func ExternalAPIRetryableErrors(err error) bool {
 	}) {
 		return true
 	}
-	
+
 	// Default to retry for unknown errors
 	return true
 }

@@ -116,13 +116,13 @@ type SessionListView struct {
 
 // AuditLogEntry represents an audit log entry
 type AuditLogEntry struct {
-	ID          string                 `json:"id"`
-	UserID      string                 `json:"user_id"`
-	EventType   string                 `json:"event_type"`
-	EventData   map[string]interface{} `json:"event_data"`
-	IPAddress   string                 `json:"ip_address"`
-	UserAgent   string                 `json:"user_agent"`
-	OccurredAt  time.Time              `json:"occurred_at"`
+	ID         string                 `json:"id"`
+	UserID     string                 `json:"user_id"`
+	EventType  string                 `json:"event_type"`
+	EventData  map[string]interface{} `json:"event_data"`
+	IPAddress  string                 `json:"ip_address"`
+	UserAgent  string                 `json:"user_agent"`
+	OccurredAt time.Time              `json:"occurred_at"`
 }
 
 // AuditLogView represents a paginated audit log

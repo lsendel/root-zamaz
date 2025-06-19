@@ -84,10 +84,10 @@ type RecordLoginCommand struct {
 
 // RecordFailedLoginCommand represents a command to record a failed login attempt
 type RecordFailedLoginCommand struct {
-	UserID           string
-	IPAddress        string
-	MaxAttempts      int
-	LockoutDuration  time.Duration
+	UserID          string
+	IPAddress       string
+	MaxAttempts     int
+	LockoutDuration time.Duration
 }
 
 // UnlockAccountCommand represents a command to manually unlock a user account

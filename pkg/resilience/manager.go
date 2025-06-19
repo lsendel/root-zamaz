@@ -29,11 +29,11 @@ func NewCircuitBreakerManager(obs *observability.Observability) *CircuitBreakerM
 func (m *CircuitBreakerManager) GetOrCreate(name string, config ...CircuitBreakerConfig) *CircuitBreaker {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	
+
 	if cb, exists := m.breakers[name]; exists {
 		return cb
 	}
-	
+
 	// Create new circuit breaker with provided config or default
 	var cfg CircuitBreakerConfig
 	if len(config) > 0 {
@@ -41,13 +41,13 @@ func (m *CircuitBreakerManager) GetOrCreate(name string, config ...CircuitBreake
 	} else {
 		cfg = DefaultCircuitBreakerConfig(name)
 	}
-	
+
 	// Ensure name is set
 	cfg.Name = name
-	
+
 	cb := NewCircuitBreaker(cfg, m.obs)
 	m.breakers[name] = cb
-	
+
 	if m.obs != nil {
 		m.obs.Logger.Info().
 			Str("circuit_breaker", name).
@@ -56,7 +56,7 @@ func (m *CircuitBreakerManager) GetOrCreate(name string, config ...CircuitBreake
 			Int("max_requests", cfg.MaxRequests).
 			Msg("Created new circuit breaker")
 	}
-	
+
 	return cb
 }
 
@@ -64,7 +64,7 @@ func (m *CircuitBreakerManager) GetOrCreate(name string, config ...CircuitBreake
 func (m *CircuitBreakerManager) Get(name string) (*CircuitBreaker, bool) {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
-	
+
 	cb, exists := m.breakers[name]
 	return cb, exists
 }
@@ -73,9 +73,9 @@ func (m *CircuitBreakerManager) Get(name string) (*CircuitBreaker, bool) {
 func (m *CircuitBreakerManager) Remove(name string) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	
+
 	delete(m.breakers, name)
-	
+
 	if m.obs != nil {
 		m.obs.Logger.Info().
 			Str("circuit_breaker", name).
@@ -87,12 +87,12 @@ func (m *CircuitBreakerManager) Remove(name string) {
 func (m *CircuitBreakerManager) List() []string {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
-	
+
 	names := make([]string, 0, len(m.breakers))
 	for name := range m.breakers {
 		names = append(names, name)
 	}
-	
+
 	return names
 }
 
@@ -100,12 +100,12 @@ func (m *CircuitBreakerManager) List() []string {
 func (m *CircuitBreakerManager) GetAllMetrics() map[string]interface{} {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
-	
+
 	metrics := make(map[string]interface{})
 	for name, cb := range m.breakers {
 		metrics[name] = cb.GetMetrics()
 	}
-	
+
 	return metrics
 }
 
@@ -113,11 +113,11 @@ func (m *CircuitBreakerManager) GetAllMetrics() map[string]interface{} {
 func (m *CircuitBreakerManager) ResetAll() {
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
-	
+
 	for _, cb := range m.breakers {
 		cb.Reset()
 	}
-	
+
 	if m.obs != nil {
 		m.obs.Logger.Info().Msg("Reset all circuit breakers")
 	}
@@ -138,7 +138,7 @@ func (m *CircuitBreakerManager) ExecuteWithBreaker(
 func (m *CircuitBreakerManager) MonitorHealth(ctx context.Context, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -157,7 +157,7 @@ func (m *CircuitBreakerManager) performHealthChecks(ctx context.Context) {
 		breakers = append(breakers, cb)
 	}
 	m.mutex.RUnlock()
-	
+
 	for _, cb := range breakers {
 		if cb.config.ReadinessCheck != nil && cb.GetState() == StateOpen {
 			m.checkBreakerHealth(ctx, cb)
@@ -169,9 +169,9 @@ func (m *CircuitBreakerManager) performHealthChecks(ctx context.Context) {
 func (m *CircuitBreakerManager) checkBreakerHealth(ctx context.Context, cb *CircuitBreaker) {
 	checkCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	
+
 	err := cb.config.ReadinessCheck(checkCtx)
-	
+
 	if err == nil && cb.GetState() == StateOpen {
 		// Service appears to be healthy, move to half-open
 		cb.mutex.Lock()
@@ -180,7 +180,7 @@ func (m *CircuitBreakerManager) checkBreakerHealth(ctx context.Context, cb *Circ
 			cb.requests = 0
 		}
 		cb.mutex.Unlock()
-		
+
 		if m.obs != nil {
 			m.obs.Logger.Info().
 				Str("circuit_breaker", cb.config.Name).
@@ -200,20 +200,20 @@ func (m *CircuitBreakerManager) checkBreakerHealth(ctx context.Context, cb *Circ
 var (
 	// DatabaseConfig is optimized for database operations
 	DatabaseConfig = CircuitBreakerConfig{
-		MaxFailures:    3,  // Fail fast for database issues
+		MaxFailures:    3, // Fail fast for database issues
 		Timeout:        10 * time.Second,
-		MaxRequests:    2,  // Conservative testing
+		MaxRequests:    2,   // Conservative testing
 		ReadinessCheck: nil, // Will be set by database package
 	}
-	
+
 	// CacheConfig is more tolerant since cache is often optional
 	CacheConfig = CircuitBreakerConfig{
-		MaxFailures:    5,  // More tolerant of cache failures
+		MaxFailures:    5, // More tolerant of cache failures
 		Timeout:        5 * time.Second,
 		MaxRequests:    3,
 		ReadinessCheck: nil, // Will be set by cache package
 	}
-	
+
 	// MessagingConfig for NATS and other messaging systems
 	MessagingConfig = CircuitBreakerConfig{
 		MaxFailures:    4,
@@ -221,7 +221,7 @@ var (
 		MaxRequests:    2,
 		ReadinessCheck: nil, // Will be set by messaging package
 	}
-	
+
 	// ObservabilityConfig for tracing and metrics
 	ObservabilityConfig = CircuitBreakerConfig{
 		MaxFailures:    10, // Very tolerant - observability shouldn't break app
@@ -229,7 +229,7 @@ var (
 		MaxRequests:    5,
 		ReadinessCheck: nil,
 	}
-	
+
 	// ExternalAPIConfig for external HTTP services
 	ExternalAPIConfig = CircuitBreakerConfig{
 		MaxFailures:    3,
@@ -244,7 +244,7 @@ func (m *CircuitBreakerManager) CreateDatabaseBreaker(name string, readinessChec
 	config := DatabaseConfig
 	config.Name = name
 	config.ReadinessCheck = readinessCheck
-	
+
 	return m.GetOrCreate(name, config)
 }
 
@@ -253,7 +253,7 @@ func (m *CircuitBreakerManager) CreateCacheBreaker(name string, readinessCheck f
 	config := CacheConfig
 	config.Name = name
 	config.ReadinessCheck = readinessCheck
-	
+
 	return m.GetOrCreate(name, config)
 }
 
@@ -262,7 +262,7 @@ func (m *CircuitBreakerManager) CreateMessagingBreaker(name string, readinessChe
 	config := MessagingConfig
 	config.Name = name
 	config.ReadinessCheck = readinessCheck
-	
+
 	return m.GetOrCreate(name, config)
 }
 
@@ -271,7 +271,7 @@ func (m *CircuitBreakerManager) CreateObservabilityBreaker(name string, readines
 	config := ObservabilityConfig
 	config.Name = name
 	config.ReadinessCheck = readinessCheck
-	
+
 	return m.GetOrCreate(name, config)
 }
 
