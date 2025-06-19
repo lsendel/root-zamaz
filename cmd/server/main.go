@@ -35,7 +35,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/swagger"
 	"github.com/redis/go-redis/v9"
-	_ "mvp.local/docs" // Import generated docs
+	// _ "mvp.local/docs" // Import generated docs - disabled for build
 
 	"mvp.local/pkg/auth"
 	"mvp.local/pkg/config"
@@ -167,7 +167,7 @@ func NewServer(cfg *config.Config) (*Server, error) {
 		ReadTimeout:  cfg.HTTP.ReadTimeout,
 		WriteTimeout: cfg.HTTP.WriteTimeout,
 		IdleTimeout:  cfg.HTTP.IdleTimeout,
-		ErrorHandler: errorHandler(obs),
+		ErrorHandler: middleware.ErrorHandlerMiddleware(obs),
 	})
 
 	server := &Server{
@@ -189,8 +189,8 @@ func NewServer(cfg *config.Config) (*Server, error) {
 
 // setupMiddleware configures global middleware
 func (s *Server) setupMiddleware() {
-	// Recovery middleware
-	s.app.Use(recover.New())
+	// Recovery middleware (custom)
+	s.app.Use(middleware.RecoveryMiddleware(s.obs))
 
 	// CORS middleware
 	if s.config.Security.CORS.Enabled {
@@ -217,6 +217,18 @@ func (s *Server) setupMiddleware() {
 	securityMetrics, _ := observability.NewSecurityMetrics(s.obs.Meter)
 	s.app.Use(middleware.ObservabilityMiddleware(s.obs, securityMetrics))
 
+	// Request/Response logging middleware
+	s.app.Use(middleware.LoggingMiddleware(s.obs))
+
+	// Validation middleware
+	s.app.Use(middleware.ValidationMiddleware())
+
+	// Rate limiting middleware
+	if s.redisClient != nil {
+		rateLimiter := middleware.NewRateLimiter(s.redisClient, s.obs)
+		s.app.Use(rateLimiter.RateLimitMiddleware())
+	}
+
 	// Authentication middleware for audit logging
 	authMiddleware := auth.NewAuthMiddleware(s.jwtService, s.authzService, s.db.GetDB(), s.obs, s.config)
 	s.app.Use(authMiddleware.AuditMiddleware())
@@ -227,7 +239,7 @@ func (s *Server) setupRoutes() {
 	// Initialize handlers
 	authHandler := handlers.NewAuthHandler(s.db.GetDB(), s.jwtService, s.authzService, s.lockoutService, s.obs, s.config)
 	deviceHandler := handlers.NewDeviceHandler(s.db.GetDB(), s.authzService, s.obs)
-	systemHandler := handlers.NewSystemHandler(s.db, s.redisClient, s.authzService, s.obs)
+	systemHandler := handlers.NewSystemHandler(s.db, s.redisClient, nil, s.authzService, s.obs)
 	adminHandler := handlers.NewAdminHandler(s.db.GetDB(), s.authzService, s.obs)
 
 	// Initialize middleware
@@ -369,33 +381,6 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 }
 
-// errorHandler provides custom error handling for Fiber
-func errorHandler(obs *observability.Observability) fiber.ErrorHandler {
-	return func(c *fiber.Ctx, err error) error {
-		code := fiber.StatusInternalServerError
-		message := "Internal Server Error"
-
-		// Check if it's a Fiber error
-		if e, ok := err.(*fiber.Error); ok {
-			code = e.Code
-			message = e.Message
-		}
-
-		// Log error
-		obs.Logger.Error().
-			Err(err).
-			Int("status_code", code).
-			Str("method", c.Method()).
-			Str("path", c.Path()).
-			Msg("Request error")
-
-		// Return error response
-		return c.Status(code).JSON(fiber.Map{
-			"error":   message,
-			"message": err.Error(),
-		})
-	}
-}
 
 // joinStrings joins a slice of strings with a separator
 func joinStrings(slice []string, sep string) string {

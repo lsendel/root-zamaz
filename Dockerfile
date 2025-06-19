@@ -41,7 +41,7 @@ COPY --from=builder /app/mvp-auth .
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 # Copy configuration files if they exist
-COPY --from=builder /app/configs/ ./configs/ 2>/dev/null || true
+COPY --from=builder /app/configs/ ./configs/
 
 # Create necessary directories
 RUN mkdir -p /app/logs /app/data && \

@@ -56,9 +56,25 @@ type DatabaseConfig struct {
 	Username        string        `yaml:"username" env:"DB_USER" default:"mvp_user"`
 	Password        string        `yaml:"password" env:"DB_PASSWORD" default:"please_change_this_password_in_production"`
 	SSLMode         string        `yaml:"ssl_mode" env:"DB_SSL_MODE" default:"disable"`
-	MaxConnections  int           `yaml:"max_connections" env:"DB_MAX_CONNECTIONS" default:"25"`
-	MaxIdleConns    int           `yaml:"max_idle_conns" env:"DB_MAX_IDLE_CONNS" default:"5"`
-	ConnMaxLifetime time.Duration `yaml:"conn_max_lifetime" env:"DB_CONN_MAX_LIFETIME" default:"300s"`
+	
+	// Connection pool settings
+	MaxConnections    int           `yaml:"max_connections" env:"DB_MAX_CONNECTIONS" default:"25"`
+	MaxIdleConns      int           `yaml:"max_idle_conns" env:"DB_MAX_IDLE_CONNS" default:"5"`
+	MinIdleConns      int           `yaml:"min_idle_conns" env:"DB_MIN_IDLE_CONNS" default:"2"`
+	ConnMaxLifetime   time.Duration `yaml:"conn_max_lifetime" env:"DB_CONN_MAX_LIFETIME" default:"300s"`
+	ConnMaxIdleTime   time.Duration `yaml:"conn_max_idle_time" env:"DB_CONN_MAX_IDLE_TIME" default:"60s"`
+	
+	// Query timeouts
+	QueryTimeout      time.Duration `yaml:"query_timeout" env:"DB_QUERY_TIMEOUT" default:"30s"`
+	ConnectTimeout    time.Duration `yaml:"connect_timeout" env:"DB_CONNECT_TIMEOUT" default:"10s"`
+	
+	// Performance tuning
+	PrepareStmt       bool          `yaml:"prepare_stmt" env:"DB_PREPARE_STMT" default:"true"`
+	DisableForeignKey bool          `yaml:"disable_foreign_key" env:"DB_DISABLE_FOREIGN_KEY" default:"false"`
+	
+	// Monitoring
+	EnableMetrics     bool          `yaml:"enable_metrics" env:"DB_ENABLE_METRICS" default:"true"`
+	SlowQueryThreshold time.Duration `yaml:"slow_query_threshold" env:"DB_SLOW_QUERY_THRESHOLD" default:"1s"`
 }
 
 // RedisConfig contains Redis connection settings

@@ -20,16 +20,17 @@ configMapGenerator:
   - app.env=staging
   - log.level=debug
   - node.env=staging
+  - api.url=http://zamaz-api:8080
 
 secretGenerator:
 - name: zamaz-secrets
   behavior: replace
   literals:
-  - database.url=""
-  - jwt.secret=staging-jwt-secret-key-for-development-only-test-purpose
+  - database.url=postgresql://zamaz_staging:staging_pass@localhost:5432/zamaz_staging
+  - jwt.secret=staging-jwt-secret-key-for-development-only
   type: Opaque
 
-# Use local images for staging development
+# Use local/latest images for staging
 images:
 - name: zamaz
   newName: zamaz-server

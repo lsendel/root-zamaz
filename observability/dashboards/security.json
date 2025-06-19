@@ -1,20 +1,92 @@
 {
-  "dashboard": {
-    "title": "Security Dashboard",
-    "panels": [
-      // Add your security-related panels here
-      // Example:
-      // {
-      //   "type": "graph",
-      //   "title": "Authentication Attempts",
-      //   "datasource": "Prometheus",
-      //   "targets": [
-      //     {
-      //       "expr": "sum(rate(auth_attempts_total[5m])) by (status)"
-      //     }
-      //   ]
-      // }
-    ]
+  "id": null,
+  "title": "Security Dashboard",
+  "tags": ["security"],
+  "style": "dark",
+  "timezone": "browser",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Authentication Attempts",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{handler=\"/auth/login\"}[5m]))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          }
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": 2,
+      "title": "Failed Login Attempts",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{handler=\"/auth/login\",status_code!=\"200\"}[5m]))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 5
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          }
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      }
+    }
+  ],
+  "time": {
+    "from": "now-6h",
+    "to": "now"
   },
-  "message": "Initial security dashboard configuration"
+  "timepicker": {},
+  "refresh": "30s",
+  "version": 1
 }

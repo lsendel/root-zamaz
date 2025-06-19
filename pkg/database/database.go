@@ -13,6 +13,7 @@ import (
 
 	"mvp.local/pkg/config"
 	"mvp.local/pkg/errors"
+	"mvp.local/pkg/migrations"
 )
 
 // Database represents the database connection and configuration
@@ -51,6 +52,8 @@ func (d *Database) Connect() error {
 	gormConfig := &gorm.Config{
 		Logger:         gormLogger,
 		NamingStrategy: nil, // Use default naming strategy
+		PrepareStmt:    d.config.PrepareStmt,
+		DisableForeignKeyConstraintWhenMigrating: d.config.DisableForeignKey,
 	}
 
 	// Connect to database
@@ -65,10 +68,11 @@ func (d *Database) Connect() error {
 		return errors.Wrap(err, errors.CodeInternal, "Failed to get underlying database connection")
 	}
 
-	// Configure connection pool
+	// Configure connection pool with enhanced settings
 	sqlDB.SetMaxOpenConns(d.config.MaxConnections)
 	sqlDB.SetMaxIdleConns(d.config.MaxIdleConns)
 	sqlDB.SetConnMaxLifetime(d.config.ConnMaxLifetime)
+	sqlDB.SetConnMaxIdleTime(d.config.ConnMaxIdleTime)
 
 	// Test the connection
 	if err := sqlDB.Ping(); err != nil {
@@ -97,18 +101,39 @@ func (d *Database) Close() error {
 	return nil
 }
 
-// Migrate runs database migrations for all models
+// Migrate runs database migrations using the migration system
 func (d *Database) Migrate() error {
 	if d.DB == nil {
 		return errors.Internal("Database connection not established")
 	}
 
-	// Skip auto-migration entirely since we're using SQL migrations
-	// The database schema is already created by scripts/sql/init/migrations.sql
-	// The SQL migrations handle all table creation and constraints
+	// Use the migration system for proper versioned migrations
+	migrator := migrations.NewMigrator(d.DB)
+	if err := migrator.Migrate(); err != nil {
+		return errors.Wrap(err, errors.CodeInternal, "Failed to run database migrations")
+	}
 
-	// Only check if the database connection works
-	return d.Health()
+	return nil
+}
+
+// GetMigrationStatus returns the current migration status
+func (d *Database) GetMigrationStatus() ([]migrations.MigrationStatus, error) {
+	if d.DB == nil {
+		return nil, errors.Internal("Database connection not established")
+	}
+
+	migrator := migrations.NewMigrator(d.DB)
+	return migrator.Status()
+}
+
+// RollbackMigration rolls back the last migration
+func (d *Database) RollbackMigration() error {
+	if d.DB == nil {
+		return errors.Internal("Database connection not established")
+	}
+
+	migrator := migrations.NewMigrator(d.DB)
+	return migrator.Rollback()
 }
 
 // Note: RBAC roles and permissions are now handled by Casbin

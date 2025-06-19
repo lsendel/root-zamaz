@@ -232,3 +232,43 @@ func (c *Client) Close() {
 func (c *Client) JetStream() nats.JetStreamContext {
 	return c.js
 }
+
+// Health checks the health of the NATS connection and JetStream
+func (c *Client) Health() error {
+	if c.conn == nil {
+		return fmt.Errorf("NATS connection is nil")
+	}
+	
+	if !c.conn.IsConnected() {
+		return fmt.Errorf("NATS connection is not connected")
+	}
+	
+	// Test JetStream connectivity
+	_, err := c.js.AccountInfo()
+	if err != nil {
+		return fmt.Errorf("JetStream health check failed: %w", err)
+	}
+	
+	return nil
+}
+
+// Stats returns connection statistics
+func (c *Client) Stats() map[string]interface{} {
+	if c.conn == nil {
+		return map[string]interface{}{
+			"status": "disconnected",
+		}
+	}
+	
+	stats := c.conn.Stats()
+	return map[string]interface{}{
+		"status":           "connected",
+		"connected_url":    c.conn.ConnectedUrl(),
+		"connected_server": c.conn.ConnectedServerName(),
+		"in_msgs":          stats.InMsgs,
+		"out_msgs":         stats.OutMsgs,
+		"in_bytes":         stats.InBytes,
+		"out_bytes":        stats.OutBytes,
+		"reconnects":       stats.Reconnects,
+	}
+}

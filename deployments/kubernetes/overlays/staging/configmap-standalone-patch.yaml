@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zamaz-config
+data:
+  # Staging-specific configuration - standalone mode
+  api.url: "http://zamaz-api:8080"
+  app.env: "staging"
+  log.level: "debug"
+  node.env: "staging"
+  
+  # Disable external dependencies for standalone testing
+  database.host: ""
+  database.port: ""
+  database.name: ""
+  redis.host: ""
+  redis.port: ""
+  nats.url: ""
+  
+  # Observability configuration - minimal
+  metrics.enabled: "true"
+  tracing.enabled: "false"
+  log.format: "json"

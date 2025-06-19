@@ -9,6 +9,7 @@ import (
 
 	"mvp.local/pkg/auth"
 	"mvp.local/pkg/database"
+	"mvp.local/pkg/messaging"
 	"mvp.local/pkg/observability"
 )
 
@@ -16,6 +17,7 @@ import (
 type SystemHandler struct {
 	db           *database.Database
 	redisClient  *redis.Client
+	natsClient   *messaging.Client
 	authzService auth.AuthorizationInterface
 	obs          *observability.Observability
 }
@@ -55,12 +57,14 @@ type SystemStatsResponse struct {
 func NewSystemHandler(
 	db *database.Database,
 	redisClient *redis.Client,
+	natsClient *messaging.Client,
 	authzService auth.AuthorizationInterface,
 	obs *observability.Observability,
 ) *SystemHandler {
 	return &SystemHandler{
 		db:           db,
 		redisClient:  redisClient,
+		natsClient:   natsClient,
 		authzService: authzService,
 		obs:          obs,
 	}
@@ -235,14 +239,30 @@ func (h *SystemHandler) SystemHealth(c *fiber.Ctx) error {
 		}
 	}
 
-	// NATS health (mock for now)
-	response.Services["nats"] = ServiceInfo{
-		Status:       "healthy",
-		LastCheck:    time.Now(),
-		ResponseTime: "1ms",
-		Details: map[string]interface{}{
-			"note": "NATS health check not implemented",
-		},
+	// NATS health check
+	if h.natsClient != nil {
+		natsStart := time.Now()
+		natsStatus := "healthy"
+		var natsDetails map[string]interface{}
+
+		if err := h.natsClient.Health(); err != nil {
+			natsStatus = "unhealthy"
+			natsDetails = map[string]interface{}{
+				"error": err.Error(),
+			}
+			if response.Status == "healthy" {
+				response.Status = "degraded"
+			}
+		} else {
+			natsDetails = h.natsClient.Stats()
+		}
+
+		response.Services["nats"] = ServiceInfo{
+			Status:       natsStatus,
+			LastCheck:    time.Now(),
+			ResponseTime: time.Since(natsStart).String(),
+			Details:      natsDetails,
+		}
 	}
 
 	// SPIRE health (mock for now)

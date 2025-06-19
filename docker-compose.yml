@@ -1,8 +1,7 @@
 services:
   # Core Infrastructure
   envoy:
-    image: envoyproxy/envoy:v1.28-latest
-    platform: linux/amd64
+    image: envoyproxy/envoy:distroless-v1.28.0
     ports:
       - "8080:8080"
       - "8443:8443"

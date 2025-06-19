@@ -1,20 +1,103 @@
 {
-  "dashboard": {
-    "title": "Business Dashboard",
-    "panels": [
-      // Add your business-related panels here
-      // Example:
-      // {
-      //   "type": "singlestat",
-      //   "title": "Active Users",
-      //   "datasource": "Prometheus",
-      //   "targets": [
-      //     {
-      //       "expr": "active_users_count"
-      //     }
-      //   ]
-      // }
-    ]
+  "id": null,
+  "title": "Business Dashboard",
+  "tags": ["business"],
+  "style": "dark",
+  "timezone": "browser",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Total Users",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "total_users",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": 2,
+      "title": "Active Sessions",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "active_sessions",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      }
+    },
+    {
+      "id": 3,
+      "title": "API Usage",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total[5m])) by (handler)",
+          "refId": "A",
+          "legendFormat": "{{handler}}"
+        }
+      ],
+      "yAxes": [
+        {
+          "label": "Requests/sec"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 8
+      }
+    }
+  ],
+  "time": {
+    "from": "now-6h",
+    "to": "now"
   },
-  "message": "Initial business dashboard configuration"
+  "timepicker": {},
+  "refresh": "30s",
+  "version": 1
 }
