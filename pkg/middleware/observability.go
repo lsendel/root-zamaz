@@ -76,7 +76,7 @@ const (
 //
 // All request data is logged in structured JSON format for easy parsing
 // and analysis by log aggregation systems.
-func ObservabilityMiddleware(obs *observability.Observability, metrics *observability.SecurityMetrics) fiber.Handler {
+func ObservabilityMiddleware(obs *observability.Observability, metrics *observability.SecurityMetrics, sla *observability.SLAMetrics) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		start := time.Now()
 
@@ -143,6 +143,10 @@ func ObservabilityMiddleware(obs *observability.Observability, metrics *observab
 				c.Method(),
 				metricStatus,
 			)
+		}
+
+		if sla != nil {
+			sla.RecordHTTPRequest(c.UserContext(), c.Method(), c.Path(), c.Response().StatusCode())
 		}
 		return err // Return the error so Fiber can handle it
 	}
