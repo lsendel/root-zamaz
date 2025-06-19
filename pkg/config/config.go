@@ -51,30 +51,30 @@ type TLSConfig struct {
 
 // DatabaseConfig contains database connection settings
 type DatabaseConfig struct {
-	Host            string        `yaml:"host" env:"DB_HOST" default:"localhost"`
-	Port            int           `yaml:"port" env:"DB_PORT" default:"5432"`
-	Database        string        `yaml:"database" env:"DB_NAME" default:"mvp_db"`
-	Username        string        `yaml:"username" env:"DB_USER" default:"mvp_user"`
-	Password        string        `yaml:"password" env:"DB_PASSWORD" default:"please_change_this_password_in_production"`
-	SSLMode         string        `yaml:"ssl_mode" env:"DB_SSL_MODE" default:"disable"`
-	
+	Host     string `yaml:"host" env:"DB_HOST" default:"localhost"`
+	Port     int    `yaml:"port" env:"DB_PORT" default:"5432"`
+	Database string `yaml:"database" env:"DB_NAME" default:"mvp_db"`
+	Username string `yaml:"username" env:"DB_USER" default:"mvp_user"`
+	Password string `yaml:"password" env:"DB_PASSWORD" default:"please_change_this_password_in_production"`
+	SSLMode  string `yaml:"ssl_mode" env:"DB_SSL_MODE" default:"disable"`
+
 	// Connection pool settings
-	MaxConnections    int           `yaml:"max_connections" env:"DB_MAX_CONNECTIONS" default:"25"`
-	MaxIdleConns      int           `yaml:"max_idle_conns" env:"DB_MAX_IDLE_CONNS" default:"5"`
-	MinIdleConns      int           `yaml:"min_idle_conns" env:"DB_MIN_IDLE_CONNS" default:"2"`
-	ConnMaxLifetime   time.Duration `yaml:"conn_max_lifetime" env:"DB_CONN_MAX_LIFETIME" default:"300s"`
-	ConnMaxIdleTime   time.Duration `yaml:"conn_max_idle_time" env:"DB_CONN_MAX_IDLE_TIME" default:"60s"`
-	
+	MaxConnections  int           `yaml:"max_connections" env:"DB_MAX_CONNECTIONS" default:"25"`
+	MaxIdleConns    int           `yaml:"max_idle_conns" env:"DB_MAX_IDLE_CONNS" default:"5"`
+	MinIdleConns    int           `yaml:"min_idle_conns" env:"DB_MIN_IDLE_CONNS" default:"2"`
+	ConnMaxLifetime time.Duration `yaml:"conn_max_lifetime" env:"DB_CONN_MAX_LIFETIME" default:"300s"`
+	ConnMaxIdleTime time.Duration `yaml:"conn_max_idle_time" env:"DB_CONN_MAX_IDLE_TIME" default:"60s"`
+
 	// Query timeouts
-	QueryTimeout      time.Duration `yaml:"query_timeout" env:"DB_QUERY_TIMEOUT" default:"30s"`
-	ConnectTimeout    time.Duration `yaml:"connect_timeout" env:"DB_CONNECT_TIMEOUT" default:"10s"`
-	
+	QueryTimeout   time.Duration `yaml:"query_timeout" env:"DB_QUERY_TIMEOUT" default:"30s"`
+	ConnectTimeout time.Duration `yaml:"connect_timeout" env:"DB_CONNECT_TIMEOUT" default:"10s"`
+
 	// Performance tuning
-	PrepareStmt       bool          `yaml:"prepare_stmt" env:"DB_PREPARE_STMT" default:"true"`
-	DisableForeignKey bool          `yaml:"disable_foreign_key" env:"DB_DISABLE_FOREIGN_KEY" default:"false"`
-	
+	PrepareStmt       bool `yaml:"prepare_stmt" env:"DB_PREPARE_STMT" default:"true"`
+	DisableForeignKey bool `yaml:"disable_foreign_key" env:"DB_DISABLE_FOREIGN_KEY" default:"false"`
+
 	// Monitoring
-	EnableMetrics     bool          `yaml:"enable_metrics" env:"DB_ENABLE_METRICS" default:"true"`
+	EnableMetrics      bool          `yaml:"enable_metrics" env:"DB_ENABLE_METRICS" default:"true"`
 	SlowQueryThreshold time.Duration `yaml:"slow_query_threshold" env:"DB_SLOW_QUERY_THRESHOLD" default:"1s"`
 }
 
@@ -120,16 +120,17 @@ type ObservabilityConfig struct {
 
 // SecurityConfig contains security-related settings
 type SecurityConfig struct {
-	SPIRE              SPIREConfig     `yaml:"spire"`
-	JWT                JWTConfig       `yaml:"jwt"`
-	CORS               CORSConfig      `yaml:"cors"`
-	RateLimit          RateLimitConfig `yaml:"rate_limit"`
-	Lockout            LockoutConfig   `yaml:"lockout"`
-	TrustedProxies     []string        `yaml:"trusted_proxies" env:"TRUSTED_PROXIES"`
-	AllowedOrigins     []string        `yaml:"allowed_origins" env:"ALLOWED_ORIGINS"`
-	SecureHeaders      bool            `yaml:"secure_headers" env:"SECURE_HEADERS" default:"true"`
-	ContentTypeNosniff bool            `yaml:"content_type_nosniff" env:"CONTENT_TYPE_NOSNIFF" default:"true"`
-	DisableAuth        bool            `yaml:"disable_auth" env:"DISABLE_AUTH" default:"false"`
+	SPIRE              SPIREConfig          `yaml:"spire"`
+	JWT                JWTConfig            `yaml:"jwt"`
+	CORS               CORSConfig           `yaml:"cors"`
+	RateLimit          RateLimitConfig      `yaml:"rate_limit"`
+	Lockout            LockoutConfig        `yaml:"lockout"`
+	RequestSigning     RequestSigningConfig `yaml:"request_signing"`
+	TrustedProxies     []string             `yaml:"trusted_proxies" env:"TRUSTED_PROXIES"`
+	AllowedOrigins     []string             `yaml:"allowed_origins" env:"ALLOWED_ORIGINS"`
+	SecureHeaders      bool                 `yaml:"secure_headers" env:"SECURE_HEADERS" default:"true"`
+	ContentTypeNosniff bool                 `yaml:"content_type_nosniff" env:"CONTENT_TYPE_NOSNIFF" default:"true"`
+	DisableAuth        bool                 `yaml:"disable_auth" env:"DISABLE_AUTH" default:"false"`
 }
 
 // SPIREConfig contains SPIRE workload identity settings
@@ -184,6 +185,17 @@ type LockoutConfig struct {
 	IPLockoutEnabled    bool          `yaml:"ip_lockout_enabled" env:"IP_LOCKOUT_ENABLED" default:"true"`
 	IPLockoutThreshold  int           `yaml:"ip_lockout_threshold" env:"IP_LOCKOUT_THRESHOLD" default:"10"`
 	IPLockoutDuration   time.Duration `yaml:"ip_lockout_duration" env:"IP_LOCKOUT_DURATION" default:"1h"`
+}
+
+// RequestSigningConfig contains settings for API request signing
+type RequestSigningConfig struct {
+	Enabled      bool          `yaml:"enabled" env:"REQUEST_SIGNING_ENABLED" default:"false"`
+	Algorithm    string        `yaml:"algorithm" env:"REQUEST_SIGNING_ALGORITHM" default:"HMAC-SHA256"`
+	KeyID        string        `yaml:"key_id" env:"REQUEST_SIGNING_KEY_ID"`
+	Secret       string        `yaml:"secret" env:"REQUEST_SIGNING_SECRET"`
+	Headers      []string      `yaml:"headers" env:"REQUEST_SIGNING_HEADERS"`
+	MaxClockSkew time.Duration `yaml:"max_clock_skew" env:"REQUEST_SIGNING_MAX_CLOCK_SKEW" default:"5s"`
+	ReplayWindow time.Duration `yaml:"replay_window" env:"REQUEST_SIGNING_REPLAY_WINDOW" default:"1m"`
 }
 
 // Load loads configuration from environment variables with defaults
@@ -357,6 +369,15 @@ func loadFromEnv(config *Config) error {
 	config.Security.Lockout.IPLockoutThreshold = getEnvIntWithDefault("IP_LOCKOUT_THRESHOLD", 10)
 	config.Security.Lockout.IPLockoutDuration = getEnvDurationWithDefault("IP_LOCKOUT_DURATION", 1*time.Hour)
 
+	// Set Request Signing config
+	config.Security.RequestSigning.Enabled = getEnvBoolWithDefault("REQUEST_SIGNING_ENABLED", false)
+	config.Security.RequestSigning.Algorithm = getEnvWithDefault("REQUEST_SIGNING_ALGORITHM", "HMAC-SHA256")
+	config.Security.RequestSigning.KeyID = getEnvWithDefault("REQUEST_SIGNING_KEY_ID", "")
+	config.Security.RequestSigning.Secret = getEnvWithDefault("REQUEST_SIGNING_SECRET", "")
+	config.Security.RequestSigning.Headers = getEnvSliceWithDefault("REQUEST_SIGNING_HEADERS", []string{})
+	config.Security.RequestSigning.MaxClockSkew = getEnvDurationWithDefault("REQUEST_SIGNING_MAX_CLOCK_SKEW", 5*time.Second)
+	config.Security.RequestSigning.ReplayWindow = getEnvDurationWithDefault("REQUEST_SIGNING_REPLAY_WINDOW", time.Minute)
+
 	return nil
 }
 
@@ -477,6 +498,13 @@ func validateConfig(config *Config) error {
 
 	if config.Security.Lockout.ResetWindow <= 0 {
 		return errors.Validation("lockout.reset_window must be positive")
+	}
+
+	// Validate request signing configuration
+	if config.Security.RequestSigning.Enabled {
+		if config.Security.RequestSigning.Secret == "" {
+			return errors.Validation("request_signing.secret is required when request signing is enabled")
+		}
 	}
 
 	// Validate HTTP timeouts
