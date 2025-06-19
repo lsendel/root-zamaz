@@ -26,7 +26,7 @@
     "type-check": "npm run type-check --prefix frontend",
     "validate:lockfile": "npm audit --audit-level=high",
     "validate:engines": "check-engine",
-    "prepare": "test -d .git && npx husky install || true"
+    "prepare": "husky"
   },
   "devDependencies": {
     "check-engine": "^1.10.1",
