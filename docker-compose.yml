@@ -94,6 +94,18 @@ services:
     networks:
       - mvp-network
 
+  alertmanager:
+    image: prom/alertmanager:v0.25.0
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./observability/alertmanager/config.yml:/etc/alertmanager/config.yml
+    command: --config.file=/etc/alertmanager/config.yml
+    environment:
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
+    networks:
+      - mvp-network
+
   jaeger:
     image: jaegertracing/all-in-one:1.49
     ports:
