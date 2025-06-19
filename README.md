@@ -181,6 +181,11 @@ root-zamaz/
 └── tests/              # Integration and E2E tests
 ```
 
+### Developer CLI & SDK
+
+- [CLI Usage](docs/development/cli.md)
+- [SDK Generation](docs/development/sdk_generation.md)
+
 ## 🔒 Security Features
 
 ### Authentication & Authorization
