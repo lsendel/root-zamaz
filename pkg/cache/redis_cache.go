@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 
 	"mvp.local/pkg/config"
 	"mvp.local/pkg/observability"
@@ -640,18 +642,79 @@ func (rc *RedisCache) serialize(value interface{}) ([]byte, error) {
 	}
 }
 
-// recordOperation records metrics for cache operations
+// recordOperation records metrics for cache operations using OpenTelemetry
 func (rc *RedisCache) recordOperation(operation string, duration time.Duration, success bool) {
 	if rc.obs == nil {
 		return
 	}
 
-	// TODO: Implement proper metrics recording using OpenTelemetry
-	// For now, just log the operation for observability
-	rc.obs.Logger.Debug().
+	// Create context for metrics recording
+	ctx := context.Background()
+
+	// Record cache operation using the performance metrics
+	// For cache hits/misses, we need to determine if this was a hit or miss based on operation and success
+	isHit := success && (operation == "get" || operation == "mget" || operation == "hget")
+	
+	// Get the performance metrics if available through the observability system
+	// Note: This requires the observability system to expose performance metrics
+	// For now, we'll use direct OpenTelemetry metrics
+	
+	// Create metrics using the meter directly
+	if counter, err := rc.obs.Meter.Int64Counter(
+		"cache_operations_total",
+		metric.WithDescription("Total number of cache operations"),
+	); err == nil {
+		counter.Add(ctx, 1, metric.WithAttributes(
+			attribute.String("operation", operation),
+			attribute.Bool("success", success),
+			attribute.String("cache_type", "redis"),
+		))
+	}
+
+	if histogram, err := rc.obs.Meter.Float64Histogram(
+		"cache_operation_duration_seconds",
+		metric.WithDescription("Cache operation duration"),
+		metric.WithUnit("s"),
+	); err == nil {
+		histogram.Record(ctx, duration.Seconds(), metric.WithAttributes(
+			attribute.String("operation", operation),
+			attribute.String("cache_type", "redis"),
+		))
+	}
+
+	// Record hits/misses for get operations
+	if operation == "get" || operation == "mget" || operation == "hget" {
+		if hitCounter, err := rc.obs.Meter.Int64Counter(
+			"cache_hits_total",
+			metric.WithDescription("Total number of cache hits"),
+		); err == nil && isHit {
+			hitCounter.Add(ctx, 1, metric.WithAttributes(
+				attribute.String("cache_type", "redis"),
+			))
+		}
+
+		if missCounter, err := rc.obs.Meter.Int64Counter(
+			"cache_misses_total",
+			metric.WithDescription("Total number of cache misses"),
+		); err == nil && !isHit {
+			missCounter.Add(ctx, 1, metric.WithAttributes(
+				attribute.String("cache_type", "redis"),
+			))
+		}
+	}
+
+	// Log the operation for debugging
+	logger := rc.obs.Logger.Debug()
+	if !success {
+		logger = rc.obs.Logger.Warn()
+	}
+
+	logger.
 		Str("operation", operation).
 		Bool("success", success).
 		Dur("duration", duration).
+		Str("cache_type", "redis").
+		Bool("is_hit", isHit).
 		Msg("Cache operation completed")
 }
 

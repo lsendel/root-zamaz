@@ -569,5 +569,387 @@ ALTER TABLE audit_logs DROP COLUMN IF EXISTS compliance_tag;
 ALTER TABLE audit_logs DROP COLUMN IF EXISTS retain_until;
 `,
 		},
+		{
+			ID:          "006_compliance_audit_logs",
+			Description: "Create comprehensive compliance audit logs table",
+			Version:     1640995700, // 2022-01-01 + 500 seconds
+			UpSQL: `
+-- Compliance audit logs table with enhanced features
+CREATE TABLE IF NOT EXISTS compliance_audit_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITH TIME ZONE,
+
+    -- Basic audit fields
+    user_id UUID REFERENCES users(id),
+    action VARCHAR(100) NOT NULL,
+    resource VARCHAR(100),
+    details JSONB,
+    success BOOLEAN DEFAULT false,
+    error_msg VARCHAR(500),
+
+    -- Request context
+    ip_address VARCHAR(45),
+    user_agent VARCHAR(500),
+    request_id VARCHAR(100),
+    session_id VARCHAR(100),
+    tenant_id VARCHAR(100),
+
+    -- Compliance-specific fields
+    compliance_frameworks VARCHAR(200), -- Comma-separated
+    data_classification VARCHAR(50),
+    sensitivity_level INTEGER DEFAULT 1 CHECK (sensitivity_level >= 1 AND sensitivity_level <= 5),
+    legal_basis VARCHAR(50),
+    data_subjects JSONB,
+    data_categories JSONB,
+    processing_purpose VARCHAR(500),
+    geolocation_country VARCHAR(10),
+
+    -- Risk and controls
+    risk_score INTEGER DEFAULT 0 CHECK (risk_score >= 0 AND risk_score <= 100),
+    controls_applied JSONB,
+    approval_required BOOLEAN DEFAULT false,
+    approval_status VARCHAR(50),
+    review_status VARCHAR(50),
+
+    -- Retention and lifecycle
+    retention_category VARCHAR(50),
+    business_justification VARCHAR(1000),
+    retain_until TIMESTAMP WITH TIME ZONE,
+    archive_date TIMESTAMP WITH TIME ZONE,
+    purge_date TIMESTAMP WITH TIME ZONE,
+    
+    -- Lifecycle tracking
+    archived BOOLEAN DEFAULT false,
+    archived_at TIMESTAMP WITH TIME ZONE,
+
+    -- Context and metadata
+    business_context JSONB,
+    technical_context JSONB
+);
+
+-- Performance indexes for compliance audit logs
+CREATE INDEX IF NOT EXISTS idx_compliance_audit_logs_user_id ON compliance_audit_logs(user_id);
+CREATE INDEX IF NOT EXISTS idx_compliance_audit_logs_action ON compliance_audit_logs(action);
+CREATE INDEX IF NOT EXISTS idx_compliance_audit_logs_created_at ON compliance_audit_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_compliance_audit_logs_data_classification ON compliance_audit_logs(data_classification);
+CREATE INDEX IF NOT EXISTS idx_compliance_audit_logs_sensitivity_level ON compliance_audit_logs(sensitivity_level);
+CREATE INDEX IF NOT EXISTS idx_compliance_audit_logs_risk_score ON compliance_audit_logs(risk_score);
+CREATE INDEX IF NOT EXISTS idx_compliance_audit_logs_retention_category ON compliance_audit_logs(retention_category);
+CREATE INDEX IF NOT EXISTS idx_compliance_audit_logs_archive_date ON compliance_audit_logs(archive_date);
+CREATE INDEX IF NOT EXISTS idx_compliance_audit_logs_purge_date ON compliance_audit_logs(purge_date);
+CREATE INDEX IF NOT EXISTS idx_compliance_audit_logs_archived ON compliance_audit_logs(archived);
+CREATE INDEX IF NOT EXISTS idx_compliance_audit_logs_geolocation ON compliance_audit_logs(geolocation_country);
+CREATE INDEX IF NOT EXISTS idx_compliance_audit_logs_request_id ON compliance_audit_logs(request_id);
+CREATE INDEX IF NOT EXISTS idx_compliance_audit_logs_session_id ON compliance_audit_logs(session_id);
+CREATE INDEX IF NOT EXISTS idx_compliance_audit_logs_tenant_id ON compliance_audit_logs(tenant_id);
+
+-- Composite indexes for common compliance queries
+CREATE INDEX IF NOT EXISTS idx_compliance_audit_logs_user_time ON compliance_audit_logs(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_compliance_audit_logs_classification_risk ON compliance_audit_logs(data_classification, risk_score DESC);
+CREATE INDEX IF NOT EXISTS idx_compliance_audit_logs_retention_archive ON compliance_audit_logs(retention_category, archive_date);
+`,
+			DownSQL: `
+DROP TABLE IF EXISTS compliance_audit_logs;
+`,
+		},
+		{
+			ID:          "007_compliance_violations",
+			Description: "Create compliance violations tracking table",
+			Version:     1640995800, // 2022-01-01 + 600 seconds
+			UpSQL: `
+-- Compliance violations table
+CREATE TABLE IF NOT EXISTS compliance_violations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITH TIME ZONE,
+
+    -- Associated audit log
+    audit_log_id UUID NOT NULL REFERENCES compliance_audit_logs(id) ON DELETE CASCADE,
+
+    -- Violation details
+    violation_type VARCHAR(100) NOT NULL,
+    framework VARCHAR(50),
+    severity INTEGER NOT NULL CHECK (severity >= 1 AND severity <= 5),
+    description VARCHAR(1000),
+    remediation VARCHAR(1000),
+    risk_score INTEGER DEFAULT 0 CHECK (risk_score >= 0 AND risk_score <= 100),
+
+    -- Resolution tracking
+    status VARCHAR(50) DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'IN_PROGRESS', 'RESOLVED', 'ACCEPTED')),
+    assigned_to VARCHAR(100),
+    resolved_at TIMESTAMP WITH TIME ZONE,
+    resolution VARCHAR(1000),
+    resolution_by VARCHAR(100)
+);
+
+-- Performance indexes for compliance violations
+CREATE INDEX IF NOT EXISTS idx_compliance_violations_audit_log_id ON compliance_violations(audit_log_id);
+CREATE INDEX IF NOT EXISTS idx_compliance_violations_violation_type ON compliance_violations(violation_type);
+CREATE INDEX IF NOT EXISTS idx_compliance_violations_framework ON compliance_violations(framework);
+CREATE INDEX IF NOT EXISTS idx_compliance_violations_severity ON compliance_violations(severity);
+CREATE INDEX IF NOT EXISTS idx_compliance_violations_status ON compliance_violations(status);
+CREATE INDEX IF NOT EXISTS idx_compliance_violations_created_at ON compliance_violations(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_compliance_violations_assigned_to ON compliance_violations(assigned_to);
+CREATE INDEX IF NOT EXISTS idx_compliance_violations_resolved_at ON compliance_violations(resolved_at DESC);
+
+-- Composite indexes for common violation queries
+CREATE INDEX IF NOT EXISTS idx_compliance_violations_framework_severity ON compliance_violations(framework, severity DESC);
+CREATE INDEX IF NOT EXISTS idx_compliance_violations_status_created ON compliance_violations(status, created_at DESC);
+`,
+			DownSQL: `
+DROP TABLE IF EXISTS compliance_violations;
+`,
+		},
+		{
+			ID:          "008_gdpr_data_subject_requests",
+			Description: "Create GDPR data subject requests table",
+			Version:     1640995900, // 2022-01-01 + 700 seconds
+			UpSQL: `
+-- Data subject requests table for GDPR compliance
+CREATE TABLE IF NOT EXISTS data_subject_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITH TIME ZONE,
+
+    -- Request details
+    request_type VARCHAR(50) NOT NULL CHECK (request_type IN ('ACCESS', 'RECTIFICATION', 'ERASURE', 'RESTRICTION', 'PORTABILITY', 'OBJECTION')),
+    data_subject VARCHAR(255) NOT NULL,
+    requestor_id VARCHAR(100),
+    
+    -- Contact information
+    email VARCHAR(255),
+    phone_number VARCHAR(50),
+    
+    -- Request processing
+    status VARCHAR(50) DEFAULT 'RECEIVED' CHECK (status IN ('RECEIVED', 'VERIFIED', 'PROCESSING', 'COMPLETED', 'REJECTED')),
+    priority VARCHAR(20) DEFAULT 'NORMAL' CHECK (priority IN ('LOW', 'NORMAL', 'HIGH', 'URGENT')),
+    assigned_to VARCHAR(100),
+    due_date TIMESTAMP WITH TIME ZONE,
+    completed_at TIMESTAMP WITH TIME ZONE,
+    
+    -- Legal basis and verification
+    legal_basis VARCHAR(100),
+    identity_verified BOOLEAN DEFAULT false,
+    verification_method VARCHAR(100),
+    verified_by VARCHAR(100),
+    verified_at TIMESTAMP WITH TIME ZONE,
+    
+    -- Request details
+    description VARCHAR(2000),
+    data_categories JSONB,
+    processing_purposes JSONB,
+    
+    -- Response and resolution
+    response TEXT,
+    response_method VARCHAR(50) CHECK (response_method IN ('EMAIL', 'POSTAL', 'SECURE_PORTAL')),
+    rejection_reason VARCHAR(1000),
+    
+    -- Compliance tracking
+    compliance_notes TEXT,
+    reviewed_by VARCHAR(100),
+    reviewed_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Performance indexes for data subject requests
+CREATE INDEX IF NOT EXISTS idx_data_subject_requests_request_type ON data_subject_requests(request_type);
+CREATE INDEX IF NOT EXISTS idx_data_subject_requests_data_subject ON data_subject_requests(data_subject);
+CREATE INDEX IF NOT EXISTS idx_data_subject_requests_status ON data_subject_requests(status);
+CREATE INDEX IF NOT EXISTS idx_data_subject_requests_priority ON data_subject_requests(priority);
+CREATE INDEX IF NOT EXISTS idx_data_subject_requests_due_date ON data_subject_requests(due_date);
+CREATE INDEX IF NOT EXISTS idx_data_subject_requests_created_at ON data_subject_requests(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_data_subject_requests_assigned_to ON data_subject_requests(assigned_to);
+CREATE INDEX IF NOT EXISTS idx_data_subject_requests_completed_at ON data_subject_requests(completed_at DESC);
+
+-- Composite indexes for common DSR queries
+CREATE INDEX IF NOT EXISTS idx_data_subject_requests_type_status ON data_subject_requests(request_type, status);
+CREATE INDEX IF NOT EXISTS idx_data_subject_requests_status_due ON data_subject_requests(status, due_date);
+`,
+			DownSQL: `
+DROP TABLE IF EXISTS data_subject_requests;
+`,
+		},
+		{
+			ID:          "009_gdpr_consent_records",
+			Description: "Create GDPR consent tracking table",
+			Version:     1641000000, // 2022-01-01 + 800 seconds
+			UpSQL: `
+-- Consent records table for GDPR compliance
+CREATE TABLE IF NOT EXISTS consent_records (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITH TIME ZONE,
+
+    -- Data subject
+    data_subject VARCHAR(255) NOT NULL,
+    user_id UUID REFERENCES users(id),
+    
+    -- Consent details
+    consent_type VARCHAR(100) NOT NULL,
+    purpose VARCHAR(500) NOT NULL,
+    legal_basis VARCHAR(100),
+    data_categories JSONB,
+    
+    -- Consent status
+    status VARCHAR(50) NOT NULL CHECK (status IN ('GIVEN', 'WITHDRAWN', 'EXPIRED')),
+    consent_given BOOLEAN NOT NULL,
+    consent_date TIMESTAMP WITH TIME ZONE NOT NULL,
+    withdrawn_date TIMESTAMP WITH TIME ZONE,
+    expiry_date TIMESTAMP WITH TIME ZONE,
+    
+    -- Consent mechanism
+    consent_method VARCHAR(100),
+    consent_text TEXT,
+    consent_version VARCHAR(20),
+    
+    -- Technical details
+    ip_address VARCHAR(45),
+    user_agent VARCHAR(500),
+    consent_proof JSONB,
+    
+    -- Withdrawal details
+    withdrawal_method VARCHAR(100),
+    withdrawal_reason VARCHAR(500)
+);
+
+-- Performance indexes for consent records
+CREATE INDEX IF NOT EXISTS idx_consent_records_data_subject ON consent_records(data_subject);
+CREATE INDEX IF NOT EXISTS idx_consent_records_user_id ON consent_records(user_id);
+CREATE INDEX IF NOT EXISTS idx_consent_records_consent_type ON consent_records(consent_type);
+CREATE INDEX IF NOT EXISTS idx_consent_records_status ON consent_records(status);
+CREATE INDEX IF NOT EXISTS idx_consent_records_consent_given ON consent_records(consent_given);
+CREATE INDEX IF NOT EXISTS idx_consent_records_consent_date ON consent_records(consent_date DESC);
+CREATE INDEX IF NOT EXISTS idx_consent_records_withdrawn_date ON consent_records(withdrawn_date DESC);
+CREATE INDEX IF NOT EXISTS idx_consent_records_expiry_date ON consent_records(expiry_date);
+
+-- Composite indexes for common consent queries
+CREATE INDEX IF NOT EXISTS idx_consent_records_subject_type ON consent_records(data_subject, consent_type);
+CREATE INDEX IF NOT EXISTS idx_consent_records_status_date ON consent_records(status, consent_date DESC);
+`,
+			DownSQL: `
+DROP TABLE IF EXISTS consent_records;
+`,
+		},
+		{
+			ID:          "010_retention_policies",
+			Description: "Create retention policies configuration table",
+			Version:     1641000100, // 2022-01-01 + 900 seconds
+			UpSQL: `
+-- Retention policies table
+CREATE TABLE IF NOT EXISTS retention_policies (
+    id BIGSERIAL PRIMARY KEY,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITH TIME ZONE,
+
+    -- Policy identification
+    name VARCHAR(100) UNIQUE NOT NULL,
+    description VARCHAR(500),
+    category VARCHAR(50) NOT NULL,
+    
+    -- Retention rules
+    retention_period INTEGER NOT NULL,
+    retention_unit VARCHAR(10) DEFAULT 'DAYS' CHECK (retention_unit IN ('DAYS', 'MONTHS', 'YEARS')),
+    archive_period INTEGER,
+    
+    -- Applicability
+    data_classification VARCHAR(50),
+    compliance_framework VARCHAR(50),
+    legal_basis VARCHAR(100),
+    
+    -- Policy status
+    is_active BOOLEAN DEFAULT true,
+    effective_date TIMESTAMP WITH TIME ZONE NOT NULL,
+    expiry_date TIMESTAMP WITH TIME ZONE,
+    
+    -- Approval and governance
+    approved_by VARCHAR(100),
+    approved_at TIMESTAMP WITH TIME ZONE,
+    review_date TIMESTAMP WITH TIME ZONE,
+    reviewed_by VARCHAR(100),
+    
+    -- Policy rules
+    rules JSONB,
+    exceptions JSONB,
+    automation_rules JSONB
+);
+
+-- Performance indexes for retention policies
+CREATE INDEX IF NOT EXISTS idx_retention_policies_name ON retention_policies(name);
+CREATE INDEX IF NOT EXISTS idx_retention_policies_category ON retention_policies(category);
+CREATE INDEX IF NOT EXISTS idx_retention_policies_data_classification ON retention_policies(data_classification);
+CREATE INDEX IF NOT EXISTS idx_retention_policies_compliance_framework ON retention_policies(compliance_framework);
+CREATE INDEX IF NOT EXISTS idx_retention_policies_is_active ON retention_policies(is_active);
+CREATE INDEX IF NOT EXISTS idx_retention_policies_effective_date ON retention_policies(effective_date);
+CREATE INDEX IF NOT EXISTS idx_retention_policies_review_date ON retention_policies(review_date);
+`,
+			DownSQL: `
+DROP TABLE IF EXISTS retention_policies;
+`,
+		},
+		{
+			ID:          "011_compliance_reports",
+			Description: "Create compliance reports table",
+			Version:     1641000200, // 2022-01-01 + 1000 seconds
+			UpSQL: `
+-- Compliance reports table
+CREATE TABLE IF NOT EXISTS compliance_reports (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITH TIME ZONE,
+
+    -- Report details
+    report_type VARCHAR(100) NOT NULL,
+    title VARCHAR(200) NOT NULL,
+    description VARCHAR(1000),
+    framework VARCHAR(50),
+    
+    -- Reporting period
+    period_start TIMESTAMP WITH TIME ZONE NOT NULL,
+    period_end TIMESTAMP WITH TIME ZONE NOT NULL,
+    
+    -- Report generation
+    generated_by VARCHAR(100),
+    generated_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    status VARCHAR(50) DEFAULT 'DRAFT' CHECK (status IN ('DRAFT', 'FINAL', 'PUBLISHED')),
+    
+    -- Report content
+    executive_summary TEXT,
+    findings JSONB,
+    recommendations JSONB,
+    metrics JSONB,
+    
+    -- Report metadata
+    version VARCHAR(20),
+    confidentiality VARCHAR(50) DEFAULT 'INTERNAL',
+    
+    -- Approval and distribution
+    approved_by VARCHAR(100),
+    approved_at TIMESTAMP WITH TIME ZONE,
+    published_at TIMESTAMP WITH TIME ZONE,
+    distribution JSONB
+);
+
+-- Performance indexes for compliance reports
+CREATE INDEX IF NOT EXISTS idx_compliance_reports_report_type ON compliance_reports(report_type);
+CREATE INDEX IF NOT EXISTS idx_compliance_reports_framework ON compliance_reports(framework);
+CREATE INDEX IF NOT EXISTS idx_compliance_reports_status ON compliance_reports(status);
+CREATE INDEX IF NOT EXISTS idx_compliance_reports_period_start ON compliance_reports(period_start DESC);
+CREATE INDEX IF NOT EXISTS idx_compliance_reports_generated_at ON compliance_reports(generated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_compliance_reports_generated_by ON compliance_reports(generated_by);
+
+-- Composite indexes for common report queries
+CREATE INDEX IF NOT EXISTS idx_compliance_reports_type_period ON compliance_reports(report_type, period_start DESC);
+CREATE INDEX IF NOT EXISTS idx_compliance_reports_framework_period ON compliance_reports(framework, period_start DESC);
+`,
+			DownSQL: `
+DROP TABLE IF EXISTS compliance_reports;
+`,
+		},
 	}
 }

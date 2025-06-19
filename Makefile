@@ -37,6 +37,9 @@ FRONTEND_DIR := frontend
 COVERAGE_THRESHOLD := 80
 DOCKER_PLATFORM ?= linux/amd64,linux/arm64
 
+# Auto-detect platform for single-platform operations
+DOCKER_SINGLE_PLATFORM := $(shell if [ "$$(uname -m)" = "arm64" ]; then echo "linux/arm64"; else echo "linux/amd64"; fi)
+
 # Colors for output
 BLUE := \033[34m
 GREEN := \033[32m
@@ -57,9 +60,15 @@ BOLD := \033[1m
 	security security-scan security-audit security-install security-update \
 	quality quality-gate quality-report quality-all \
 	build build-go build-frontend build-docker build-all build-clean \
+	sdk-build-go sdk-build-js sdk-build-python sdk-build-all \
+	sdk-test-go sdk-test-js sdk-test-python sdk-test-all \
+	cli-help cli-health cli-status cli-generate-key cli-test-connection \
+	dev-generate-go dev-generate-js dev-generate-python dev-generate-all \
 	deploy deploy-local deploy-staging deploy-prod deploy-rollback \
 	ci ci-test ci-quality ci-build ci-deploy ci-full \
 	parallel-test parallel-quality parallel-build \
+	db-stats db-stats-live db-benchmark db-benchmark-heavy db-optimize-dev db-optimize-prod db-optimize-balanced \
+	db-analyze db-monitor db-health db-tune db-perf-test \
 	cache cache-clean cache-warmup \
 	db db-migrate db-reset db-backup db-restore \
 	docs docs-generate docs-serve docs-deploy \
@@ -77,12 +86,14 @@ help: ## Show comprehensive help with workflow examples
 	@printf "  $(GREEN)Quality:$(RESET)     quality-gate → quality-report → quality-all\n"
 	@printf "  $(GREEN)Build:$(RESET)       cache-smart-warmup → build-all → deploy-local\n"
 	@printf "  $(GREEN)CI/CD:$(RESET)       ci-full → quality-gate → matrix-test\n"
-	@printf "  $(GREEN)Matrix:$(RESET)      matrix-status → matrix-test → matrix-report\n\n"
+	@printf "  $(GREEN)Matrix:$(RESET)      matrix-status → matrix-test → matrix-report\n"
+	@printf "  $(GREEN)Database:$(RESET)    db-tune → db-benchmark → db-optimize-balanced\n\n"
 	@printf "$(BOLD)🎯 ENHANCED FEATURES:$(RESET)\n"
 	@printf "  $(YELLOW)📊 Advanced Caching:$(RESET)      cache-status, cache-smart-warmup, cache-benchmark\n"
 	@printf "  $(YELLOW)🛡️  Quality Gates:$(RESET)       quality-gate with coverage/security thresholds\n"
 	@printf "  $(YELLOW)🔄 Matrix Testing:$(RESET)       matrix-test across Go/Node versions\n"
 	@printf "  $(YELLOW)⚡ Parallel Execution:$(RESET)   parallel-test, parallel-quality, parallel-build\n"
+	@printf "  $(YELLOW)🗄️  Database Optimization:$(RESET) db-tune, db-benchmark, db-monitor, db-analyze\n"
 	@printf "  $(YELLOW)🔒 Security Scanning:$(RESET)    Advanced vulnerability analysis\n"
 	@printf "  $(YELLOW)📈 Performance Metrics:$(RESET) Timing, caching, and benchmark analysis\n\n"
 	@printf "$(BOLD)🔧 CORE CATEGORIES:$(RESET)\n"
@@ -157,7 +168,10 @@ dev-validate: ## Validate development environment prerequisites
 
 dev-up: ## 🚀 Start development infrastructure with health checks
 	@printf "$(BOLD)$(BLUE)🚀 Starting development infrastructure...$(RESET)\n"
-	@docker-compose -f $(COMPOSE_FILE) --env-file $(ENV_FILE) up -d --remove-orphans || \
+	@printf "$(BLUE)🏗️  Platform: $(shell uname -m) (auto-detecting best images)$(RESET)\n"
+	@unset DOCKER_DEFAULT_PLATFORM && \
+	DOCKER_PLATFORM=$(DOCKER_PLATFORM) \
+	docker-compose -f $(COMPOSE_FILE) --env-file $(ENV_FILE) up -d --remove-orphans || \
 		(printf "$(RED)❌ Failed to start services$(RESET)\n" && exit 1)
 	@printf "$(BLUE)⏳ Waiting for services to be ready...$(RESET)\n"
 	@sleep 10
@@ -171,7 +185,8 @@ dev-up: ## 🚀 Start development infrastructure with health checks
 
 dev-down: ## 🛑 Stop development infrastructure with cleanup
 	@printf "$(BOLD)$(BLUE)🛑 Stopping development infrastructure...$(RESET)\n"
-	@docker-compose -f $(COMPOSE_FILE) down -v --remove-orphans
+	@unset DOCKER_DEFAULT_PLATFORM && \
+	docker-compose -f $(COMPOSE_FILE) down -v --remove-orphans
 	@printf "$(GREEN)✅ Development infrastructure stopped$(RESET)\n"
 
 dev-frontend: deps-frontend ## 🌐 Start frontend development server
@@ -265,13 +280,15 @@ test-frontend: deps-frontend ## Run frontend tests with Vitest
 test-integration: ## 🔧 Run integration tests with infrastructure
 	@printf "$(BLUE)🧪 Running integration tests...$(RESET)\n"
 	@printf "$(BLUE)📝 Starting test infrastructure...$(RESET)\n"
-	@docker-compose -f docker-compose.test.yml up -d --wait || \
+	@unset DOCKER_DEFAULT_PLATFORM && \
+	DOCKER_PLATFORM=$(DOCKER_SINGLE_PLATFORM) \
+	docker-compose -f docker-compose.test.yml up -d --wait || \
 		(printf "$(RED)❌ Failed to start test services$(RESET)\n" && exit 1)
 	@printf "$(BLUE)⏳ Waiting for services to stabilize...$(RESET)\n"
 	@sleep 10
 	@go test -v -timeout=60s -tags=integration ./tests/integration/... || \
-		(printf "$(RED)❌ Integration tests failed$(RESET)\n" && docker-compose -f docker-compose.test.yml down && exit 1)
-	@docker-compose -f docker-compose.test.yml down
+		(printf "$(RED)❌ Integration tests failed$(RESET)\n" && unset DOCKER_DEFAULT_PLATFORM && docker-compose -f docker-compose.test.yml down && exit 1)
+	@unset DOCKER_DEFAULT_PLATFORM && docker-compose -f docker-compose.test.yml down
 	@printf "$(GREEN)✅ Integration tests completed$(RESET)\n"
 
 test-e2e: deps-frontend ## 🎭 Run end-to-end tests with Playwright
@@ -1075,6 +1092,92 @@ build-clean: ## Clean all build artifacts
 	@printf "$(GREEN)✅ Build artifacts cleaned$(RESET)\n"
 
 # =============================================================================
+# SDK & DEVELOPER TOOLS
+# =============================================================================
+sdk-build-go: ## 🛠️ Build Go SDK components
+	@printf "$(BLUE)🛠️ Building Go SDK components...$(RESET)\n"
+	@go build -o bin/ztcli ./cmd/ztcli
+	@printf "$(GREEN)✅ Zero Trust CLI built: bin/ztcli$(RESET)\n"
+
+sdk-build-js: ## 🛠️ Build JavaScript SDK
+	@printf "$(BLUE)🛠️ Building JavaScript SDK...$(RESET)\n"
+	@if [ -d "sdk/javascript" ]; then \
+		cd sdk/javascript && npm install && npm run build; \
+		printf "$(GREEN)✅ JavaScript SDK built$(RESET)\n"; \
+	else \
+		printf "$(YELLOW)⚠️ JavaScript SDK directory not found$(RESET)\n"; \
+	fi
+
+sdk-build-python: ## 🛠️ Build Python SDK
+	@printf "$(BLUE)🛠️ Building Python SDK...$(RESET)\n"
+	@if [ -d "sdk/python" ]; then \
+		cd sdk/python && python -m pip install build && python -m build; \
+		printf "$(GREEN)✅ Python SDK built$(RESET)\n"; \
+	else \
+		printf "$(YELLOW)⚠️ Python SDK directory not found$(RESET)\n"; \
+	fi
+
+sdk-build-all: sdk-build-go sdk-build-js sdk-build-python ## 🛠️ Build all SDK components
+
+sdk-test-go: ## 🧪 Test Go SDK
+	@printf "$(BLUE)🧪 Testing Go SDK...$(RESET)\n"
+	@go test ./pkg/sdk/go/... -v
+
+sdk-test-js: ## 🧪 Test JavaScript SDK
+	@printf "$(BLUE)🧪 Testing JavaScript SDK...$(RESET)\n"
+	@if [ -d "sdk/javascript" ]; then \
+		cd sdk/javascript && npm test; \
+	else \
+		printf "$(YELLOW)⚠️ JavaScript SDK directory not found$(RESET)\n"; \
+	fi
+
+sdk-test-python: ## 🧪 Test Python SDK
+	@printf "$(BLUE)🧪 Testing Python SDK...$(RESET)\n"
+	@if [ -d "sdk/python" ]; then \
+		cd sdk/python && python -m pytest; \
+	else \
+		printf "$(YELLOW)⚠️ Python SDK directory not found$(RESET)\n"; \
+	fi
+
+sdk-test-all: sdk-test-go sdk-test-js sdk-test-python ## 🧪 Test all SDK components
+
+# CLI Tools
+cli-help: ## 📖 Show CLI tool help
+	@printf "$(BLUE)📖 Zero Trust CLI Help:$(RESET)\n"
+	@./bin/ztcli --help
+
+cli-health: ## 🏥 Check system health via CLI
+	@printf "$(BLUE)🏥 Checking system health...$(RESET)\n"
+	@./bin/ztcli system health
+
+cli-status: ## 📊 Show system status via CLI
+	@printf "$(BLUE)📊 System status:$(RESET)\n"
+	@./bin/ztcli system status
+
+cli-generate-key: ## 🔑 Generate API key
+	@printf "$(BLUE)🔑 Generating API key...$(RESET)\n"
+	@./bin/ztcli dev generate-key
+
+cli-test-connection: ## 🔗 Test connection to auth service
+	@printf "$(BLUE)🔗 Testing connection...$(RESET)\n"
+	@./bin/ztcli dev test-connection
+
+# Development Utilities
+dev-generate-go: ## 🏗️ Generate Go client code
+	@printf "$(BLUE)🏗️ Generating Go client...$(RESET)\n"
+	@./bin/ztcli dev generate-client --lang go --output-dir ./generated/go
+
+dev-generate-js: ## 🏗️ Generate JavaScript client code
+	@printf "$(BLUE)🏗️ Generating JavaScript client...$(RESET)\n"
+	@./bin/ztcli dev generate-client --lang javascript --output-dir ./generated/js
+
+dev-generate-python: ## 🏗️ Generate Python client code
+	@printf "$(BLUE)🏗️ Generating Python client...$(RESET)\n"
+	@./bin/ztcli dev generate-client --lang python --output-dir ./generated/python
+
+dev-generate-all: dev-generate-go dev-generate-js dev-generate-python ## 🏗️ Generate all client SDKs
+
+# =============================================================================
 # DEPLOYMENT WORKFLOW
 # =============================================================================
 deploy: deploy-local ## 🚀 Deploy to default environment
@@ -1558,12 +1661,64 @@ monitor-logs: ## View monitoring system logs
 	@docker-compose -f $(COMPOSE_FILE) logs -f prometheus grafana jaeger
 
 # =============================================================================
+# DATABASE OPTIMIZATION COMMANDS
+# =============================================================================
+db-stats: ## 📊 Show database connection pool statistics
+	@printf "$(BLUE)📊 Database connection pool statistics:$(RESET)\n"
+	@go run ./cmd/dboptimize stats
+
+db-stats-live: ## 📈 Live database statistics monitoring
+	@printf "$(BLUE)📈 Starting live database monitoring...$(RESET)\n"
+	@go run ./cmd/dboptimize stats --live --interval 5s
+
+db-benchmark: ## ⚡ Run database performance benchmark
+	@printf "$(BLUE)⚡ Running database performance benchmark...$(RESET)\n"
+	@go run ./cmd/dboptimize benchmark --duration 60s --connections 10
+
+db-benchmark-heavy: ## 🚀 Run intensive database benchmark
+	@printf "$(BLUE)🚀 Running intensive database benchmark...$(RESET)\n"
+	@go run ./cmd/dboptimize benchmark --duration 120s --connections 25 --detailed
+
+db-optimize-dev: ## 🔧 Optimize database for development workload
+	@printf "$(BLUE)🔧 Optimizing database for development...$(RESET)\n"
+	@go run ./cmd/dboptimize optimize --profile development
+
+db-optimize-prod: ## ⚡ Optimize database for production workload
+	@printf "$(BLUE)⚡ Optimizing database for production...$(RESET)\n"
+	@go run ./cmd/dboptimize optimize --profile high_throughput
+
+db-optimize-balanced: ## ⚖️ Apply balanced database optimization
+	@printf "$(BLUE)⚖️ Applying balanced database optimization...$(RESET)\n"
+	@go run ./cmd/dboptimize optimize --profile balanced
+
+db-analyze: ## 🔍 Analyze database configuration and provide recommendations
+	@printf "$(BLUE)🔍 Analyzing database configuration...$(RESET)\n"
+	@go run ./cmd/dboptimize analyze --recommendations --compliance
+
+db-monitor: ## 📈 Real-time database performance monitoring
+	@printf "$(BLUE)📈 Starting real-time database monitoring...$(RESET)\n"
+	@go run ./cmd/dboptimize monitor --interval 5s
+
+db-health: dev-status ## 🏥 Comprehensive database health check
+	@printf "$(BLUE)🏥 Checking database health...$(RESET)\n"
+	@go run ./cmd/dboptimize stats --extended
+	@printf "\n$(BLUE)🔍 Testing database connectivity...$(RESET)\n"
+	@timeout 10s go run -c 'import "mvp.local/pkg/database"; import "mvp.local/pkg/config"; cfg,_:=config.Load(); db:=database.NewDatabase(&cfg.Database); err:=db.Connect(); if err!=nil{panic(err)}; defer db.Close(); err=db.Health(); if err!=nil{panic(err)}; println("✅ Database health check passed")' 2>/dev/null || printf "$(RED)❌ Database health check failed$(RESET)\n"
+
+# Database optimization workflow targets
+db-tune: db-analyze db-benchmark db-optimize-balanced ## 🎯 Complete database tuning workflow
+	@printf "$(GREEN)✅ Database tuning workflow completed$(RESET)\n"
+
+db-perf-test: db-benchmark db-stats ## 📊 Performance testing workflow
+	@printf "$(GREEN)✅ Performance testing completed$(RESET)\n"
+
+# =============================================================================
 # CLEANUP & MAINTENANCE
 # =============================================================================
 clean-all: build-clean cache-clean ## 🧹 Complete cleanup
 	@printf "$(BLUE)🧹 Performing complete cleanup...$(RESET)\n"
-	@docker-compose -f $(COMPOSE_FILE) down -v --remove-orphans
-	@docker-compose -f docker-compose.test.yml down -v --remove-orphans 2>/dev/null || true
+	@unset DOCKER_DEFAULT_PLATFORM && docker-compose -f $(COMPOSE_FILE) down -v --remove-orphans
+	@unset DOCKER_DEFAULT_PLATFORM && docker-compose -f docker-compose.test.yml down -v --remove-orphans 2>/dev/null || true
 	@docker system prune -f --volumes
 	@printf "$(GREEN)✅ Complete cleanup finished$(RESET)\n"
 

@@ -3,6 +3,7 @@
 package auth
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
@@ -75,6 +76,7 @@ type JWTService struct {
 	refreshSecret  []byte
 	expiryDuration time.Duration
 	refreshExpiry  time.Duration
+	blacklist      *JWTBlacklist
 }
 
 // JWTServiceInterface defines the contract for JWT operations
@@ -89,6 +91,10 @@ type JWTServiceInterface interface {
 	GetUserRolesAndPermissions(userID string) ([]string, []string, error)
 	RotateKey() error
 	GetKeyManagerStats() map[string]interface{}
+	SetBlacklist(blacklist *JWTBlacklist)
+	BlacklistToken(ctx context.Context, tokenString, userID, reason string, expiresAt time.Time) error
+	BlacklistUserTokens(ctx context.Context, userID, reason string) error
+	IsTokenBlacklisted(ctx context.Context, tokenString string) (bool, error)
 }
 
 // NewJWTKeyManager creates a new JWT key manager with rotation support
@@ -201,6 +207,14 @@ func (j *JWTService) GenerateRefreshToken(userID string) (string, error) {
 
 // ValidateToken validates and parses a JWT access token
 func (j *JWTService) ValidateToken(tokenString string) (*JWTClaims, error) {
+	// Check blacklist first (if available)
+	if j.blacklist != nil {
+		ctx := context.Background()
+		if blacklisted, err := j.blacklist.IsTokenBlacklisted(ctx, tokenString); err == nil && blacklisted {
+			return nil, errors.Unauthorized("Token has been revoked")
+		}
+	}
+
 	token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
@@ -238,6 +252,14 @@ func (j *JWTService) ValidateToken(tokenString string) (*JWTClaims, error) {
 	}
 
 	if claims, ok := token.Claims.(*JWTClaims); ok && token.Valid {
+		// Additional blacklist check for user-wide blacklisting
+		if j.blacklist != nil {
+			ctx := context.Background()
+			if userBlacklisted, err := j.blacklist.IsUserTokensBlacklisted(ctx, claims.UserID); err == nil && userBlacklisted {
+				return nil, errors.Unauthorized("All user tokens have been revoked")
+			}
+		}
+		
 		return claims, nil
 	}
 
@@ -453,4 +475,41 @@ func (j *JWTService) RotateKey() error {
 // GetKeyManagerStats returns key manager statistics
 func (j *JWTService) GetKeyManagerStats() map[string]interface{} {
 	return j.keyManager.GetStats()
+}
+
+// Blacklist methods
+
+// SetBlacklist sets the JWT blacklist service
+func (j *JWTService) SetBlacklist(blacklist *JWTBlacklist) {
+	j.blacklist = blacklist
+}
+
+// BlacklistToken adds a token to the blacklist
+func (j *JWTService) BlacklistToken(ctx context.Context, tokenString, userID, reason string, expiresAt time.Time) error {
+	if j.blacklist == nil {
+		return errors.Internal("JWT blacklist not configured")
+	}
+	
+	return j.blacklist.BlacklistToken(ctx, tokenString, userID, reason, expiresAt)
+}
+
+// BlacklistUserTokens blacklists all tokens for a user
+func (j *JWTService) BlacklistUserTokens(ctx context.Context, userID, reason string) error {
+	if j.blacklist == nil {
+		return errors.Internal("JWT blacklist not configured")
+	}
+	
+	// Calculate maximum possible token expiry (current time + max token lifetime)
+	maxTokenExpiry := time.Now().Add(j.expiryDuration)
+	
+	return j.blacklist.BlacklistUserTokens(ctx, userID, reason, maxTokenExpiry)
+}
+
+// IsTokenBlacklisted checks if a token is blacklisted
+func (j *JWTService) IsTokenBlacklisted(ctx context.Context, tokenString string) (bool, error) {
+	if j.blacklist == nil {
+		return false, nil
+	}
+	
+	return j.blacklist.IsTokenBlacklisted(ctx, tokenString)
 }

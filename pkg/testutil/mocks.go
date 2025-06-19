@@ -1,6 +1,7 @@
 package testutil
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -84,6 +85,25 @@ func (m *MockJWTService) GetKeyManagerStats() map[string]interface{} {
 	return args.Get(0).(map[string]interface{})
 }
 
+func (m *MockJWTService) SetBlacklist(blacklist interface{}) {
+	m.Called(blacklist)
+}
+
+func (m *MockJWTService) BlacklistToken(ctx context.Context, tokenString, userID, reason string, expiresAt time.Time) error {
+	args := m.Called(ctx, tokenString, userID, reason, expiresAt)
+	return args.Error(0)
+}
+
+func (m *MockJWTService) BlacklistUserTokens(ctx context.Context, userID, reason string) error {
+	args := m.Called(ctx, userID, reason)
+	return args.Error(0)
+}
+
+func (m *MockJWTService) IsTokenBlacklisted(ctx context.Context, tokenString string) (bool, error) {
+	args := m.Called(ctx, tokenString)
+	return args.Bool(0), args.Error(1)
+}
+
 // MockAuthorizationService is a mock implementation of auth.AuthorizationInterface
 type MockAuthorizationService struct {
 	mock.Mock
@@ -163,6 +183,15 @@ func (m *MockAuthorizationService) LoadPolicy() error {
 
 func (m *MockAuthorizationService) SavePolicy() error {
 	args := m.Called()
+	return args.Error(0)
+}
+
+func (m *MockAuthorizationService) SetCache(cache interface{}) {
+	m.Called(cache)
+}
+
+func (m *MockAuthorizationService) InvalidateUserCache(userID string) error {
+	args := m.Called(userID)
 	return args.Error(0)
 }
 

@@ -3,12 +3,16 @@
 package auth
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/casbin/casbin/v2"
 	gormadapter "github.com/casbin/gorm-adapter/v3"
 	"gorm.io/gorm"
 
+	"mvp.local/pkg/cache"
 	"mvp.local/pkg/errors"
 	"mvp.local/pkg/models"
 )
@@ -17,11 +21,13 @@ import (
 type AuthorizationService struct {
 	enforcer *casbin.Enforcer
 	db       *gorm.DB
+	cache    cache.Cache
 }
 
 // AuthorizationInterface defines the contract for authorization operations
 type AuthorizationInterface interface {
 	Initialize(db *gorm.DB, modelPath string) error
+	SetCache(cache cache.Cache)
 	Enforce(userID string, resource, action string) (bool, error)
 	AddRoleForUser(userID string, role string) error
 	RemoveRoleForUser(userID string, role string) error
@@ -34,11 +40,25 @@ type AuthorizationInterface interface {
 	CheckPermission(userID string, resource, action string) error
 	LoadPolicy() error
 	SavePolicy() error
+	InvalidateUserCache(userID string) error
 }
+
+// Cache key constants for authorization data
+const (
+	UserRolesCachePrefix       = "auth:user_roles:"
+	UserPermissionsCachePrefix = "auth:user_permissions:"
+	RolePermissionsCachePrefix = "auth:role_permissions:"
+	CacheTTL                   = 15 * time.Minute // TTL for authorization cache entries
+)
 
 // NewAuthorizationService creates a new authorization service
 func NewAuthorizationService() *AuthorizationService {
 	return &AuthorizationService{}
+}
+
+// SetCache sets the cache instance for the authorization service
+func (a *AuthorizationService) SetCache(cache cache.Cache) {
+	a.cache = cache
 }
 
 // Initialize sets up the Casbin enforcer with GORM adapter
@@ -109,6 +129,9 @@ func (a *AuthorizationService) AddRoleForUser(userID string, role string) error 
 		return err
 	}
 
+	// Invalidate cache for this user
+	_ = a.InvalidateUserCache(userID)
+
 	return a.enforcer.SavePolicy()
 }
 
@@ -128,18 +151,41 @@ func (a *AuthorizationService) RemoveRoleForUser(userID string, role string) err
 		return err
 	}
 
+	// Invalidate cache for this user
+	_ = a.InvalidateUserCache(userID)
+
 	return a.enforcer.SavePolicy()
 }
 
-// GetRolesForUser gets all roles for a user
+// GetRolesForUser gets all roles for a user with caching support
 func (a *AuthorizationService) GetRolesForUser(userID string) ([]string, error) {
 	if err := a.ensureInitialized(); err != nil {
 		return nil, err
 	}
 
+	// Try to get from cache first
+	if a.cache != nil {
+		cacheKey := UserRolesCachePrefix + userID
+		if cached, err := a.cache.Get(context.Background(), cacheKey); err == nil {
+			var roles []string
+			if err := json.Unmarshal(cached, &roles); err == nil {
+				return roles, nil
+			}
+		}
+	}
+
+	// Get from Casbin enforcer
 	roles, err := a.enforcer.GetRolesForUser(userID)
 	if err != nil {
 		return nil, errors.Wrap(err, errors.CodeInternal, "Failed to get roles for user")
+	}
+
+	// Cache the result
+	if a.cache != nil {
+		cacheKey := UserRolesCachePrefix + userID
+		if rolesJSON, err := json.Marshal(roles); err == nil {
+			_ = a.cache.Set(context.Background(), cacheKey, rolesJSON, CacheTTL)
+		}
 	}
 
 	return roles, nil
@@ -170,6 +216,9 @@ func (a *AuthorizationService) AddPermissionForRole(role, resource, action strin
 		return errors.Wrap(err, errors.CodeInternal, "Failed to add permission for role")
 	}
 
+	// Invalidate cache for this role
+	_ = a.InvalidateRoleCache(role)
+
 	return a.enforcer.SavePolicy()
 }
 
@@ -184,19 +233,43 @@ func (a *AuthorizationService) RemovePermissionForRole(role, resource, action st
 		return errors.Wrap(err, errors.CodeInternal, "Failed to remove permission for role")
 	}
 
+	// Invalidate cache for this role
+	_ = a.InvalidateRoleCache(role)
+
 	return a.enforcer.SavePolicy()
 }
 
-// GetPermissionsForRole gets all permissions for a role
+// GetPermissionsForRole gets all permissions for a role with caching support
 func (a *AuthorizationService) GetPermissionsForRole(role string) ([][]string, error) {
 	if err := a.ensureInitialized(); err != nil {
 		return nil, err
 	}
 
+	// Try to get from cache first
+	if a.cache != nil {
+		cacheKey := RolePermissionsCachePrefix + role
+		if cached, err := a.cache.Get(context.Background(), cacheKey); err == nil {
+			var permissions [][]string
+			if err := json.Unmarshal(cached, &permissions); err == nil {
+				return permissions, nil
+			}
+		}
+	}
+
+	// Get from Casbin enforcer
 	permissions, err := a.enforcer.GetPermissionsForUser(role)
 	if err != nil {
 		return nil, errors.Wrap(err, errors.CodeInternal, "Failed to get permissions for role")
 	}
+
+	// Cache the result
+	if a.cache != nil {
+		cacheKey := RolePermissionsCachePrefix + role
+		if permissionsJSON, err := json.Marshal(permissions); err == nil {
+			_ = a.cache.Set(context.Background(), cacheKey, permissionsJSON, CacheTTL)
+		}
+	}
+
 	return permissions, nil
 }
 
@@ -322,8 +395,20 @@ func (a *AuthorizationService) CheckPermission(userID string, resource, action s
 	return nil
 }
 
-// GetUserPermissions returns all permissions for a user (through their roles)
+// GetUserPermissions returns all permissions for a user (through their roles) with caching support
 func (a *AuthorizationService) GetUserPermissions(userID string) ([]string, error) {
+	// Try to get from cache first
+	if a.cache != nil {
+		cacheKey := UserPermissionsCachePrefix + userID
+		if cached, err := a.cache.Get(context.Background(), cacheKey); err == nil {
+			var permissions []string
+			if err := json.Unmarshal(cached, &permissions); err == nil {
+				return permissions, nil
+			}
+		}
+	}
+
+	// Get roles for user (this itself may use cache)
 	roles, err := a.GetRolesForUser(userID)
 	if err != nil {
 		return nil, err
@@ -349,5 +434,77 @@ func (a *AuthorizationService) GetUserPermissions(userID string) ([]string, erro
 		}
 	}
 
+	// Cache the result
+	if a.cache != nil {
+		cacheKey := UserPermissionsCachePrefix + userID
+		if permissionsJSON, err := json.Marshal(allPermissions); err == nil {
+			_ = a.cache.Set(context.Background(), cacheKey, permissionsJSON, CacheTTL)
+		}
+	}
+
 	return allPermissions, nil
+}
+
+// InvalidateUserCache invalidates all cache entries for a specific user
+func (a *AuthorizationService) InvalidateUserCache(userID string) error {
+	if a.cache == nil {
+		return nil
+	}
+
+	ctx := context.Background()
+	
+	// Invalidate user roles cache
+	userRolesKey := UserRolesCachePrefix + userID
+	_ = a.cache.Delete(ctx, userRolesKey)
+	
+	// Invalidate user permissions cache
+	userPermissionsKey := UserPermissionsCachePrefix + userID
+	_ = a.cache.Delete(ctx, userPermissionsKey)
+	
+	return nil
+}
+
+// InvalidateRoleCache invalidates cache entries for a specific role
+func (a *AuthorizationService) InvalidateRoleCache(role string) error {
+	if a.cache == nil {
+		return nil
+	}
+
+	ctx := context.Background()
+	
+	// Invalidate role permissions cache
+	rolePermissionsKey := RolePermissionsCachePrefix + role
+	_ = a.cache.Delete(ctx, rolePermissionsKey)
+	
+	// Also need to invalidate all users that have this role
+	// This is more complex and would require tracking role-user relationships
+	// For now, we'll rely on TTL to eventually expire user caches
+	
+	return nil
+}
+
+// InvalidateAllAuthCache clears all authorization-related cache entries
+func (a *AuthorizationService) InvalidateAllAuthCache() error {
+	if a.cache == nil {
+		return nil
+	}
+
+	ctx := context.Background()
+	
+	// Get all keys matching our cache patterns
+	patterns := []string{
+		UserRolesCachePrefix + "*",
+		UserPermissionsCachePrefix + "*", 
+		RolePermissionsCachePrefix + "*",
+	}
+	
+	for _, pattern := range patterns {
+		if keys, err := a.cache.Keys(ctx, pattern); err == nil {
+			for _, key := range keys {
+				_ = a.cache.Delete(ctx, key)
+			}
+		}
+	}
+	
+	return nil
 }

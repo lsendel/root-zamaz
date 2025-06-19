@@ -65,6 +65,20 @@ type DatabaseConfig struct {
 	ConnMaxLifetime time.Duration `yaml:"conn_max_lifetime" env:"DB_CONN_MAX_LIFETIME" default:"300s"`
 	ConnMaxIdleTime time.Duration `yaml:"conn_max_idle_time" env:"DB_CONN_MAX_IDLE_TIME" default:"60s"`
 
+	// Advanced pool optimization
+	OptimizationProfile string        `yaml:"optimization_profile" env:"DB_OPTIMIZATION_PROFILE" default:"balanced"`
+	AutoTuning          bool          `yaml:"auto_tuning" env:"DB_AUTO_TUNING" default:"true"`
+	MonitoringInterval  time.Duration `yaml:"monitoring_interval" env:"DB_MONITORING_INTERVAL" default:"30s"`
+	LeakDetection       bool          `yaml:"leak_detection" env:"DB_LEAK_DETECTION" default:"true"`
+	LeakThreshold       time.Duration `yaml:"leak_threshold" env:"DB_LEAK_THRESHOLD" default:"60s"`
+
+	// Performance tuning
+	MaxQueueWait     time.Duration `yaml:"max_queue_wait" env:"DB_MAX_QUEUE_WAIT" default:"30s"`
+	RetryAttempts    int           `yaml:"retry_attempts" env:"DB_RETRY_ATTEMPTS" default:"3"`
+	RetryDelay       time.Duration `yaml:"retry_delay" env:"DB_RETRY_DELAY" default:"1s"`
+	CircuitBreaker   bool          `yaml:"circuit_breaker" env:"DB_CIRCUIT_BREAKER" default:"true"`
+	FailureThreshold int           `yaml:"failure_threshold" env:"DB_FAILURE_THRESHOLD" default:"5"`
+
 	// Query timeouts
 	QueryTimeout   time.Duration `yaml:"query_timeout" env:"DB_QUERY_TIMEOUT" default:"30s"`
 	ConnectTimeout time.Duration `yaml:"connect_timeout" env:"DB_CONNECT_TIMEOUT" default:"10s"`
@@ -73,9 +87,14 @@ type DatabaseConfig struct {
 	PrepareStmt       bool `yaml:"prepare_stmt" env:"DB_PREPARE_STMT" default:"true"`
 	DisableForeignKey bool `yaml:"disable_foreign_key" env:"DB_DISABLE_FOREIGN_KEY" default:"false"`
 
-	// Monitoring
-	EnableMetrics      bool          `yaml:"enable_metrics" env:"DB_ENABLE_METRICS" default:"true"`
-	SlowQueryThreshold time.Duration `yaml:"slow_query_threshold" env:"DB_SLOW_QUERY_THRESHOLD" default:"1s"`
+	// Monitoring and observability
+	EnableMetrics         bool          `yaml:"enable_metrics" env:"DB_ENABLE_METRICS" default:"true"`
+	SlowQueryThreshold    time.Duration `yaml:"slow_query_threshold" env:"DB_SLOW_QUERY_THRESHOLD" default:"1s"`
+	DetailedMetrics       bool          `yaml:"detailed_metrics" env:"DB_DETAILED_METRICS" default:"false"`
+	QueryLogging          bool          `yaml:"query_logging" env:"DB_QUERY_LOGGING" default:"false"`
+	ConnectionTracing     bool          `yaml:"connection_tracing" env:"DB_CONNECTION_TRACING" default:"false"`
+	StatsExportInterval   time.Duration `yaml:"stats_export_interval" env:"DB_STATS_EXPORT_INTERVAL" default:"60s"`
+	HealthCheckInterval   time.Duration `yaml:"health_check_interval" env:"DB_HEALTH_CHECK_INTERVAL" default:"30s"`
 }
 
 // RedisConfig contains Redis connection settings
@@ -283,6 +302,21 @@ func loadFromEnv(config *Config) error {
 	config.Database.DisableForeignKey = getEnvBoolWithDefault("DB_DISABLE_FOREIGN_KEY", false)
 	config.Database.EnableMetrics = getEnvBoolWithDefault("DB_ENABLE_METRICS", true)
 	config.Database.SlowQueryThreshold = getEnvDurationWithDefault("DB_SLOW_QUERY_THRESHOLD", 1*time.Second)
+	config.Database.OptimizationProfile = getEnvWithDefault("DB_OPTIMIZATION_PROFILE", "balanced")
+	config.Database.AutoTuning = getEnvBoolWithDefault("DB_AUTO_TUNING", true)
+	config.Database.MonitoringInterval = getEnvDurationWithDefault("DB_MONITORING_INTERVAL", 30*time.Second)
+	config.Database.LeakDetection = getEnvBoolWithDefault("DB_LEAK_DETECTION", true)
+	config.Database.LeakThreshold = getEnvDurationWithDefault("DB_LEAK_THRESHOLD", 60*time.Second)
+	config.Database.MaxQueueWait = getEnvDurationWithDefault("DB_MAX_QUEUE_WAIT", 30*time.Second)
+	config.Database.RetryAttempts = getEnvIntWithDefault("DB_RETRY_ATTEMPTS", 3)
+	config.Database.RetryDelay = getEnvDurationWithDefault("DB_RETRY_DELAY", 1*time.Second)
+	config.Database.CircuitBreaker = getEnvBoolWithDefault("DB_CIRCUIT_BREAKER", true)
+	config.Database.FailureThreshold = getEnvIntWithDefault("DB_FAILURE_THRESHOLD", 5)
+	config.Database.DetailedMetrics = getEnvBoolWithDefault("DB_DETAILED_METRICS", false)
+	config.Database.QueryLogging = getEnvBoolWithDefault("DB_QUERY_LOGGING", false)
+	config.Database.ConnectionTracing = getEnvBoolWithDefault("DB_CONNECTION_TRACING", false)
+	config.Database.StatsExportInterval = getEnvDurationWithDefault("DB_STATS_EXPORT_INTERVAL", 60*time.Second)
+	config.Database.HealthCheckInterval = getEnvDurationWithDefault("DB_HEALTH_CHECK_INTERVAL", 30*time.Second)
 
 	// Set Redis config
 	config.Redis.Host = getEnvWithDefault("REDIS_HOST", "localhost")
@@ -448,6 +482,24 @@ func validateConfig(config *Config) error {
 
 	if config.Database.ConnMaxLifetime < 0 {
 		return errors.Validation("database.conn_max_lifetime must be non-negative")
+	}
+
+	// Validate new connection pool settings
+	validProfiles := []string{"development", "testing", "balanced", "high_throughput", "low_latency", "resource_constrained"}
+	if !contains(validProfiles, config.Database.OptimizationProfile) {
+		return errors.Validation("database.optimization_profile must be one of: development, testing, balanced, high_throughput, low_latency, resource_constrained")
+	}
+
+	if config.Database.RetryAttempts < 0 || config.Database.RetryAttempts > 10 {
+		return errors.Validation("database.retry_attempts must be between 0 and 10")
+	}
+
+	if config.Database.FailureThreshold <= 0 {
+		return errors.Validation("database.failure_threshold must be greater than 0")
+	}
+
+	if config.Database.MonitoringInterval <= 0 {
+		return errors.Validation("database.monitoring_interval must be positive")
 	}
 
 	// Validate Redis configuration

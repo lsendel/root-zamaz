@@ -1,8 +1,8 @@
 services:
   # PostgreSQL for database integration tests
   postgres:
-    image: postgres:13
-    platform: linux/amd64
+    image: postgres:15-alpine
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     environment:
       POSTGRES_DB: mvp_db
       POSTGRES_USER: mvp_user
@@ -19,23 +19,18 @@ services:
   # NATS for messaging integration tests
   nats:
     image: nats:latest
-    platform: linux/amd64
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     ports:
       - "4222:4222"
       - "8222:8222"
     command: ["--jetstream", "--store_dir", "/data"]
     volumes:
       - nats-data:/data
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8222/healthz"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
 
   # Redis for caching integration tests
   redis:
     image: redis:7
-    platform: linux/amd64
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
     ports:
       - "6379:6379"
     healthcheck:

@@ -16,12 +16,15 @@ import (
 	"mvp.local/pkg/config"
 	"mvp.local/pkg/errors"
 	"mvp.local/pkg/migrations"
+	"mvp.local/pkg/observability"
 )
 
 // Database represents the database connection and configuration
 type Database struct {
-	DB     *gorm.DB
-	config *config.DatabaseConfig
+	DB          *gorm.DB
+	config      *config.DatabaseConfig
+	poolManager *PoolManager
+	obs         *observability.Observability
 }
 
 // DatabaseInterface defines the contract for database operations
@@ -32,12 +35,24 @@ type DatabaseInterface interface {
 	Health() error
 	GetDB() *gorm.DB
 	Transaction(fn func(tx *gorm.DB) error) error
+	GetStats() (map[string]interface{}, error)
+	GetPoolManager() *PoolManager
+	OptimizeForWorkload(profile OptimizationProfile) error
 }
 
 // NewDatabase creates a new database instance with the provided configuration
-func NewDatabase(cfg *config.DatabaseConfig) *Database {
+func NewDatabase(cfg *config.DatabaseConfig, obs *observability.Observability) *Database {
 	return &Database{
 		config: cfg,
+		obs:    obs,
+	}
+}
+
+// NewDatabaseWithPoolManager creates a database instance with advanced pool management
+func NewDatabaseWithPoolManager(cfg *config.DatabaseConfig, obs *observability.Observability) *Database {
+	return &Database{
+		config: cfg,
+		obs:    obs,
 	}
 }
 
@@ -73,6 +88,20 @@ func (d *Database) Connect() error {
 	// Configure connection pool with workload-optimized settings
 	d.configureConnectionPool(sqlDB)
 
+	// Initialize advanced pool manager if observability is available
+	if d.obs != nil {
+		poolManager, err := NewPoolManager(d.config, db, d.obs)
+		if err != nil {
+			return errors.Wrap(err, errors.CodeInternal, "Failed to initialize pool manager")
+		}
+		d.poolManager = poolManager
+		
+		// Start pool management routines
+		if err := d.poolManager.Start(); err != nil {
+			return errors.Wrap(err, errors.CodeInternal, "Failed to start pool manager")
+		}
+	}
+
 	// Test the connection
 	if err := sqlDB.Ping(); err != nil {
 		return errors.Wrap(err, errors.CodeInternal, "Failed to ping database")
@@ -86,6 +115,13 @@ func (d *Database) Connect() error {
 func (d *Database) Close() error {
 	if d.DB == nil {
 		return nil
+	}
+
+	// Stop pool manager if running
+	if d.poolManager != nil {
+		if err := d.poolManager.Stop(); err != nil {
+			d.obs.Logger.Warn().Err(err).Msg("Failed to stop pool manager gracefully")
+		}
 	}
 
 	sqlDB, err := d.DB.DB()
@@ -180,6 +216,36 @@ func (d *Database) GetStats() (map[string]interface{}, error) {
 		return nil, errors.Internal("Database connection not established")
 	}
 
+	// Use enhanced stats from pool manager if available
+	if d.poolManager != nil {
+		stats := d.poolManager.GetStats()
+		return map[string]interface{}{
+			"max_open_connections":     stats.MaxOpenConnections,
+			"open_connections":         stats.OpenConnections,
+			"in_use":                   stats.InUse,
+			"idle":                     stats.Idle,
+			"wait_count":               stats.WaitCount,
+			"wait_duration_ms":         stats.WaitDuration,
+			"max_idle_closed":          stats.MaxIdleClosed,
+			"max_idle_time_closed":     stats.MaxIdleTimeClosed,
+			"max_lifetime_closed":      stats.MaxLifetimeClosed,
+			"connection_utilization":   stats.ConnectionUtilization,
+			"optimization_profile":     stats.OptimizationProfile,
+			"auto_tuning_enabled":      stats.TuningEnabled,
+			"connection_leaks":         stats.ConnectionLeaks,
+			"timeout_errors":           stats.TimeoutErrors,
+			"circuit_breaker_trips":    stats.CircuitBreakerTrips,
+			"cpu_cores":                stats.CPUCores,
+			"memory_usage_bytes":       stats.MemoryUsage,
+			"average_query_time_ms":    stats.AverageQueryTime,
+			"slow_queries":             stats.SlowQueries,
+			"failed_connections":       stats.FailedConnections,
+			"total_queries":            stats.TotalQueries,
+			"last_optimization":        stats.LastOptimization,
+		}, nil
+	}
+
+	// Fallback to basic stats
 	sqlDB, err := d.DB.DB()
 	if err != nil {
 		return nil, errors.Wrap(err, errors.CodeInternal, "Failed to get underlying database connection")
@@ -248,4 +314,60 @@ func (d *Database) configureConnectionPool(sqlDB *sql.DB) {
 	sqlDB.SetMaxIdleConns(maxIdleConns)
 	sqlDB.SetConnMaxLifetime(connMaxLifetime)
 	sqlDB.SetConnMaxIdleTime(connMaxIdleTime)
+
+	// Log optimization details if observability is available
+	if d.obs != nil {
+		d.obs.Logger.Info().
+			Int("max_connections", maxConnections).
+			Int("max_idle_conns", maxIdleConns).
+			Dur("conn_max_lifetime", connMaxLifetime).
+			Dur("conn_max_idle_time", connMaxIdleTime).
+			Int("cpu_cores", numCPU).
+			Msg("Database connection pool configured")
+	}
+}
+
+// GetPoolManager returns the advanced pool manager if available
+func (d *Database) GetPoolManager() *PoolManager {
+	return d.poolManager
+}
+
+// OptimizeForWorkload applies a specific optimization profile to the database pool
+func (d *Database) OptimizeForWorkload(profile OptimizationProfile) error {
+	if d.poolManager != nil {
+		return d.poolManager.optimizeForProfile(profile)
+	}
+	
+	// Fallback to basic optimization
+	sqlDB, err := d.DB.DB()
+	if err != nil {
+		return errors.Wrap(err, errors.CodeInternal, "Failed to get underlying database connection")
+	}
+	
+	numCPU := runtime.NumCPU()
+	
+	switch profile {
+	case ProfileDevelopment:
+		sqlDB.SetMaxOpenConns(numCPU * 2)
+		sqlDB.SetMaxIdleConns(2)
+	case ProfileTesting:
+		sqlDB.SetMaxOpenConns(numCPU)
+		sqlDB.SetMaxIdleConns(1)
+	case ProfileBalanced:
+		sqlDB.SetMaxOpenConns(numCPU * 3)
+		sqlDB.SetMaxIdleConns(numCPU)
+	case ProfileHighThroughput:
+		sqlDB.SetMaxOpenConns(numCPU * 6)
+		sqlDB.SetMaxIdleConns(numCPU * 2)
+	case ProfileLowLatency:
+		sqlDB.SetMaxOpenConns(numCPU * 4)
+		sqlDB.SetMaxIdleConns(numCPU * 2)
+	case ProfileResourceConstrained:
+		sqlDB.SetMaxOpenConns(numCPU)
+		sqlDB.SetMaxIdleConns(1)
+	default:
+		return errors.Validation("Unknown optimization profile")
+	}
+	
+	return nil
 }

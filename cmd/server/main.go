@@ -51,16 +51,17 @@ import (
 
 // Server represents the main application server
 type Server struct {
-	app                  *fiber.App
-	config               *config.Config
-	db                   *database.Database
-	redisClient          *redis.Client
-	obs                  *observability.Observability
-	authzService         *auth.AuthorizationService
-	jwtService           *auth.JWTService
-	lockoutService       *security.LockoutService
-	validationMiddleware *validation.ValidationMiddleware
-	slaMetrics           *observability.SLAMetrics
+	app                     *fiber.App
+	config                  *config.Config
+	db                      *database.Database
+	redisClient             *redis.Client
+	obs                     *observability.Observability
+	authzService            *auth.AuthorizationService
+	jwtService              *auth.JWTService
+	lockoutService          *security.LockoutService
+	requestSigningManager   *security.RequestSigningManager
+	validationMiddleware    *validation.ValidationMiddleware
+	slaMetrics              *observability.SLAMetrics
 }
 
 func main() {
@@ -163,14 +164,45 @@ func NewServer(cfg *config.Config) (*Server, error) {
 		return nil, fmt.Errorf("failed to initialize authorization service: %w", err)
 	}
 
+	// Set up caching for authorization service if Redis is available
+	if redisClient != nil {
+		redisCache := cache.NewRedisCache(redisClient, &cfg.Redis, obs, "auth")
+		authzService.SetCache(redisCache)
+		obs.Logger.Info().Msg("Authorization caching enabled with Redis")
+	}
+
 	// Initialize JWT service
 	jwtService, err := auth.NewJWTService(&cfg.Security.JWT, authzService)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize JWT service: %w", err)
 	}
 
+	// Set up JWT blacklist if Redis is available
+	if redisClient != nil {
+		redisCache := cache.NewRedisCache(redisClient, &cfg.Redis, obs, "jwt_blacklist")
+		jwtBlacklist := auth.NewJWTBlacklist(redisCache)
+		jwtService.SetBlacklist(jwtBlacklist)
+		obs.Logger.Info().Msg("JWT blacklist enabled with Redis")
+	}
+
 	// Initialize lockout service
 	lockoutService := security.NewLockoutService(db.GetDB(), obs, &cfg.Security.Lockout)
+
+	// Initialize request signing manager
+	var requestSigningManager *security.RequestSigningManager
+	if cfg.Security.RequestSigning.Enabled {
+		var signingCache cache.Cache
+		if redisClient != nil {
+			signingCache = cache.NewRedisCache(redisClient, &cfg.Redis, obs, "request_signing")
+		}
+		requestSigningManager = security.NewRequestSigningManager(&cfg.Security.RequestSigning, obs, signingCache)
+		if requestSigningManager != nil {
+			obs.Logger.Info().
+				Str("algorithm", cfg.Security.RequestSigning.Algorithm).
+				Str("key_id", cfg.Security.RequestSigning.KeyID).
+				Msg("Request signing enabled")
+		}
+	}
 
 	// Create Fiber app
 	app := fiber.New(fiber.Config{
@@ -181,15 +213,16 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	})
 
 	server := &Server{
-		app:            app,
-		config:         cfg,
-		db:             db,
-		redisClient:    redisClient,
-		obs:            obs,
-		authzService:   authzService,
-		jwtService:     jwtService,
-		lockoutService: lockoutService,
-		slaMetrics:     slaMetrics,
+		app:                   app,
+		config:                cfg,
+		db:                    db,
+		redisClient:           redisClient,
+		obs:                   obs,
+		authzService:          authzService,
+		jwtService:            jwtService,
+		lockoutService:        lockoutService,
+		requestSigningManager: requestSigningManager,
+		slaMetrics:            slaMetrics,
 	}
 
 	server.setupMiddleware()
@@ -234,14 +267,23 @@ func (s *Server) setupMiddleware() {
 	securityMetrics, _ := observability.NewSecurityMetrics(s.obs.Meter)
 	s.app.Use(middleware.ObservabilityMiddleware(s.obs, securityMetrics, s.slaMetrics))
 
-	// 8. Validation middleware (validate requests before processing)
+	// 8. Request signing middleware (validate signatures before processing)
+	if s.requestSigningManager != nil && s.requestSigningManager.IsEnabled() {
+		signingConfig := middleware.RequestSigningConfig{
+			SkipPaths:   []string{"/health", "/metrics"},  // Skip health/metrics endpoints
+			SkipMethods: []string{"OPTIONS"},              // Skip CORS preflight
+		}
+		s.app.Use(middleware.RequestSigningMiddlewareWithConfig(s.requestSigningManager, signingConfig))
+	}
+
+	// 9. Validation middleware (validate requests before processing)
 	s.validationMiddleware = validation.NewValidationMiddleware(s.obs)
 	s.app.Use(s.validationMiddleware.ValidationMiddleware())
 
-	// 9. Request/Response logging middleware (after validation, before auth)
+	// 10. Request/Response logging middleware (after validation, before auth)
 	s.app.Use(middleware.LoggingMiddleware(s.obs))
 
-	// 10. Authentication middleware for audit logging (last - for complete context)
+	// 11. Authentication middleware for audit logging (last - for complete context)
 	authMiddleware := auth.NewAuthMiddleware(s.jwtService, s.authzService, s.db.GetDB(), s.obs, s.config)
 	s.app.Use(authMiddleware.AuditMiddleware())
 }
