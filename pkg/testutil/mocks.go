@@ -249,21 +249,23 @@ func SetupTestDB(t *testing.T) *gorm.DB {
 			UNIQUE(user_id, device_id)
 		);
 		
-		CREATE TABLE audit_logs (
-			id TEXT PRIMARY KEY,
-			created_at DATETIME,
-			updated_at DATETIME,
-			deleted_at DATETIME,
-			user_id TEXT,
-			action TEXT NOT NULL,
-			resource TEXT NOT NULL,
-			details TEXT,
-			ip_address TEXT,
-			user_agent TEXT,
-			request_id TEXT,
-			success BOOLEAN DEFAULT 1,
-			error_message TEXT
-		);
+                CREATE TABLE audit_logs (
+                        id TEXT PRIMARY KEY,
+                        created_at DATETIME,
+                        updated_at DATETIME,
+                        deleted_at DATETIME,
+                        user_id TEXT,
+                        action TEXT NOT NULL,
+                        resource TEXT NOT NULL,
+                        details TEXT,
+                        ip_address TEXT,
+                        user_agent TEXT,
+                        request_id TEXT,
+                        success BOOLEAN DEFAULT 1,
+                        error_message TEXT,
+                        compliance_tag TEXT,
+                        retain_until DATETIME
+                );
 		
 		CREATE TABLE user_roles (
 			user_id TEXT NOT NULL,
