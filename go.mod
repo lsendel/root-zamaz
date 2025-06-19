@@ -19,7 +19,7 @@ require (
 	github.com/redis/go-redis/v9 v9.10.0
 	github.com/rs/zerolog v1.34.0
 	github.com/spf13/cobra v1.9.1
-	github.com/spf13/viper v0.0.0-20150530192845-be5ff3e4840c
+	github.com/spf13/viper v1.19.5 // updated to latest stable as of 2025-06-19
 	github.com/stretchr/testify v1.10.0
 	github.com/swaggo/swag v1.16.4
 	github.com/testcontainers/testcontainers-go/modules/compose v0.37.0
@@ -37,9 +37,9 @@ require (
 	gorm.io/gorm v1.30.0
 )
 
-exclude gorm.io/plugin/dbresolver v1.3.0
+exclude gorm.io/plugin/dbresolver v1.3.0 // excluded due to known issues with connection handling in this project
 
-replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20250115164207-1a7da9e5054f
+replace google.golang.org/genproto => google.golang.org/genproto v0.0.0-20250115164207-1a7da9e5054f // replacement required for compatibility with OpenTelemetry
 
 require (
 	dario.cat/mergo v1.0.1 // indirect

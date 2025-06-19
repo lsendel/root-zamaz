@@ -411,6 +411,29 @@ lint-fix: ## 🔧 Auto-fix linting issues where possible
 	@printf "$(GREEN)✅ Auto-fix completed$(RESET)\n"
 
 # =============================================================================
+# STATIC ANALYSIS & SECURITY SCANNING
+# =============================================================================
+static-analysis: lint-go vet
+
+lint-go:
+	@echo "Running golangci-lint..."
+	@golangci-lint run ./...
+
+vet:
+	@echo "Running go vet..."
+	@go vet ./...
+
+security-scan:
+	@echo "Running gosec for security scanning..."
+	@gosec ./...
+
+# =============================================================================
+# TEST PIPELINE
+# =============================================================================
+test-all: test-go test-frontend test-integration test-e2e
+	@echo "All tests (unit, integration, e2e) completed."
+
+# =============================================================================
 # SECURITY WORKFLOW
 # =============================================================================
 security: security-scan security-audit ## 🔒 Run comprehensive security checks
@@ -1741,3 +1764,4 @@ endef
 # DEFAULT TARGETS
 # =============================================================================
 .DEFAULT: help
+
