@@ -93,12 +93,13 @@ func TestContainer_RegisterSingleton(t *testing.T) {
 		assert.Equal(t, "must_resolve", testService.GetValue())
 	})
 
-	t.Run("MustResolve_Panic_On_Error", func(t *testing.T) {
+	t.Run("MustResolve_Error_On_Unregistered", func(t *testing.T) {
 		container := NewContainer()
 
-		assert.Panics(t, func() {
-			container.MustResolve((*TestService)(nil))
-		})
+		service, err := container.MustResolve((*TestService)(nil))
+		assert.Error(t, err)
+		assert.Nil(t, service)
+		assert.Contains(t, err.Error(), "failed to resolve service")
 	})
 }
 

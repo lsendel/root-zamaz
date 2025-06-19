@@ -58,7 +58,6 @@ func DefaultLoggingConfig() LoggingConfig {
 		LogFailedRequests:     true,
 		LogSuspiciousRequests: true,
 		SkipPaths: []string{
-			"/health",
 			"/metrics",
 			"/favicon.ico",
 		},
@@ -135,12 +134,6 @@ func LoggingMiddleware(obs *observability.Observability, config ...LoggingConfig
 		// Get request ID
 		requestID := getRequestID(c)
 
-		// Log request if enabled
-		if cfg.LogRequests {
-			logRequest(obs, c, cfg, requestID)
-		}
-
-		// Capture response body if needed
 		// Execute next handlers
 		if err := c.Next(); err != nil {
 			// Log error response
@@ -150,16 +143,37 @@ func LoggingMiddleware(obs *observability.Observability, config ...LoggingConfig
 			return err
 		}
 		
-		// For now, we'll skip response body logging due to Fiber limitations
-		// TODO: Implement response body capture using Fiber's built-in mechanisms
-		var responseBody []byte
-
 		duration := time.Since(start)
 
-		// Log response if enabled
-		if cfg.LogResponses {
-			logResponse(obs, c, cfg, requestID, duration, responseBody)
+		// Log combined request/response in flat format
+		logEvent := obs.Logger.Info().
+			Str("method", c.Method()).
+			Str("path", c.Path()).
+			Int("status_code", c.Response().StatusCode()).
+			Dur("duration", duration).
+			Int64("bytes_written", int64(len(c.Response().Body()))).
+			Str("correlation_id", requestID)
+
+		// Add optional fields if available
+		if userAgent := c.Get("User-Agent"); userAgent != "" {
+			logEvent = logEvent.Str("user_agent", userAgent)
 		}
+		
+		if clientIP := c.IP(); clientIP != "" {
+			logEvent = logEvent.Str("client_ip", clientIP)
+		}
+
+		// Include content type for requests with body
+		if contentType := c.Get("Content-Type"); contentType != "" {
+			logEvent = logEvent.Str("content_type", contentType)
+		}
+
+		// Include original URL if it has query parameters
+		if originalURL := c.OriginalURL(); originalURL != c.Path() {
+			logEvent = logEvent.Str("url", originalURL)
+		}
+
+		logEvent.Msg("HTTP request")
 
 		// Log slow requests if enabled
 		if cfg.LogSlowRequests && duration > cfg.SlowRequestThreshold {
@@ -256,8 +270,13 @@ func logResponse(obs *observability.Observability, c *fiber.Ctx, cfg LoggingConf
 	}
 
 	logEvent.
-		Interface("response", entry).
-		Msg("HTTP response")
+		Str("method", c.Method()).
+		Str("path", c.Path()).
+		Int("status_code", entry.StatusCode).
+		Dur("duration", entry.Duration).
+		Int64("bytes_written", entry.ContentLength).
+		Str("correlation_id", requestID).
+		Msg("HTTP request")
 }
 
 // logErrorResponse logs error responses

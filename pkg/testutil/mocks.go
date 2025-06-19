@@ -262,7 +262,7 @@ func SetupTestDB(t *testing.T) *gorm.DB {
                         user_agent TEXT,
                         request_id TEXT,
                         success BOOLEAN DEFAULT 1,
-                        error_message TEXT,
+                        error_msg TEXT,
                         compliance_tag TEXT,
                         retain_until DATETIME
                 );

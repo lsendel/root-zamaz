@@ -1,0 +1,53 @@
+{
+  "name": "mvp-zero-trust-auth",
+  "version": "1.0.0",
+  "description": "Zero Trust Authentication MVP System",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=18.20.4",
+    "npm": ">=10.0.0"
+  },
+  "workspaces": [
+    "frontend"
+  ],
+  "scripts": {
+    "install:all": "npm ci && npm ci --prefix frontend",
+    "clean:all": "rm -rf node_modules frontend/node_modules frontend/dist",
+    "lint": "npm run lint --prefix frontend",
+    "lint:fix": "npm run lint:fix --prefix frontend",
+    "test": "npm run test --prefix frontend",
+    "test:coverage": "npm run test:coverage --prefix frontend",
+    "test:integration": "npm run test:integration --prefix frontend",
+    "test:e2e": "npm run test:e2e --prefix frontend",
+    "test:all": "npm run test:all --prefix frontend",
+    "build": "npm run build --prefix frontend",
+    "dev": "npm run dev --prefix frontend",
+    "type-check": "npm run type-check --prefix frontend",
+    "validate:lockfile": "npm audit --audit-level=high",
+    "validate:engines": "check-engine",
+    "prepare": "test -d .git && npx husky install || true"
+  },
+  "devDependencies": {
+    "check-engine": "^1.10.1",
+    "husky": "^9.0.11",
+    "lint-staged": "^15.2.7"
+  },
+  "lint-staged": {
+    "frontend/**/*.{ts,tsx}": [
+      "npm run lint:fix --prefix frontend",
+      "npm run type-check --prefix frontend"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
+  "keywords": [
+    "zero-trust",
+    "authentication",
+    "mvp",
+    "security",
+    "microservices"
+  ],
+  "license": "MIT"
+}

@@ -260,6 +260,30 @@ func handleSessionError(c *fiber.Ctx, cfg SessionMiddlewareConfig, err error) er
 		return c.Redirect(cfg.RedirectOnError)
 	}
 
-	// Default error handling
-	return err
+	// Default error handling - check if it's an AppError and return appropriate status
+	if appErr, ok := err.(*errors.AppError); ok {
+		switch appErr.Code {
+		case errors.CodeUnauthorized, errors.CodeAuthentication:
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+				"error": "Unauthorized",
+				"message": appErr.Message,
+			})
+		case errors.CodeForbidden, errors.CodeAuthorization:
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+				"error": "Forbidden", 
+				"message": appErr.Message,
+			})
+		default:
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": "Internal Server Error",
+				"message": "An error occurred",
+			})
+		}
+	}
+
+	// For non-AppError, return unauthorized by default for session errors
+	return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+		"error": "Unauthorized",
+		"message": "Session required",
+	})
 }

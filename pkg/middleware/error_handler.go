@@ -123,10 +123,10 @@ type StatusCodeMapping struct {
 // statusCodeMappings defines the mapping between error codes and HTTP status codes
 var statusCodeMappings = []StatusCodeMapping{
 	{errors.CodeValidation, fiber.StatusBadRequest},
-	{errors.CodeAuthentication, fiber.StatusUnauthorized},
 	{errors.CodeUnauthorized, fiber.StatusUnauthorized},
-	{errors.CodeAuthorization, fiber.StatusForbidden},
+	{errors.CodeAuthentication, fiber.StatusUnauthorized},
 	{errors.CodeForbidden, fiber.StatusForbidden},
+	{errors.CodeAuthorization, fiber.StatusForbidden},
 	{errors.CodeNotFound, fiber.StatusNotFound},
 	{errors.CodeConflict, fiber.StatusConflict},
 	{errors.CodeTimeout, fiber.StatusRequestTimeout},
