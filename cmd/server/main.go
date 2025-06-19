@@ -38,6 +38,7 @@ import (
 	// _ "mvp.local/docs" // Import generated docs - disabled for build
 
 	"mvp.local/pkg/auth"
+	"mvp.local/pkg/cache"
 	"mvp.local/pkg/config"
 	"mvp.local/pkg/database"
 	"mvp.local/pkg/handlers"
@@ -245,7 +246,13 @@ func (s *Server) setupRoutes() {
 	// Initialize session manager
 	var sessionManager *session.SessionManager
 	if s.redisClient != nil {
-		sessionManager = session.NewSessionManager(s.redisClient)
+		cacheLayer, err := cache.NewCacheLayer(s.redisClient, cache.CacheConfig{TTL: 24 * time.Hour})
+		if err != nil {
+			s.obs.Logger.Warn().Err(err).Msg("Failed to initialize cache layer")
+			sessionManager = session.NewSessionManager(s.redisClient, nil)
+		} else {
+			sessionManager = session.NewSessionManager(s.redisClient, cacheLayer)
+		}
 	}
 
 	// Initialize handlers
@@ -266,13 +273,13 @@ func (s *Server) setupRoutes() {
 
 	// Authentication routes (public)
 	authRoutes := api.Group("/auth")
-	authRoutes.Post("/login", 
+	authRoutes.Post("/login",
 		s.validationMiddleware.ValidateRequest(auth.LoginRequest{}),
 		authHandler.Login)
-	authRoutes.Post("/register", 
+	authRoutes.Post("/register",
 		s.validationMiddleware.ValidateRequest(handlers.RegisterRequest{}),
 		authHandler.Register)
-	authRoutes.Post("/refresh", 
+	authRoutes.Post("/refresh",
 		s.validationMiddleware.ValidateRequest(auth.RefreshRequest{}),
 		authHandler.RefreshToken)
 
@@ -381,7 +388,6 @@ func (s *Server) Start(ctx context.Context) error {
 		return nil
 	}
 }
-
 
 // joinStrings joins a slice of strings with a separator
 func joinStrings(slice []string, sep string) string {
