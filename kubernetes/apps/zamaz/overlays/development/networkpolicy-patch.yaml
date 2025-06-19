@@ -1,0 +1,23 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: zamaz-emergency-access
+  labels:
+    app.kubernetes.io/name: zamaz
+    app.kubernetes.io/part-of: zamaz-platform
+    app.kubernetes.io/managed-by: kustomize
+    environment: development
+    emergency: "false"  # Not needed in development
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: zamaz
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow broader access for development debugging
+  - from: []
+  egress:
+  # Allow all egress for development
+  - to: []

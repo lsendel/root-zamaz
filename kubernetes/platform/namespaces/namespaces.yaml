@@ -1,0 +1,94 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: zamaz-dev
+  labels:
+    app.kubernetes.io/name: zamaz
+    app.kubernetes.io/part-of: zamaz-platform
+    app.kubernetes.io/managed-by: kustomize
+    environment: development
+    istio-injection: enabled
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+  annotations:
+    scheduler.alpha.kubernetes.io/preferred-anti-affinity: "true"
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: zamaz-staging
+  labels:
+    app.kubernetes.io/name: zamaz
+    app.kubernetes.io/part-of: zamaz-platform
+    app.kubernetes.io/managed-by: kustomize
+    environment: staging
+    istio-injection: enabled
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+  annotations:
+    scheduler.alpha.kubernetes.io/preferred-anti-affinity: "true"
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: zamaz-prod
+  labels:
+    app.kubernetes.io/name: zamaz
+    app.kubernetes.io/part-of: zamaz-platform
+    app.kubernetes.io/managed-by: kustomize
+    environment: production
+    istio-injection: enabled
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+  annotations:
+    scheduler.alpha.kubernetes.io/preferred-anti-affinity: "true"
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: spire-system
+  labels:
+    app.kubernetes.io/name: spire
+    app.kubernetes.io/part-of: zamaz-platform
+    app.kubernetes.io/managed-by: helm
+    component: infrastructure
+    istio-injection: disabled  # SPIRE manages its own identity
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/warn: privileged
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: observability
+  labels:
+    app.kubernetes.io/name: observability
+    app.kubernetes.io/part-of: zamaz-platform
+    app.kubernetes.io/managed-by: helm
+    component: infrastructure
+    istio-injection: enabled
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/audit: baseline
+    pod-security.kubernetes.io/warn: baseline
+
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: istio-system
+  labels:
+    app.kubernetes.io/name: istio
+    app.kubernetes.io/part-of: zamaz-platform
+    app.kubernetes.io/managed-by: helm
+    component: infrastructure
+    istio-injection: disabled  # Istio control plane
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/warn: privileged

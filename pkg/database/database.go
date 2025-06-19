@@ -5,6 +5,8 @@ package database
 
 import (
 	"context"
+	"database/sql"
+	"runtime"
 	"time"
 
 	"gorm.io/driver/postgres"
@@ -68,11 +70,8 @@ func (d *Database) Connect() error {
 		return errors.Wrap(err, errors.CodeInternal, "Failed to get underlying database connection")
 	}
 
-	// Configure connection pool with enhanced settings
-	sqlDB.SetMaxOpenConns(d.config.MaxConnections)
-	sqlDB.SetMaxIdleConns(d.config.MaxIdleConns)
-	sqlDB.SetConnMaxLifetime(d.config.ConnMaxLifetime)
-	sqlDB.SetConnMaxIdleTime(d.config.ConnMaxIdleTime)
+	// Configure connection pool with workload-optimized settings
+	d.configureConnectionPool(sqlDB)
 
 	// Test the connection
 	if err := sqlDB.Ping(); err != nil {
@@ -199,4 +198,54 @@ func (d *Database) GetStats() (map[string]interface{}, error) {
 		"max_idle_time_closed": stats.MaxIdleTimeClosed,
 		"max_lifetime_closed":  stats.MaxLifetimeClosed,
 	}, nil
+}
+
+// configureConnectionPool optimizes connection pool settings based on workload and system resources
+func (d *Database) configureConnectionPool(sqlDB *sql.DB) {
+	// Calculate optimal connection pool size based on CPU cores and expected workload
+	numCPU := runtime.NumCPU()
+	
+	// Default values from config
+	maxConnections := d.config.MaxConnections
+	maxIdleConns := d.config.MaxIdleConns
+	connMaxLifetime := d.config.ConnMaxLifetime
+	connMaxIdleTime := d.config.ConnMaxIdleTime
+
+	// Workload-based optimization
+	// For I/O intensive workloads like authentication services:
+	// Rule of thumb: 2-4 connections per CPU core for balanced workload
+	optimalMaxConnections := numCPU * 3
+
+	// Adjust based on configured value vs optimal
+	if maxConnections <= 0 || maxConnections > optimalMaxConnections*2 {
+		maxConnections = optimalMaxConnections
+	}
+
+	// Ensure max idle connections is reasonable (typically 20-30% of max connections)
+	optimalMaxIdle := maxConnections / 4
+	if optimalMaxIdle < 2 {
+		optimalMaxIdle = 2
+	}
+	if optimalMaxIdle > 10 {
+		optimalMaxIdle = 10
+	}
+
+	if maxIdleConns <= 0 || maxIdleConns > maxConnections {
+		maxIdleConns = optimalMaxIdle
+	}
+
+	// For Zero Trust auth workload, shorter lifetimes are better for security
+	if connMaxLifetime <= 0 || connMaxLifetime > 30*time.Minute {
+		connMaxLifetime = 15 * time.Minute
+	}
+
+	if connMaxIdleTime <= 0 || connMaxIdleTime > 10*time.Minute {
+		connMaxIdleTime = 5 * time.Minute
+	}
+
+	// Apply optimized settings
+	sqlDB.SetMaxOpenConns(maxConnections)
+	sqlDB.SetMaxIdleConns(maxIdleConns)
+	sqlDB.SetConnMaxLifetime(connMaxLifetime)
+	sqlDB.SetConnMaxIdleTime(connMaxIdleTime)
 }

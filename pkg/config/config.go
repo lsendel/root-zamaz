@@ -410,6 +410,130 @@ func validateConfig(config *Config) error {
 		}
 	}
 
+	// Validate database configuration
+	if config.Database.Port <= 0 || config.Database.Port > 65535 {
+		return errors.Validation("database.port must be between 1 and 65535")
+	}
+
+	if config.Database.MaxConnections <= 0 {
+		return errors.Validation("database.max_connections must be greater than 0")
+	}
+
+	if config.Database.MaxIdleConns < 0 || config.Database.MaxIdleConns > config.Database.MaxConnections {
+		return errors.Validation("database.max_idle_conns must be between 0 and max_connections")
+	}
+
+	if config.Database.ConnMaxLifetime < 0 {
+		return errors.Validation("database.conn_max_lifetime must be non-negative")
+	}
+
+	// Validate Redis configuration
+	if config.Redis.Host != "" {
+		if config.Redis.Port <= 0 || config.Redis.Port > 65535 {
+			return errors.Validation("redis.port must be between 1 and 65535")
+		}
+		if config.Redis.Database < 0 || config.Redis.Database > 15 {
+			return errors.Validation("redis.database must be between 0 and 15")
+		}
+		if config.Redis.PoolSize <= 0 {
+			return errors.Validation("redis.pool_size must be greater than 0")
+		}
+	}
+
+	// Validate security configuration
+	if config.Security.JWT.ExpiryDuration <= 0 {
+		return errors.Validation("jwt.expiry_duration must be positive")
+	}
+
+	if config.Security.JWT.ExpiryDuration > 168*time.Hour { // 7 days
+		return errors.Validation("jwt.expiry_duration should not exceed 7 days for security")
+	}
+
+	validJWTAlgorithms := []string{"HS256", "HS384", "HS512", "RS256", "RS384", "RS512"}
+	if !contains(validJWTAlgorithms, config.Security.JWT.Algorithm) {
+		return errors.Validation("jwt.algorithm must be one of: HS256, HS384, HS512, RS256, RS384, RS512")
+	}
+
+	// Validate rate limiting configuration
+	if config.Security.RateLimit.Enabled {
+		if config.Security.RateLimit.Requests <= 0 {
+			return errors.Validation("rate_limit.requests must be greater than 0")
+		}
+		if config.Security.RateLimit.Window <= 0 {
+			return errors.Validation("rate_limit.window must be positive")
+		}
+	}
+
+	// Validate lockout configuration
+	if config.Security.Lockout.MaxFailedAttempts <= 0 {
+		return errors.Validation("lockout.max_failed_attempts must be greater than 0")
+	}
+
+	if config.Security.Lockout.LockoutDuration <= 0 {
+		return errors.Validation("lockout.lockout_duration must be positive")
+	}
+
+	if config.Security.Lockout.ResetWindow <= 0 {
+		return errors.Validation("lockout.reset_window must be positive")
+	}
+
+	// Validate HTTP timeouts
+	if config.HTTP.ReadTimeout <= 0 {
+		return errors.Validation("http.read_timeout must be positive")
+	}
+
+	if config.HTTP.WriteTimeout <= 0 {
+		return errors.Validation("http.write_timeout must be positive")
+	}
+
+	if config.HTTP.IdleTimeout <= 0 {
+		return errors.Validation("http.idle_timeout must be positive")
+	}
+
+	// Validate CORS configuration
+	if config.Security.CORS.Enabled && config.App.IsProduction() {
+		if len(config.Security.CORS.AllowedOrigins) == 0 {
+			return errors.Validation("cors.allowed_origins must be specified in production")
+		}
+		for _, origin := range config.Security.CORS.AllowedOrigins {
+			if origin == "*" {
+				return errors.Validation("cors.allowed_origins should not use '*' in production")
+			}
+		}
+	}
+
+	// Validate observability configuration
+	if config.Observability.PrometheusPort <= 0 || config.Observability.PrometheusPort > 65535 {
+		return errors.Validation("observability.prometheus_port must be between 1 and 65535")
+	}
+
+	if config.Observability.BatchTimeout <= 0 {
+		return errors.Validation("observability.batch_timeout must be positive")
+	}
+
+	if config.Observability.ExportTimeout <= 0 {
+		return errors.Validation("observability.export_timeout must be positive")
+	}
+
+	// Production-specific validations
+	if config.App.IsProduction() {
+		if len(config.Security.JWT.Secret) < 32 {
+			return errors.Validation("jwt.secret must be at least 32 characters in production")
+		}
+
+		if !config.HTTP.TLS.Enabled {
+			return errors.Validation("TLS must be enabled in production")
+		}
+
+		if config.Security.DisableAuth {
+			return errors.Validation("authentication cannot be disabled in production")
+		}
+
+		if config.Observability.LogLevel == "debug" {
+			return errors.Validation("log level should not be 'debug' in production")
+		}
+	}
+
 	return nil
 }
 

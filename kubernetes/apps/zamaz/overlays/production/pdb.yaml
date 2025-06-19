@@ -1,0 +1,38 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: zamaz-api-pdb
+  namespace: zamaz-prod
+  labels:
+    app.kubernetes.io/name: zamaz
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: zamaz-platform
+    app.kubernetes.io/managed-by: kustomize
+    environment: production
+spec:
+  minAvailable: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zamaz
+      app.kubernetes.io/component: api
+      environment: production
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: zamaz-frontend-pdb
+  namespace: zamaz-prod
+  labels:
+    app.kubernetes.io/name: zamaz
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: zamaz-platform
+    app.kubernetes.io/managed-by: kustomize
+    environment: production
+spec:
+  minAvailable: 5
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zamaz
+      app.kubernetes.io/component: frontend
+      environment: production

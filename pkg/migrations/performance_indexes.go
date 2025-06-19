@@ -161,6 +161,7 @@ func AddPartitioning(db *gorm.DB) error {
 				ALTER TABLE audit_logs_new RENAME TO audit_logs;
 				
 				-- Create initial partitions (current month and next month)
+				-- Note: format() with %L is safe - it properly escapes literals and uses built-in date functions
 				EXECUTE format('CREATE TABLE audit_logs_%s PARTITION OF audit_logs 
 					FOR VALUES FROM (%L) TO (%L)',
 					to_char(date_trunc('month', CURRENT_DATE), 'YYYY_MM'),
@@ -195,6 +196,7 @@ func AddPartitioning(db *gorm.DB) error {
 				ALTER TABLE login_attempts RENAME TO login_attempts_old;
 				ALTER TABLE login_attempts_new RENAME TO login_attempts;
 				
+				-- Note: format() with %L is safe - it properly escapes literals and uses built-in date functions
 				EXECUTE format('CREATE TABLE login_attempts_%s PARTITION OF login_attempts 
 					FOR VALUES FROM (%L) TO (%L)',
 					to_char(date_trunc('month', CURRENT_DATE), 'YYYY_MM'),
@@ -226,21 +228,44 @@ func AddPartitioning(db *gorm.DB) error {
 
 // OptimizeDatabase runs VACUUM and ANALYZE on all tables for performance
 func OptimizeDatabase(db *gorm.DB) error {
+	fmt.Printf("Starting database optimization...\n")
+	
+	// Whitelist of allowed table names for security (prevents SQL injection)
+	allowedTables := map[string]bool{
+		"users":              true,
+		"user_sessions":      true,
+		"device_attestations": true,
+		"roles":              true,
+		"permissions":        true,
+		"user_roles":         true,
+		"role_permissions":   true,
+		"login_attempts":     true,
+		"audit_logs":         true,
+	}
+	
 	tables := []string{
 		"users", "user_sessions", "device_attestations", "roles", "permissions",
 		"user_roles", "role_permissions", "login_attempts", "audit_logs",
 	}
 
 	for _, table := range tables {
+		// Validate table name against whitelist to prevent SQL injection
+		if !allowedTables[table] {
+			return fmt.Errorf("security error: invalid table name: %s", table)
+		}
+		
 		fmt.Printf("Optimizing table: %s\n", table)
 		
-		// ANALYZE to update statistics
-		if err := db.Exec(fmt.Sprintf("ANALYZE %s", table)).Error; err != nil {
+		// Use identifier quoting for safety - PostgreSQL supports this
+		quotedTable := `"` + table + `"`
+		
+		// ANALYZE to update statistics (safe: uses quoted identifier)
+		if err := db.Exec("ANALYZE " + quotedTable).Error; err != nil {
 			fmt.Printf("Warning: Failed to analyze table %s: %v\n", table, err)
 		}
 		
-		// VACUUM to reclaim storage and update statistics
-		if err := db.Exec(fmt.Sprintf("VACUUM %s", table)).Error; err != nil {
+		// VACUUM to reclaim storage and update statistics (safe: uses quoted identifier)
+		if err := db.Exec("VACUUM " + quotedTable).Error; err != nil {
 			fmt.Printf("Warning: Failed to vacuum table %s: %v\n", table, err)
 		}
 	}

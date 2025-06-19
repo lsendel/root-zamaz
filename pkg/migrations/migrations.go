@@ -341,28 +341,32 @@ DROP TABLE IF EXISTS users;
 			UpSQL: `
 -- Roles table
 CREATE TABLE IF NOT EXISTS roles (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id BIGSERIAL PRIMARY KEY,
     name VARCHAR(50) UNIQUE NOT NULL,
-    description TEXT,
+    description VARCHAR(200),
+    is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITH TIME ZONE
 );
 
 -- Permissions table
 CREATE TABLE IF NOT EXISTS permissions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(50) UNIQUE NOT NULL,
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(100) UNIQUE NOT NULL,
     resource VARCHAR(50) NOT NULL,
     action VARCHAR(50) NOT NULL,
-    description TEXT,
+    description VARCHAR(200),
+    is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITH TIME ZONE
 );
 
 -- User roles junction table
 CREATE TABLE IF NOT EXISTS user_roles (
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    role_id UUID NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+    role_id BIGINT NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
     assigned_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     assigned_by UUID REFERENCES users(id),
     PRIMARY KEY (user_id, role_id)
@@ -370,8 +374,8 @@ CREATE TABLE IF NOT EXISTS user_roles (
 
 -- Role permissions junction table
 CREATE TABLE IF NOT EXISTS role_permissions (
-    role_id UUID NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
-    permission_id UUID NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
+    role_id BIGINT NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+    permission_id BIGINT NOT NULL REFERENCES permissions(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (role_id, permission_id)
 );
@@ -392,33 +396,164 @@ DROP TABLE IF EXISTS roles;
 `,
 		},
 		{
-			ID:          "003_add_audit_log",
-			Description: "Add audit log table for security monitoring",
+			ID:          "003_add_security_tables",
+			Description: "Add audit logs and login attempts tables for security monitoring",
 			Version:     1640995400, // 2022-01-01 + 200 seconds
 			UpSQL: `
+-- Login attempts table for security tracking and rate limiting
+CREATE TABLE IF NOT EXISTS login_attempts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    username VARCHAR(50) NOT NULL,
+    user_id UUID REFERENCES users(id),
+    ip_address VARCHAR(45) NOT NULL,
+    user_agent VARCHAR(500),
+    success BOOLEAN DEFAULT false,
+    failure_reason VARCHAR(200),
+    is_suspicious BOOLEAN DEFAULT false,
+    blocked_by_rate BOOLEAN DEFAULT false,
+    request_id VARCHAR(100),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- User sessions table for session management
+CREATE TABLE IF NOT EXISTS user_sessions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    session_token VARCHAR(255) UNIQUE NOT NULL,
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    is_active BOOLEAN DEFAULT true,
+    device_id VARCHAR(100),
+    ip_address VARCHAR(45),
+    user_agent VARCHAR(500),
+    location VARCHAR(100),
+    trust_level INTEGER DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITH TIME ZONE
+);
+
 -- Audit log table
 CREATE TABLE IF NOT EXISTS audit_logs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES users(id),
     action VARCHAR(100) NOT NULL,
     resource VARCHAR(100) NOT NULL,
-    resource_id VARCHAR(255),
     details JSONB,
     ip_address VARCHAR(45),
-    user_agent TEXT,
-    status VARCHAR(20) DEFAULT 'success',
+    user_agent VARCHAR(500),
+    request_id VARCHAR(100),
+    success BOOLEAN DEFAULT false,
+    error_msg VARCHAR(500),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create indexes for audit log queries
+-- Create basic indexes
+CREATE INDEX IF NOT EXISTS idx_login_attempts_username ON login_attempts(username);
+CREATE INDEX IF NOT EXISTS idx_login_attempts_ip_address ON login_attempts(ip_address);
+CREATE INDEX IF NOT EXISTS idx_login_attempts_created_at ON login_attempts(created_at);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_session_token ON user_sessions(session_token);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_resource ON audit_logs(resource);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at);
-CREATE INDEX IF NOT EXISTS idx_audit_logs_status ON audit_logs(status);
 `,
 			DownSQL: `
 DROP TABLE IF EXISTS audit_logs;
+DROP TABLE IF EXISTS user_sessions;
+DROP TABLE IF EXISTS login_attempts;
+`,
+		},
+		{
+			ID:          "004_add_performance_indexes",
+			Description: "Add comprehensive performance indexes for critical query patterns",
+			Version:     1640995500, // 2022-01-01 + 300 seconds
+			UpSQL: `
+-- Users table performance indexes
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_email_active ON users(email) WHERE is_active = true;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_username_active ON users(username) WHERE is_active = true;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_failed_login_attempts ON users(failed_login_attempts) WHERE failed_login_attempts > 0;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_account_locked ON users(account_locked_until) WHERE account_locked_until IS NOT NULL;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_last_login ON users(last_login_at DESC);
+
+-- Login attempts performance indexes - for rate limiting and security analysis
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_login_attempts_username_created ON login_attempts(username, created_at DESC);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_login_attempts_ip_created ON login_attempts(ip_address, created_at DESC);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_login_attempts_success_created ON login_attempts(success, created_at DESC);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_login_attempts_suspicious ON login_attempts(is_suspicious) WHERE is_suspicious = true;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_login_attempts_user_success ON login_attempts(user_id, success, created_at DESC);
+
+-- Audit logs performance indexes - for security analysis and reporting
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_logs_user_created ON audit_logs(user_id, created_at DESC);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_logs_action_created ON audit_logs(action, created_at DESC);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_logs_success_created ON audit_logs(success, created_at DESC);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_logs_ip_created ON audit_logs(ip_address, created_at DESC);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_logs_resource_action ON audit_logs(resource, action);
+
+-- User sessions performance indexes - for session management
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_sessions_user_active ON user_sessions(user_id, is_active) WHERE is_active = true;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_sessions_device_user ON user_sessions(device_id, user_id);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_sessions_ip_created ON user_sessions(ip_address, created_at DESC);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_sessions_token_active ON user_sessions(session_token) WHERE is_active = true;
+
+-- Device attestations performance indexes - for Zero Trust verification
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_device_attestations_user_status ON device_attestations(user_id, is_verified, trust_level);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_device_attestations_device_verified ON device_attestations(device_id, is_verified);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_device_attestations_platform_trust ON device_attestations(platform, trust_level);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_device_attestations_spiffe_id ON device_attestations(spiffe_id);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_device_attestations_verified_at ON device_attestations(verified_at DESC) WHERE verified_at IS NOT NULL;
+
+-- RBAC performance indexes
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_roles_name_active ON roles(name) WHERE is_active = true;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_permissions_resource_action_active ON permissions(resource, action) WHERE is_active = true;
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_permissions_name_active ON permissions(name) WHERE is_active = true;
+
+-- Junction table performance indexes for many-to-many relationships
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_roles_user_id_opt ON user_roles(user_id);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_roles_role_id_opt ON user_roles(role_id);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_role_permissions_role_id_opt ON role_permissions(role_id);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_role_permissions_permission_id_opt ON role_permissions(permission_id);
+
+-- Composite indexes for common query patterns
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_logs_user_action_time ON audit_logs(user_id, action, created_at DESC);
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_sessions_user_device_active ON user_sessions(user_id, device_id, is_active);
+`,
+			DownSQL: `
+-- Drop performance indexes
+DROP INDEX CONCURRENTLY IF EXISTS idx_users_email_active;
+DROP INDEX CONCURRENTLY IF EXISTS idx_users_username_active;
+DROP INDEX CONCURRENTLY IF EXISTS idx_users_failed_login_attempts;
+DROP INDEX CONCURRENTLY IF EXISTS idx_users_account_locked;
+DROP INDEX CONCURRENTLY IF EXISTS idx_users_last_login;
+DROP INDEX CONCURRENTLY IF EXISTS idx_login_attempts_username_created;
+DROP INDEX CONCURRENTLY IF EXISTS idx_login_attempts_ip_created;
+DROP INDEX CONCURRENTLY IF EXISTS idx_login_attempts_success_created;
+DROP INDEX CONCURRENTLY IF EXISTS idx_login_attempts_suspicious;
+DROP INDEX CONCURRENTLY IF EXISTS idx_login_attempts_user_success;
+DROP INDEX CONCURRENTLY IF EXISTS idx_audit_logs_user_created;
+DROP INDEX CONCURRENTLY IF EXISTS idx_audit_logs_action_created;
+DROP INDEX CONCURRENTLY IF EXISTS idx_audit_logs_success_created;
+DROP INDEX CONCURRENTLY IF EXISTS idx_audit_logs_ip_created;
+DROP INDEX CONCURRENTLY IF EXISTS idx_audit_logs_resource_action;
+DROP INDEX CONCURRENTLY IF EXISTS idx_user_sessions_user_active;
+DROP INDEX CONCURRENTLY IF EXISTS idx_user_sessions_expires_at;
+DROP INDEX CONCURRENTLY IF EXISTS idx_user_sessions_device_user;
+DROP INDEX CONCURRENTLY IF EXISTS idx_user_sessions_ip_created;
+DROP INDEX CONCURRENTLY IF EXISTS idx_user_sessions_token_active;
+DROP INDEX CONCURRENTLY IF EXISTS idx_device_attestations_user_status;
+DROP INDEX CONCURRENTLY IF EXISTS idx_device_attestations_device_verified;
+DROP INDEX CONCURRENTLY IF EXISTS idx_device_attestations_platform_trust;
+DROP INDEX CONCURRENTLY IF EXISTS idx_device_attestations_spiffe_id;
+DROP INDEX CONCURRENTLY IF EXISTS idx_device_attestations_verified_at;
+DROP INDEX CONCURRENTLY IF EXISTS idx_roles_name_active;
+DROP INDEX CONCURRENTLY IF EXISTS idx_permissions_resource_action_active;
+DROP INDEX CONCURRENTLY IF EXISTS idx_permissions_name_active;
+DROP INDEX CONCURRENTLY IF EXISTS idx_user_roles_user_id_opt;
+DROP INDEX CONCURRENTLY IF EXISTS idx_user_roles_role_id_opt;
+DROP INDEX CONCURRENTLY IF EXISTS idx_role_permissions_role_id_opt;
+DROP INDEX CONCURRENTLY IF EXISTS idx_role_permissions_permission_id_opt;
+DROP INDEX CONCURRENTLY IF EXISTS idx_audit_logs_user_action_time;
+DROP INDEX CONCURRENTLY IF EXISTS idx_user_sessions_user_device_active;
 `,
 		},
 	}

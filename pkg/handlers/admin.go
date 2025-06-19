@@ -379,15 +379,36 @@ func (h *AdminHandler) RemovePermissionFromRole(c *fiber.Ctx) error {
 // @Router /admin/users [get]
 func (h *AdminHandler) GetUsers(c *fiber.Ctx) error {
 	var users []models.User
-	if err := h.db.Find(&users).Error; err != nil {
-		h.obs.Logger.Error().Err(err).Msg("Failed to fetch users")
+	
+	// Fix N+1 query problem: Preload relationships to avoid lazy loading
+	if err := h.db.
+		Preload("Roles", "is_active = ?", true).          // Eager load active roles
+		Preload("Roles.Permissions", "is_active = ?", true). // Eager load active permissions
+		Where("is_active = ?", true).                      // Only active users
+		Find(&users).Error; err != nil {
+		h.obs.Logger.Error().Err(err).Msg("Failed to fetch users with relationships")
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to fetch users",
 		})
 	}
 
-	// Simple response without complex relationships for now
-	return c.JSON(users)
+	// Transform to response format to avoid exposing sensitive data
+	var response []map[string]interface{}
+	for _, user := range users {
+		userResponse := map[string]interface{}{
+			"id":         user.ID,
+			"username":   user.Username,
+			"email":      user.Email,
+			"is_active":  user.IsActive,
+			"is_admin":   user.IsAdmin,
+			"created_at": user.CreatedAt,
+			"updated_at": user.UpdatedAt,
+			"roles":      user.Roles, // Now preloaded, no N+1 queries
+		}
+		response = append(response, userResponse)
+	}
+
+	return c.JSON(response)
 }
 
 // GetUserById returns a specific user with their roles

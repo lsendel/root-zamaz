@@ -4,7 +4,7 @@
 //
 // The package provides a unified interface for:
 //   - Structured JSON logging with correlation IDs and context
-//   - Distributed tracing with OpenTelemetry and Jaeger export
+//   - Distributed tracing with OpenTelemetry and OTLP export
 //   - Metrics collection and exposition in Prometheus format
 //   - Security-specific metrics for zero trust auth patterns
 //   - Health check and metrics HTTP endpoints
@@ -53,7 +53,7 @@ import (
 	"github.com/rs/zerolog"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/exporters/jaeger"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	otelprometheus "go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/propagation"
@@ -76,8 +76,8 @@ type Config struct {
 	// Environment distinguishes between dev, staging, production deployments
 	Environment string `env:"ENVIRONMENT" envDefault:"development"`
 
-	// JaegerEndpoint is the URL where traces should be sent
-	JaegerEndpoint string `env:"JAEGER_ENDPOINT" envDefault:"http://localhost:14268/api/traces"`
+	// OTLPEndpoint is the URL where traces should be sent using OTLP HTTP
+	OTLPEndpoint string `env:"OTLP_ENDPOINT" envDefault:"http://localhost:4318/v1/traces"`
 
 	// PrometheusPort is the port where metrics will be exposed
 	PrometheusPort int `env:"PROMETHEUS_PORT" envDefault:"9090"`
@@ -121,7 +121,7 @@ type Observability struct {
 //
 // The function sets up:
 //   - Zerolog logger with configurable level and format
-//   - OpenTelemetry tracer with Jaeger exporter
+//   - OpenTelemetry tracer with OTLP HTTP exporter
 //   - OpenTelemetry meter with Prometheus exporter
 //   - HTTP server for metrics and health endpoints
 //   - Proper resource identification for telemetry correlation
@@ -136,6 +136,7 @@ type Observability struct {
 //	    ServiceName: "auth-service",
 //	    LogLevel: "info",
 //	    PrometheusPort: 9090,
+//	    OTLPEndpoint: "http://jaeger:4318/v1/traces",
 //	})
 //	if err != nil {
 //	    return fmt.Errorf("failed to initialize observability: %w", err)
@@ -182,14 +183,14 @@ func New(cfg Config) (*Observability, error) {
 		return nil, fmt.Errorf("failed to create resource: %w", err)
 	}
 
-	// Initialize tracing
-	jaegerExporter, err := jaeger.New(
-		jaeger.WithCollectorEndpoint(
-			jaeger.WithEndpoint(cfg.JaegerEndpoint),
-		),
+	// Initialize tracing with OTLP HTTP exporter
+	otlpExporter, err := otlptracehttp.New(
+		context.Background(),
+		otlptracehttp.WithEndpoint(cfg.OTLPEndpoint),
+		otlptracehttp.WithInsecure(), // Use HTTP instead of HTTPS for local dev
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create jaeger exporter: %w", err)
+		return nil, fmt.Errorf("failed to create OTLP exporter: %w", err)
 	}
 
 	tp := sdktrace.NewTracerProvider(

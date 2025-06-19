@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: platform-network-policies
+  annotations:
+    config.kubernetes.io/local-config: "true"
+
+# Platform network policy resources
+resources:
+- default-deny.yaml
+- inter-namespace.yaml
+- infrastructure-access.yaml
+
+# Common labels for platform network policies
+commonLabels:
+  app.kubernetes.io/part-of: zamaz-platform
+  app.kubernetes.io/managed-by: kustomize
+  component: platform-security

@@ -159,24 +159,7 @@ func (j *JWTService) GenerateToken(user *models.User, roles []string, permission
 	deviceID := ""
 	trustLevel := 50
 
-	claims := &JWTClaims{
-		UserID:      user.ID.String(),
-		Username:    user.Username,
-		Email:       user.Email,
-		Roles:       roles,
-		Permissions: permissions,
-		DeviceID:    deviceID,
-		TrustLevel:  trustLevel,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ID:        fmt.Sprintf("%s-%d", user.ID.String(), now.Unix()),
-			Subject:   user.ID.String(),
-			Audience:  jwt.ClaimStrings{j.config.Audience},
-			Issuer:    j.config.Issuer,
-			IssuedAt:  jwt.NewNumericDate(now),
-			ExpiresAt: jwt.NewNumericDate(expiresAt),
-			NotBefore: jwt.NewNumericDate(now),
-		},
-	}
+	claims := j.buildAccessTokenClaims(user, roles, permissions, deviceID, trustLevel, expiresAt)
 
 	// Get current signing key
 	currentKey := j.keyManager.GetCurrentKey()
@@ -184,12 +167,7 @@ func (j *JWTService) GenerateToken(user *models.User, roles []string, permission
 		return nil, errors.Internal("No active signing key available")
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	
-	// Add key ID to token header for key rotation support
-	token.Header["kid"] = currentKey.ID
-	
-	tokenString, err := token.SignedString(currentKey.Key)
+	tokenString, err := j.generateTokenFromClaims(claims, currentKey.Key, currentKey.ID)
 	if err != nil {
 		return nil, errors.Wrap(err, errors.CodeInternal, "Failed to sign JWT token")
 	}
@@ -210,21 +188,10 @@ func (j *JWTService) GenerateToken(user *models.User, roles []string, permission
 
 // GenerateRefreshToken generates a new JWT refresh token
 func (j *JWTService) GenerateRefreshToken(userID string) (string, error) {
-	now := time.Now()
-	expiresAt := now.Add(j.refreshExpiry)
+	expiresAt := time.Now().Add(j.refreshExpiry)
+	claims := j.buildRefreshTokenClaims(userID, expiresAt)
 
-	claims := &jwt.RegisteredClaims{
-		ID:        fmt.Sprintf("refresh-%s-%d", userID, now.Unix()),
-		Subject:   userID,
-		Audience:  jwt.ClaimStrings{j.config.Audience},
-		Issuer:    j.config.Issuer,
-		IssuedAt:  jwt.NewNumericDate(now),
-		ExpiresAt: jwt.NewNumericDate(expiresAt),
-		NotBefore: jwt.NewNumericDate(now),
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(j.refreshSecret)
+	tokenString, err := j.generateTokenFromClaims(claims, j.refreshSecret, "")
 	if err != nil {
 		return "", errors.Wrap(err, errors.CodeInternal, "Failed to sign JWT refresh token")
 	}

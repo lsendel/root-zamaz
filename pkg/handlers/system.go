@@ -160,6 +160,12 @@ func (h *SystemHandler) Health(c *fiber.Ctx) error {
 // @Failure 403 {object} map[string]interface{} "Forbidden - insufficient permissions"
 // @Router /system/health [get]
 func (h *SystemHandler) SystemHealth(c *fiber.Ctx) error {
+	start := time.Now()
+	defer func() {
+		h.obs.Logger.Debug().
+			Dur("duration", time.Since(start)).
+			Msg("SystemHealth request completed")
+	}()
 	userID, err := auth.GetCurrentUserID(c)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -225,7 +231,7 @@ func (h *SystemHandler) SystemHealth(c *fiber.Ctx) error {
 		} else {
 			// Get Redis info
 			if info, err := h.redisClient.Info(ctx).Result(); err == nil {
-				dbDetails = map[string]interface{}{
+				redisDetails = map[string]interface{}{
 					"info": info[:500], // Truncate for brevity
 				}
 			}
@@ -280,6 +286,12 @@ func (h *SystemHandler) SystemHealth(c *fiber.Ctx) error {
 
 // DatabaseStats provides detailed database statistics (admin only)
 func (h *SystemHandler) DatabaseStats(c *fiber.Ctx) error {
+	start := time.Now()
+	defer func() {
+		h.obs.Logger.Debug().
+			Dur("duration", time.Since(start)).
+			Msg("DatabaseStats request completed")
+	}()
 	userID, err := auth.GetCurrentUserID(c)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{

@@ -317,15 +317,52 @@ func (sm *SessionManager) GetUserSessions(ctx context.Context, userID string) ([
 		return nil, errors.Wrap(err, errors.CodeInternal, "Failed to get user sessions")
 	}
 
+	// Fix N+1 query problem: Use MGET for bulk retrieval instead of individual GETs
+	if len(sessionIDs) == 0 {
+		return []SessionData{}, nil
+	}
+
+	// Build session keys for bulk retrieval
+	sessionKeys := make([]string, len(sessionIDs))
+	for i, sessionID := range sessionIDs {
+		sessionKeys[i] = sm.getSessionKey(sessionID)
+	}
+
+	// Bulk get all session data in one Redis call
+	sessionDataResults, err := sm.redis.MGet(ctx, sessionKeys...).Result()
+	if err != nil {
+		return nil, errors.Wrap(err, errors.CodeInternal, "Failed to bulk get session data")
+	}
+
 	var sessions []SessionData
-	for _, sessionID := range sessionIDs {
-		sessionData, err := sm.GetSession(ctx, sessionID)
-		if err != nil {
-			// Session might be expired, remove from set
-			sm.redis.SRem(ctx, userSessionsKey, sessionID)
+	expiredSessionIDs := []string{}
+	
+	for i, data := range sessionDataResults {
+		if data == nil {
+			// Session key doesn't exist, mark for cleanup
+			expiredSessionIDs = append(expiredSessionIDs, sessionIDs[i])
 			continue
 		}
-		sessions = append(sessions, *sessionData)
+		
+		var session SessionData
+		if err := json.Unmarshal([]byte(data.(string)), &session); err != nil {
+			// Invalid session data, mark for cleanup
+			expiredSessionIDs = append(expiredSessionIDs, sessionIDs[i])
+			continue
+		}
+		
+		// Check if session is expired
+		if time.Now().After(session.ExpiresAt) {
+			expiredSessionIDs = append(expiredSessionIDs, sessionIDs[i])
+			continue
+		}
+		
+		sessions = append(sessions, session)
+	}
+
+	// Clean up expired/invalid sessions in bulk
+	if len(expiredSessionIDs) > 0 {
+		sm.redis.SRem(ctx, userSessionsKey, expiredSessionIDs)
 	}
 
 	return sessions, nil

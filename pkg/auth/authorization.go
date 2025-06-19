@@ -71,10 +71,18 @@ func (a *AuthorizationService) Initialize(db *gorm.DB, modelPath string) error {
 	return nil
 }
 
+// ensureInitialized checks if enforcer is initialized
+func (a *AuthorizationService) ensureInitialized() error {
+	if a.enforcer == nil {
+		return errors.Internal("Authorization service not initialized")
+	}
+	return nil
+}
+
 // Enforce checks if a user has permission to perform an action on a resource
 func (a *AuthorizationService) Enforce(userID string, resource, action string) (bool, error) {
-	if a.enforcer == nil {
-		return false, errors.Internal("Authorization service not initialized")
+	if err := a.ensureInitialized(); err != nil {
+		return false, err
 	}
 
 	allowed, err := a.enforcer.Enforce(userID, resource, action)
@@ -87,8 +95,8 @@ func (a *AuthorizationService) Enforce(userID string, resource, action string) (
 
 // AddRoleForUser assigns a role to a user
 func (a *AuthorizationService) AddRoleForUser(userID string, role string) error {
-	if a.enforcer == nil {
-		return errors.Internal("Authorization service not initialized")
+	if err := a.ensureInitialized(); err != nil {
+		return err
 	}
 
 	_, err := a.enforcer.AddRoleForUser(userID, role)
@@ -106,8 +114,8 @@ func (a *AuthorizationService) AddRoleForUser(userID string, role string) error 
 
 // RemoveRoleForUser removes a role from a user
 func (a *AuthorizationService) RemoveRoleForUser(userID string, role string) error {
-	if a.enforcer == nil {
-		return errors.Internal("Authorization service not initialized")
+	if err := a.ensureInitialized(); err != nil {
+		return err
 	}
 
 	_, err := a.enforcer.DeleteRoleForUser(userID, role)
@@ -125,8 +133,8 @@ func (a *AuthorizationService) RemoveRoleForUser(userID string, role string) err
 
 // GetRolesForUser gets all roles for a user
 func (a *AuthorizationService) GetRolesForUser(userID string) ([]string, error) {
-	if a.enforcer == nil {
-		return nil, errors.Internal("Authorization service not initialized")
+	if err := a.ensureInitialized(); err != nil {
+		return nil, err
 	}
 
 	roles, err := a.enforcer.GetRolesForUser(userID)
@@ -139,8 +147,8 @@ func (a *AuthorizationService) GetRolesForUser(userID string) ([]string, error) 
 
 // GetUsersForRole gets all users with a specific role
 func (a *AuthorizationService) GetUsersForRole(role string) ([]string, error) {
-	if a.enforcer == nil {
-		return nil, errors.Internal("Authorization service not initialized")
+	if err := a.ensureInitialized(); err != nil {
+		return nil, err
 	}
 
 	users, err := a.enforcer.GetUsersForRole(role)
@@ -153,8 +161,8 @@ func (a *AuthorizationService) GetUsersForRole(role string) ([]string, error) {
 
 // AddPermissionForRole adds a permission to a role
 func (a *AuthorizationService) AddPermissionForRole(role, resource, action string) error {
-	if a.enforcer == nil {
-		return errors.Internal("Authorization service not initialized")
+	if err := a.ensureInitialized(); err != nil {
+		return err
 	}
 
 	_, err := a.enforcer.AddPermissionForUser(role, resource, action)
@@ -167,8 +175,8 @@ func (a *AuthorizationService) AddPermissionForRole(role, resource, action strin
 
 // RemovePermissionForRole removes a permission from a role
 func (a *AuthorizationService) RemovePermissionForRole(role, resource, action string) error {
-	if a.enforcer == nil {
-		return errors.Internal("Authorization service not initialized")
+	if err := a.ensureInitialized(); err != nil {
+		return err
 	}
 
 	_, err := a.enforcer.DeletePermissionForUser(role, resource, action)
@@ -181,8 +189,8 @@ func (a *AuthorizationService) RemovePermissionForRole(role, resource, action st
 
 // GetPermissionsForRole gets all permissions for a role
 func (a *AuthorizationService) GetPermissionsForRole(role string) ([][]string, error) {
-	if a.enforcer == nil {
-		return nil, errors.Internal("Authorization service not initialized")
+	if err := a.ensureInitialized(); err != nil {
+		return nil, err
 	}
 
 	permissions, err := a.enforcer.GetPermissionsForUser(role)
@@ -194,8 +202,8 @@ func (a *AuthorizationService) GetPermissionsForRole(role string) ([][]string, e
 
 // LoadPolicy reloads policy from database
 func (a *AuthorizationService) LoadPolicy() error {
-	if a.enforcer == nil {
-		return errors.Internal("Authorization service not initialized")
+	if err := a.ensureInitialized(); err != nil {
+		return err
 	}
 
 	if err := a.enforcer.LoadPolicy(); err != nil {
@@ -207,8 +215,8 @@ func (a *AuthorizationService) LoadPolicy() error {
 
 // SavePolicy saves policy to database
 func (a *AuthorizationService) SavePolicy() error {
-	if a.enforcer == nil {
-		return errors.Internal("Authorization service not initialized")
+	if err := a.ensureInitialized(); err != nil {
+		return err
 	}
 
 	if err := a.enforcer.SavePolicy(); err != nil {

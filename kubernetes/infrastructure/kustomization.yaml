@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: infrastructure
+  annotations:
+    config.kubernetes.io/local-config: "true"
+
+# Infrastructure components
+resources:
+# Note: These reference the existing Helm charts
+# The charts directory remains the source of truth for infrastructure
+- ../charts/spire-integration
+- ../charts/observability  
+- ../charts/istio-mesh
+- ../charts/security-policies
+
+# Common labels for all infrastructure components
+commonLabels:
+  app.kubernetes.io/part-of: zamaz-platform
+  component: infrastructure
+
+# Infrastructure-specific patches
+patchesStrategicMerge:
+- infrastructure-patches.yaml

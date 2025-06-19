@@ -1,0 +1,131 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zamaz-config
+data:
+  # Staging-specific application configuration
+  app.yaml: |
+    server:
+      host: "0.0.0.0"
+      port: 8080
+      read_timeout: "30s"
+      write_timeout: "30s"
+      idle_timeout: "120s"
+      shutdown_timeout: "30s"
+    
+    database:
+      max_open_connections: 25
+      max_idle_connections: 10
+      connection_max_lifetime: "1h"
+      connection_max_idle_time: "30m"
+      slow_query_threshold: "1s"
+    
+    cache:
+      redis:
+        pool_size: 15
+        min_idle_connections: 5
+        dial_timeout: "5s"
+        read_timeout: "3s"
+        write_timeout: "3s"
+        pool_timeout: "4s"
+        idle_timeout: "5m"
+        max_retries: 3
+    
+    observability:
+      metrics:
+        enabled: true
+        port: 9090
+        path: "/metrics"
+      tracing:
+        enabled: true
+        sampling_rate: 0.1
+        jaeger_endpoint: "http://jaeger-collector.observability:14268/api/traces"
+      logging:
+        level: "info"
+        format: "json"
+        enable_caller: true
+        enable_stacktrace: false
+    
+    security:
+      cors:
+        allowed_origins:
+          - "https://staging.zamaz.example.com"
+          - "https://staging-api.zamaz.example.com"
+        allowed_methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+        allowed_headers: ["Authorization", "Content-Type", "X-Request-ID"]
+        max_age: 3600
+      rate_limiting:
+        enabled: true
+        requests_per_minute: 1000
+        burst_size: 50
+      jwt:
+        access_token_duration: "15m"
+        refresh_token_duration: "24h"
+        
+  # Staging nginx configuration
+  nginx.conf: |
+    events {
+        worker_connections 1024;
+    }
+    
+    http {
+        include       /etc/nginx/mime.types;
+        default_type  application/octet-stream;
+        
+        # Staging-specific logging
+        log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                       '$status $body_bytes_sent "$http_referer" '
+                       '"$http_user_agent" "$http_x_forwarded_for" '
+                       'rt=$request_time uct="$upstream_connect_time" '
+                       'uht="$upstream_header_time" urt="$upstream_response_time"';
+        
+        access_log /var/log/nginx/access.log main;
+        error_log /var/log/nginx/error.log warn;
+        
+        # Performance optimizations for staging
+        sendfile on;
+        tcp_nopush on;
+        tcp_nodelay on;
+        keepalive_timeout 65;
+        gzip on;
+        gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+        
+        # Security headers
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-XSS-Protection "1; mode=block" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://staging-api.zamaz.example.com;" always;
+        
+        # Staging banner indication
+        add_header X-Environment "staging" always;
+        
+        server {
+            listen 3000;
+            server_name _;
+            root /usr/share/nginx/html;
+            index index.html;
+            
+            # Health check endpoint
+            location /health {
+                access_log off;
+                return 200 "healthy\n";
+                add_header Content-Type text/plain;
+            }
+            
+            # Static file serving with caching
+            location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+                expires 1y;
+                add_header Cache-Control "public, immutable";
+                add_header Vary Accept-Encoding;
+            }
+            
+            # SPA routing - serve index.html for all routes
+            location / {
+                try_files $uri $uri/ /index.html;
+                add_header Cache-Control "no-cache, no-store, must-revalidate";
+                add_header Pragma "no-cache";
+                add_header Expires "0";
+            }
+        }
+    }

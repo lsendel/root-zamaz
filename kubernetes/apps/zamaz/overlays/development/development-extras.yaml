@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: zamaz-dev-limits
+  namespace: zamaz-dev
+spec:
+  limits:
+  - default:
+      cpu: 200m
+      memory: 256Mi
+    defaultRequest:
+      cpu: 50m
+      memory: 64Mi
+    type: Container
+
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: zamaz-dev-quota
+  namespace: zamaz-dev
+spec:
+  hard:
+    requests.cpu: "1"
+    requests.memory: 2Gi
+    limits.cpu: "2"
+    limits.memory: 4Gi
+    pods: "5"
+    services: "5"
+    configmaps: "10"
+    secrets: "10"

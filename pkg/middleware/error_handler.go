@@ -114,56 +114,53 @@ func convertFiberError(fiberErr *fiber.Error) *errors.AppError {
 	return errors.NewAppError(code, fiberErr.Message)
 }
 
+// StatusCodeMapping represents bidirectional mapping between error codes and HTTP status codes
+type StatusCodeMapping struct {
+	ErrorCode  errors.ErrorCode
+	HTTPStatus int
+}
+
+// statusCodeMappings defines the mapping between error codes and HTTP status codes
+var statusCodeMappings = []StatusCodeMapping{
+	{errors.CodeValidation, fiber.StatusBadRequest},
+	{errors.CodeAuthentication, fiber.StatusUnauthorized},
+	{errors.CodeUnauthorized, fiber.StatusUnauthorized},
+	{errors.CodeAuthorization, fiber.StatusForbidden},
+	{errors.CodeForbidden, fiber.StatusForbidden},
+	{errors.CodeNotFound, fiber.StatusNotFound},
+	{errors.CodeConflict, fiber.StatusConflict},
+	{errors.CodeTimeout, fiber.StatusRequestTimeout},
+	{errors.CodeUnavailable, fiber.StatusServiceUnavailable},
+	{errors.CodeRateLimit, fiber.StatusTooManyRequests},
+	{errors.CodeInternal, fiber.StatusInternalServerError},
+}
+
+var (
+	errorToHTTPMap = make(map[errors.ErrorCode]int)
+	httpToErrorMap = make(map[int]errors.ErrorCode)
+)
+
+func init() {
+	for _, mapping := range statusCodeMappings {
+		errorToHTTPMap[mapping.ErrorCode] = mapping.HTTPStatus
+		httpToErrorMap[mapping.HTTPStatus] = mapping.ErrorCode
+	}
+}
+
 // getHTTPStatusCode maps error codes to HTTP status codes
 func getHTTPStatusCode(code errors.ErrorCode) int {
-	switch code {
-	case errors.CodeValidation:
-		return fiber.StatusBadRequest
-	case errors.CodeAuthentication, errors.CodeUnauthorized:
-		return fiber.StatusUnauthorized
-	case errors.CodeAuthorization, errors.CodeForbidden:
-		return fiber.StatusForbidden
-	case errors.CodeNotFound:
-		return fiber.StatusNotFound
-	case errors.CodeConflict:
-		return fiber.StatusConflict
-	case errors.CodeTimeout:
-		return fiber.StatusRequestTimeout
-	case errors.CodeUnavailable:
-		return fiber.StatusServiceUnavailable
-	case errors.CodeRateLimit:
-		return fiber.StatusTooManyRequests
-	case errors.CodeInternal:
-		return fiber.StatusInternalServerError
-	default:
-		return fiber.StatusInternalServerError
+	if status, exists := errorToHTTPMap[code]; exists {
+		return status
 	}
+	return fiber.StatusInternalServerError
 }
 
 // getErrorCodeFromStatus maps HTTP status codes to error codes
 func getErrorCodeFromStatus(status int) errors.ErrorCode {
-	switch status {
-	case fiber.StatusBadRequest:
-		return errors.CodeValidation
-	case fiber.StatusUnauthorized:
-		return errors.CodeUnauthorized
-	case fiber.StatusForbidden:
-		return errors.CodeForbidden
-	case fiber.StatusNotFound:
-		return errors.CodeNotFound
-	case fiber.StatusConflict:
-		return errors.CodeConflict
-	case fiber.StatusRequestTimeout:
-		return errors.CodeTimeout
-	case fiber.StatusServiceUnavailable:
-		return errors.CodeUnavailable
-	case fiber.StatusTooManyRequests:
-		return errors.CodeRateLimit
-	case fiber.StatusInternalServerError:
-		return errors.CodeInternal
-	default:
-		return errors.CodeInternal
+	if code, exists := httpToErrorMap[status]; exists {
+		return code
 	}
+	return errors.CodeInternal
 }
 
 // logError logs the error with appropriate level and context

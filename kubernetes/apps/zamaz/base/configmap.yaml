@@ -1,0 +1,91 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zamaz-api-config
+  namespace: zamaz
+  labels:
+    app.kubernetes.io/name: zamaz
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: zamaz-platform
+    app.kubernetes.io/managed-by: kustomize
+data:
+  # Application Configuration
+  APP_ENV: "development"
+  LOG_LEVEL: "info"
+  LOG_FORMAT: "json"
+  
+  # Server Configuration
+  PORT: "8080"
+  HOST: "0.0.0.0"
+  READ_TIMEOUT: "30s"
+  WRITE_TIMEOUT: "30s"
+  IDLE_TIMEOUT: "60s"
+  
+  # Database Configuration
+  DB_HOST: "postgres-service.postgres.svc.cluster.local"
+  DB_PORT: "5432"
+  DB_NAME: "zamaz"
+  DB_MAX_OPEN_CONNS: "25"
+  DB_MAX_IDLE_CONNS: "10"
+  DB_CONN_MAX_LIFETIME: "1h"
+  
+  # Redis Configuration
+  REDIS_HOST: "redis-service.redis.svc.cluster.local"
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
+  REDIS_MAX_RETRIES: "3"
+  REDIS_POOL_SIZE: "10"
+  
+  # NATS Configuration
+  NATS_URL: "nats://nats-service.nats.svc.cluster.local:4222"
+  NATS_CLUSTER_ID: "zamaz-cluster"
+  
+  # Observability Configuration
+  METRICS_ENABLED: "true"
+  METRICS_PORT: "9090"
+  TRACING_ENABLED: "true"
+  JAEGER_ENDPOINT: "http://jaeger-collector.observability.svc.cluster.local:14268/api/traces"
+  
+  # Security Configuration
+  JWT_ISSUER: "zamaz-auth"
+  JWT_AUDIENCE: "zamaz-api"
+  BCRYPT_COST: "12"
+  SESSION_TIMEOUT: "24h"
+  
+  # SPIRE Configuration
+  SPIRE_SOCKET_PATH: "/spire/agent.sock"
+  SPIRE_TRUST_DOMAIN: "zamaz.local"
+  
+  # Frontend URLs
+  FRONTEND_URL: "http://zamaz-frontend-service.zamaz.svc.cluster.local:3000"
+  API_URL: "http://zamaz-api-service.zamaz.svc.cluster.local:8080"
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zamaz-frontend-config
+  namespace: zamaz
+  labels:
+    app.kubernetes.io/name: zamaz
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: zamaz-platform
+    app.kubernetes.io/managed-by: kustomize
+data:
+  # Frontend Configuration
+  NODE_ENV: "development"
+  PORT: "3000"
+  HOST: "0.0.0.0"
+  
+  # API Configuration
+  REACT_APP_API_URL: "http://zamaz-api-service.zamaz.svc.cluster.local:8080"
+  REACT_APP_WS_URL: "ws://zamaz-api-service.zamaz.svc.cluster.local:8080/ws"
+  
+  # Feature Flags
+  REACT_APP_ENABLE_DEVTOOLS: "true"
+  REACT_APP_ENABLE_NOTIFICATIONS: "true"
+  REACT_APP_ENABLE_ANALYTICS: "false"
+  
+  # Security
+  REACT_APP_AUTH_DOMAIN: "zamaz.local"
+  REACT_APP_SESSION_STORAGE: "localStorage"

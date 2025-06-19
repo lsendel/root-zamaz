@@ -1,0 +1,78 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: zamaz-api-service
+  namespace: zamaz
+  labels:
+    app.kubernetes.io/name: zamaz
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: zamaz-platform
+    app.kubernetes.io/managed-by: kustomize
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "9090"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  sessionAffinity: None
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http
+    protocol: TCP
+  - name: metrics
+    port: 9090
+    targetPort: metrics
+    protocol: TCP
+  selector:
+    app.kubernetes.io/name: zamaz
+    app.kubernetes.io/component: api
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zamaz-frontend-service
+  namespace: zamaz
+  labels:
+    app.kubernetes.io/name: zamaz
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: zamaz-platform
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  type: ClusterIP
+  sessionAffinity: None
+  ports:
+  - name: http
+    port: 3000
+    targetPort: http
+    protocol: TCP
+  selector:
+    app.kubernetes.io/name: zamaz
+    app.kubernetes.io/component: frontend
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zamaz-api-headless
+  namespace: zamaz
+  labels:
+    app.kubernetes.io/name: zamaz
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: zamaz-platform
+    app.kubernetes.io/managed-by: kustomize
+  annotations:
+    service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
+spec:
+  type: ClusterIP
+  clusterIP: None
+  publishNotReadyAddresses: true
+  ports:
+  - name: http
+    port: 8080
+    targetPort: http
+    protocol: TCP
+  selector:
+    app.kubernetes.io/name: zamaz
+    app.kubernetes.io/component: api

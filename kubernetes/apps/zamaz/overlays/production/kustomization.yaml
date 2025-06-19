@@ -1,0 +1,86 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: zamaz-production
+  annotations:
+    config.kubernetes.io/local-config: "true"
+
+namespace: zamaz-prod
+
+resources:
+- ../../base
+- hpa.yaml
+- pdb.yaml
+- monitoring.yaml
+
+commonLabels:
+  environment: production
+  team: platform-engineering
+
+namePrefix: prod-
+
+images:
+- name: zamaz-api
+  newTag: v1.2.3
+- name: zamaz-frontend
+  newTag: v1.2.3
+
+replicas:
+- name: zamaz-api-deployment
+  count: 5
+- name: zamaz-frontend-deployment
+  count: 8
+
+patchesStrategicMerge:
+- namespace-patch.yaml
+- configmap-patch.yaml
+- deployment-patch.yaml
+- networkpolicy-patch.yaml
+- security-patch.yaml
+
+patches:
+# Increase resource requirements for production
+- target:
+    kind: Deployment
+    name: zamaz-api-deployment
+  patch: |
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/cpu
+      value: 200m
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/requests/memory
+      value: 256Mi
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/cpu
+      value: 1000m
+    - op: replace
+      path: /spec/template/spec/containers/0/resources/limits/memory
+      value: 1Gi
+
+# Remove emergency network policy for production
+- target:
+    kind: NetworkPolicy
+    name: zamaz-emergency-access
+  patch: |
+    - op: replace
+      path: /spec
+      value:
+        podSelector:
+          matchLabels:
+            emergency: "never-match"
+        policyTypes: []
+
+# Add production security contexts
+- target:
+    kind: Deployment
+  patch: |
+    - op: add
+      path: /spec/template/spec/securityContext/runAsUser
+      value: 10001
+    - op: add
+      path: /spec/template/spec/securityContext/runAsGroup
+      value: 10001
+    - op: add
+      path: /spec/template/spec/securityContext/fsGroup
+      value: 10001

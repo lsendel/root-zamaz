@@ -1,0 +1,15 @@
+# Infrastructure-wide patches for standardization
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: infrastructure-config
+  namespace: default
+data:
+  platform-version: "v1.0.0"
+  managed-by: "zamaz-platform"
+  deployment-strategy: "helm"
+  
+# Note: Individual infrastructure components (SPIRE, Observability, Istio)
+# remain managed by Helm charts in the ../charts/ directory.
+# This kustomization provides a centralized reference point and
+# allows for platform-wide patches if needed in the future.

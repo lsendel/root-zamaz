@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zamaz-api-config
+data:
+  # Development-specific overrides
+  APP_ENV: "development"
+  LOG_LEVEL: "debug"
+  LOG_FORMAT: "text"
+  
+  # Development database (can be local or shared dev instance)
+  DB_HOST: "postgres-dev.postgres.svc.cluster.local"
+  DB_NAME: "zamaz_dev"
+  DB_MAX_OPEN_CONNS: "5"
+  DB_MAX_IDLE_CONNS: "2"
+  
+  # Development Redis
+  REDIS_HOST: "redis-dev.redis.svc.cluster.local"
+  REDIS_POOL_SIZE: "5"
+  
+  # Disable security features for easier development
+  JWT_EXPIRY: "24h"
+  BCRYPT_COST: "4"
+  SESSION_TIMEOUT: "72h"
+  
+  # Enable development features
+  ENABLE_CORS: "true"
+  ENABLE_PPROF: "true"
+  ENABLE_DEBUG_ENDPOINTS: "true"
+  
+  # Development tracing (local Jaeger)
+  JAEGER_ENDPOINT: "http://jaeger-dev.observability.svc.cluster.local:14268/api/traces"
+  JAEGER_SAMPLER_RATE: "1.0"
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zamaz-frontend-config
+data:
+  # Development frontend configuration
+  NODE_ENV: "development"
+  
+  # Enable all development features
+  REACT_APP_ENABLE_DEVTOOLS: "true"
+  REACT_APP_ENABLE_NOTIFICATIONS: "true"
+  REACT_APP_ENABLE_ANALYTICS: "false"
+  REACT_APP_ENABLE_DEBUG: "true"
+  REACT_APP_ENABLE_HOT_RELOAD: "true"
+  
+  # Development API endpoint
+  REACT_APP_API_URL: "http://dev-zamaz-api-service.zamaz-dev.svc.cluster.local:8080"
+  REACT_APP_WS_URL: "ws://dev-zamaz-api-service.zamaz-dev.svc.cluster.local:8080/ws"
+  
+  # Relaxed security for development
+  REACT_APP_AUTH_DOMAIN: "dev.zamaz.local"
+  REACT_APP_SESSION_STORAGE: "localStorage"

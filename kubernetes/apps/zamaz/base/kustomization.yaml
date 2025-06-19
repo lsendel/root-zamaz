@@ -1,0 +1,36 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: zamaz-base
+  annotations:
+    config.kubernetes.io/local-config: "true"
+
+namespace: zamaz
+
+resources:
+- namespace.yaml
+- configmap.yaml
+- deployment.yaml
+- service.yaml
+- serviceaccount.yaml
+- networkpolicy.yaml
+
+labels:
+- pairs:
+    app.kubernetes.io/name: zamaz
+    app.kubernetes.io/part-of: zamaz-platform
+    app.kubernetes.io/managed-by: kustomize
+    project: zero-trust-auth
+
+images:
+- name: zamaz-api
+  newTag: latest
+- name: zamaz-frontend
+  newTag: latest
+
+replicas:
+- name: zamaz-api-deployment
+  count: 2
+- name: zamaz-frontend-deployment
+  count: 3

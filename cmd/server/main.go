@@ -189,12 +189,18 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	return server, nil
 }
 
-// setupMiddleware configures global middleware
+// setupMiddleware configures global middleware in optimal order for performance
 func (s *Server) setupMiddleware() {
-	// Recovery middleware (custom)
+	// 1. Recovery middleware (first for safety - catches panics from all subsequent middleware)
 	s.app.Use(middleware.RecoveryMiddleware(s.obs))
 
-	// CORS middleware
+	// 2. Rate limiting (early rejection of excessive requests)
+	if s.redisClient != nil {
+		rateLimiter := middleware.NewRateLimiter(s.redisClient, s.obs)
+		s.app.Use(rateLimiter.RateLimitMiddleware())
+	}
+
+	// 3. CORS middleware (handle preflight requests early)
 	if s.config.Security.CORS.Enabled {
 		s.app.Use(cors.New(cors.Config{
 			AllowOrigins:     joinStrings(s.config.Security.CORS.AllowedOrigins, ","),
@@ -206,33 +212,27 @@ func (s *Server) setupMiddleware() {
 		}))
 	}
 
-	// Correlation ID middleware
+	// 4. Correlation ID middleware (required for tracing and logging)
 	s.app.Use(middleware.CorrelationIDMiddleware())
 
-	// Tracing middleware (must come before observability middleware)
+	// 5. Tracing middleware (must come before observability middleware)
 	s.app.Use(middleware.TracingMiddleware(s.obs.Tracer))
 
-	// Tenant context middleware
+	// 6. Tenant context middleware (lightweight context setup)
 	s.app.Use(middleware.TenantContextMiddleware())
 
-	// Observability middleware
+	// 7. Observability middleware (metrics and monitoring)
 	securityMetrics, _ := observability.NewSecurityMetrics(s.obs.Meter)
 	s.app.Use(middleware.ObservabilityMiddleware(s.obs, securityMetrics))
 
-	// Request/Response logging middleware
-	s.app.Use(middleware.LoggingMiddleware(s.obs))
-
-	// Validation middleware
+	// 8. Validation middleware (validate requests before processing)
 	s.validationMiddleware = validation.NewValidationMiddleware(s.obs)
 	s.app.Use(s.validationMiddleware.ValidationMiddleware())
 
-	// Rate limiting middleware
-	if s.redisClient != nil {
-		rateLimiter := middleware.NewRateLimiter(s.redisClient, s.obs)
-		s.app.Use(rateLimiter.RateLimitMiddleware())
-	}
+	// 9. Request/Response logging middleware (after validation, before auth)
+	s.app.Use(middleware.LoggingMiddleware(s.obs))
 
-	// Authentication middleware for audit logging
+	// 10. Authentication middleware for audit logging (last - for complete context)
 	authMiddleware := auth.NewAuthMiddleware(s.jwtService, s.authzService, s.db.GetDB(), s.obs, s.config)
 	s.app.Use(authMiddleware.AuditMiddleware())
 }

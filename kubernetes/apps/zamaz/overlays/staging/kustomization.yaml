@@ -1,0 +1,70 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: zamaz-staging
+  annotations:
+    config.kubernetes.io/local-config: "true"
+
+# Base configuration
+resources:
+- ../../base
+
+# Staging-specific namespace
+namespace: zamaz-staging
+
+# Staging name prefix
+namePrefix: staging-
+
+# Common labels for staging environment
+commonLabels:
+  environment: staging
+  app.kubernetes.io/instance: zamaz-staging
+
+# Image tags for staging (using staging-specific versions)
+images:
+- name: zamaz-api
+  newTag: staging-latest
+- name: zamaz-frontend  
+  newTag: staging-latest
+
+# Resource patches for staging environment
+patchesStrategicMerge:
+- deployment-patch.yaml
+- service-patch.yaml
+- configmap-patch.yaml
+
+# Staging-specific resources
+resources:
+- hpa.yaml
+- networkpolicy-patch.yaml
+
+# Replica count adjustments for staging load
+replicas:
+- name: staging-zamaz-api-deployment
+  count: 2
+- name: staging-zamaz-frontend-deployment
+  count: 3
+
+# Configuration generators
+configMapGenerator:
+- name: zamaz-config
+  behavior: merge
+  literals:
+  - ENVIRONMENT=staging
+  - LOG_LEVEL=info
+  - METRICS_ENABLED=true
+  - TRACING_ENABLED=true
+  - DATABASE_MAX_CONNECTIONS=25
+  - CACHE_TTL=300
+  - API_RATE_LIMIT=1000
+  - CORS_ALLOWED_ORIGINS=https://staging.zamaz.example.com,https://staging-api.zamaz.example.com
+
+secretGenerator:
+- name: zamaz-secrets
+  behavior: merge
+  literals:
+  - DATABASE_URL=postgres://zamaz:$(STAGING_DB_PASSWORD)@postgres-staging:5432/zamaz_staging
+  - REDIS_URL=redis://redis-staging:6379/1
+  - JWT_SECRET=$(STAGING_JWT_SECRET)
+  - API_KEY=$(STAGING_API_KEY)

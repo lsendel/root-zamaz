@@ -1,0 +1,271 @@
+# Consolidated Network Policies for Zamaz Application
+# This replaces the duplicated policies in Helm charts and multiple Kustomize locations
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: zamaz-default-deny-all
+  namespace: zamaz
+  labels:
+    app.kubernetes.io/name: zamaz
+    app.kubernetes.io/part-of: zamaz-platform
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: zamaz-api-policy
+  namespace: zamaz
+  labels:
+    app.kubernetes.io/name: zamaz
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: zamaz-platform
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: zamaz
+      app.kubernetes.io/component: api
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow traffic from frontend
+  - from:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: zamaz
+          app.kubernetes.io/component: frontend
+    ports:
+    - protocol: TCP
+      port: 8080
+  # Allow traffic from Istio ingress gateway
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: istio-system
+      podSelector:
+        matchLabels:
+          app: istio-proxy
+    ports:
+    - protocol: TCP
+      port: 8080
+  # Allow Prometheus metrics scraping
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: observability
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: prometheus
+    ports:
+    - protocol: TCP
+      port: 9090
+  # Allow health checks from system components
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: TCP
+      port: 8080
+  egress:
+  # Allow DNS resolution
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Allow database access
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: postgres
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: postgresql
+    ports:
+    - protocol: TCP
+      port: 5432
+  # Allow Redis access
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: redis
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: redis
+    ports:
+    - protocol: TCP
+      port: 6379
+  # Allow NATS access
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: nats
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: nats
+    ports:
+    - protocol: TCP
+      port: 4222
+  # Allow Jaeger tracing
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: observability
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: jaeger
+    ports:
+    - protocol: TCP
+      port: 14268
+  # Allow communication within zamaz namespace
+  - to:
+    - podSelector: {}
+    ports:
+    - protocol: TCP
+      port: 8080
+    - protocol: TCP
+      port: 3000
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: zamaz-frontend-policy
+  namespace: zamaz
+  labels:
+    app.kubernetes.io/name: zamaz
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: zamaz-platform
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: zamaz
+      app.kubernetes.io/component: frontend
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow traffic from Istio ingress gateway
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: istio-system
+      podSelector:
+        matchLabels:
+          app: istio-proxy
+    ports:
+    - protocol: TCP
+      port: 3000
+  # Allow health checks from system components
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: TCP
+      port: 3000
+  egress:
+  # Allow DNS resolution
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+      podSelector:
+        matchLabels:
+          k8s-app: kube-dns
+    ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+  # Allow API access
+  - to:
+    - podSelector:
+        matchLabels:
+          app.kubernetes.io/name: zamaz
+          app.kubernetes.io/component: api
+    ports:
+    - protocol: TCP
+      port: 8080
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: zamaz-emergency-access
+  namespace: zamaz
+  labels:
+    app.kubernetes.io/name: zamaz
+    app.kubernetes.io/part-of: zamaz-platform
+    app.kubernetes.io/managed-by: kustomize
+    emergency: "true"
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: zamaz
+  policyTypes:
+  - Ingress
+  ingress:
+  # Emergency access for debugging (should be disabled in production)
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+      podSelector:
+        matchLabels:
+          app: kubectl-debug
+    ports:
+    - protocol: TCP
+      port: 8080
+    - protocol: TCP
+      port: 3000
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: zamaz-spire-communication
+  namespace: zamaz
+  labels:
+    app.kubernetes.io/name: zamaz
+    app.kubernetes.io/part-of: zamaz-platform
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: zamaz
+      app.kubernetes.io/component: api
+  policyTypes:
+  - Egress
+  egress:
+  # Allow SPIRE agent communication (Unix socket)
+  - to: []
+    ports: []
+  # Allow SPIRE server communication for workload API
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: spire-system
+      podSelector:
+        matchLabels:
+          app.kubernetes.io/name: spire-server
+    ports:
+    - protocol: TCP
+      port: 8081

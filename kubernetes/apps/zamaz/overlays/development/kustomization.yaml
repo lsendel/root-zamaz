@@ -1,0 +1,62 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: zamaz-development
+  annotations:
+    config.kubernetes.io/local-config: "true"
+
+namespace: zamaz-dev
+
+resources:
+- ../../base
+
+labels:
+- pairs:
+    environment: development
+    team: development
+
+namePrefix: dev-
+
+images:
+- name: zamaz-api
+  newTag: dev-latest
+- name: zamaz-frontend
+  newTag: dev-latest
+
+replicas:
+- name: zamaz-api-deployment
+  count: 1
+- name: zamaz-frontend-deployment
+  count: 1
+
+patchesStrategicMerge:
+- configmap-api-patch.yaml
+- configmap-frontend-patch.yaml  
+- deployment-api-patch.yaml
+- deployment-frontend-patch.yaml
+- networkpolicy-patch.yaml
+
+# Development-specific additional resources
+resources:
+- development-extras.yaml
+
+configMapGenerator:
+- name: zamaz-config-dev
+  literals:
+  - ENVIRONMENT=development
+  - LOG_LEVEL=debug
+  - METRICS_ENABLED=true
+  - TRACING_ENABLED=true
+  - DATABASE_MAX_CONNECTIONS=5
+  - CACHE_TTL=60
+  - API_RATE_LIMIT=10000
+  - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://dev-zamaz-frontend-service:3000
+
+secretGenerator:
+- name: zamaz-secrets-dev
+  literals:
+  - DATABASE_URL=postgres://zamaz:$(DEV_DB_PASSWORD)@postgres-dev:5432/zamaz_dev
+  - REDIS_URL=redis://redis-dev:6379/0
+  - JWT_SECRET=$(DEV_JWT_SECRET)
+  - API_KEY=$(DEV_API_KEY)

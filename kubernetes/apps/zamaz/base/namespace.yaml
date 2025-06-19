@@ -1,0 +1,45 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: zamaz
+  labels:
+    app.kubernetes.io/name: zamaz
+    app.kubernetes.io/part-of: zamaz-platform
+    app.kubernetes.io/managed-by: kustomize
+    project: zero-trust-auth
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+  annotations:
+    scheduler.alpha.kubernetes.io/node-selector: "workload=app"
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: zamaz-limits
+  namespace: zamaz
+spec:
+  limits:
+  - default:
+      cpu: 500m
+      memory: 512Mi
+    defaultRequest:
+      cpu: 100m
+      memory: 128Mi
+    type: Container
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: zamaz-quota
+  namespace: zamaz
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: 4Gi
+    limits.cpu: "4"
+    limits.memory: 8Gi
+    pods: "10"
+    services: "5"
+    configmaps: "10"
+    secrets: "10"
