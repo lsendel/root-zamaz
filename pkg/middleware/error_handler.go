@@ -2,6 +2,7 @@
 package middleware
 
 import (
+	"fmt" // Added import for fmt
 	"runtime/debug"
 	"time"
 
@@ -276,16 +277,26 @@ func RecoveryMiddleware(obs *observability.Observability) fiber.Handler {
 			if r := recover(); r != nil {
 				// Check if there's an active transaction and roll it back
 				if tx := GetTransactionFromContext(c); tx != nil {
-					if rollbackTx := tx.Rollback(); rollbackTx.Error != nil {
-						obs.Logger.Error().
-							Err(rollbackTx.Error).
-							Interface("panic", r).
-							Msg("Failed to rollback transaction during panic recovery")
-					} else {
-						obs.Logger.Warn().
-							Interface("panic", r).
-							Msg("Transaction rolled back due to panic")
-					}
+					func() { // Inner func to scope the nested defer
+						defer func() {
+							if p := recover(); p != nil {
+								obs.Logger.Error().
+									Interface("gorm_panic", p).
+									Str("original_panic", fmt.Sprintf("%v", r)).
+									Msg("Panic occurred during GORM Rollback in panic recovery")
+							}
+						}()
+						if rollbackTx := tx.Rollback(); rollbackTx.Error != nil {
+							obs.Logger.Error().
+								Err(rollbackTx.Error).
+								Interface("original_panic", r).
+								Msg("Failed to rollback transaction during panic recovery")
+						} else {
+							obs.Logger.Warn().
+								Interface("original_panic", r).
+								Msg("Transaction rolled back due to panic")
+						}
+					}()
 				}
 
 				// Log the panic with additional context

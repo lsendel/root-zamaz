@@ -3,6 +3,8 @@ package middleware
 
 import (
 	"fmt"
+	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -120,59 +122,48 @@ func LoggingMiddleware(obs *observability.Observability, config ...LoggingConfig
 	}
 
 	return func(c *fiber.Ctx) error {
-		// Skip if path is in skip list
 		if shouldSkipPath(c.Path(), cfg.SkipPaths) {
 			return c.Next()
 		}
-
-		// Skip if method is in skip list
 		if shouldSkipMethod(c.Method(), cfg.SkipMethods) {
 			return c.Next()
 		}
 
 		start := time.Now()
-		
-		// Get request ID
 		requestID := getRequestID(c)
 
-		// Log request if enabled
 		if cfg.LogRequests {
 			logRequest(obs, c, cfg, requestID)
 		}
 
-		// Capture response body if needed
 		// Execute next handlers
-		if err := c.Next(); err != nil {
-			// Log error response
+		err := c.Next() // err is declared here
+
+		// Handle error from downstream handlers first
+		if err != nil {
 			if cfg.LogFailedRequests {
 				logErrorResponse(obs, c, cfg, requestID, start, err)
 			}
-			return err
+			return err // Return after logging the error
 		}
-		
-		// For now, we'll skip response body logging due to Fiber limitations
-		// TODO: Implement response body capture using Fiber's built-in mechanisms
-		var responseBody []byte
 
+		// If no error, proceed with other logs
 		duration := time.Since(start)
+		var responseBody []byte // Still TODO for actual capture, as per original code
 
-		// Log response if enabled
 		if cfg.LogResponses {
 			logResponse(obs, c, cfg, requestID, duration, responseBody)
 		}
 
-		// Log slow requests if enabled
 		if cfg.LogSlowRequests && duration > cfg.SlowRequestThreshold {
 			logSlowRequest(obs, c, requestID, duration)
 		}
 
-		// Log suspicious requests if enabled
 		if cfg.LogSuspiciousRequests {
 			if isSuspiciousRequest(c) {
 				logSuspiciousRequest(obs, c, requestID)
 			}
 		}
-
 		return nil
 	}
 }
@@ -389,34 +380,88 @@ func sanitizeResponseHeaders(headers map[string]string, cfg LoggingConfig) map[s
 }
 
 // sanitizeQuery removes or redacts sensitive query parameters
-func sanitizeQuery(url string, cfg LoggingConfig) string {
-	if !cfg.RedactSensitiveData {
-		return url
+func sanitizeQuery(originalURL string, cfg LoggingConfig) string {
+	if !cfg.RedactSensitiveData || len(cfg.SensitiveParams) == 0 {
+		return originalURL
 	}
 
-	// Simple redaction - in production, you might want more sophisticated parsing
+	parsedURL, err := url.Parse(originalURL)
+	if err != nil {
+		return originalURL // Return original if parsing fails
+	}
+
+	queryParams := parsedURL.Query()
 	for _, param := range cfg.SensitiveParams {
-		if strings.Contains(url, param+"=") {
-			return strings.ReplaceAll(url, param+"=", param+"=[REDACTED]")
+		if queryParams.Has(param) {
+			queryParams.Set(param, "[REDACTED]")
 		}
 	}
-	return url
+	parsedURL.RawQuery = queryParams.Encode()
+	return parsedURL.String()
 }
 
 // sanitizeBody removes or redacts sensitive data from request/response body
 func sanitizeBody(body string, cfg LoggingConfig) string {
-	if !cfg.RedactSensitiveData {
+	// The isJSONContent check is performed by the caller (logRequest)
+	if !cfg.RedactSensitiveData || len(cfg.SensitiveParams) == 0 {
 		return body
 	}
+    // This is a simplified approach. For robust JSON redaction, parsing the JSON is better.
+	// Using regex might break complex JSON structures or not cover all cases (e.g., numbers, booleans).
+	// This example focuses on redacting string values for simplicity.
+	// Also, cfg.SensitiveParams might not be appropriate for JSON fields (they are for query/form params).
+	// A new config field like `SensitiveJSONFields` would be better. Using SensitiveParams for now.
 
-	// Simple redaction for JSON - in production, you might want JSON parsing
-	for _, field := range cfg.SensitiveParams {
-		pattern := fmt.Sprintf(`"%s"\s*:\s*"[^"]*"`, field)
-		replacement := fmt.Sprintf(`"%s": "[REDACTED]"`, field)
-		body = strings.ReplaceAll(body, pattern, replacement)
+	// Placeholder for actual content type; this needs to be passed into sanitizeBody
+	// For now, assume it's JSON if we reach here with RedactSensitiveData=true
+	// and isJSONContent was checked before calling this for request body.
+
+	modifiedBody := body
+	for _, field := range cfg.SensitiveParams { // Assuming SensitiveParams can apply to JSON keys
+		// Regex to find "<field>": "<value>"
+		// This handles string values. Other types (numbers, booleans, objects, arrays) would need more complex regex or JSON parsing.
+		// Note: This regex is basic and might have edge cases with escaped quotes in values.
+		pattern := regexp.MustCompile(fmt.Sprintf(`("%s"\s*:\s*)"([^"]*)"`, regexp.QuoteMeta(field)))
+		modifiedBody = pattern.ReplaceAllString(modifiedBody, fmt.Sprintf(`$1"[REDACTED]"`))
 	}
-	return body
+	return modifiedBody
 }
+
+// LoggingConfig needs to be adjusted if we want to store content type temporarily for body sanitization
+// Or, sanitizeBody needs to accept contentType as an argument.
+// For the purpose of this patch, I'll assume a way to get contentType,
+// but the provided sanitizeBody will need the contentType.
+// Let's assume logRequest and logResponse will pass c.Get("Content-Type") to sanitizeBody.
+// The current sanitizeBody in the provided file does not take contentType.
+// The provided snippet for sanitizeBody in the prompt uses `isJSONContent(cfg.tempContentTypeForBody)`
+// which implies cfg needs this field.
+
+// Let's adjust LoggingConfig and the sanitizeBody call signature slightly for the patch.
+// This is a deviation from the prompt's direct sanitizeBody but necessary.
+// The alternative is to assume isJSONContent was called *before* sanitizeBody.
+// The original `logging.go` calls `isJSONContent` before `sanitizeBody` in `logRequest`.
+
+// The original sanitizeBody in logging.go is:
+// if cfg.LogRequestBody && len(c.Body()) > 0 && len(c.Body()) <= cfg.MaxBodySize {
+//    if isJSONContent(c.Get("Content-Type")) {
+//        entry.Body = sanitizeBody(string(c.Body()), cfg)
+//    }
+// }
+// So, sanitizeBody itself doesn't need to re-check isJSONContent.
+
+// Corrected sanitizeBody based on the original structure:
+// func sanitizeBody(body string, cfg LoggingConfig) string {
+// 	if !cfg.RedactSensitiveData || len(cfg.SensitiveParams) == 0 {
+// 		return body
+// 	}
+// 	modifiedBody := body
+// 	for _, field := range cfg.SensitiveParams {
+// 		pattern := regexp.MustCompile(fmt.Sprintf(`("%s"\s*:\s*)"([^"]*)"`, regexp.QuoteMeta(field)))
+// 		modifiedBody = pattern.ReplaceAllString(modifiedBody, fmt.Sprintf(`$1"[REDACTED]"`))
+// 	}
+// 	return modifiedBody
+// }
+// This corrected version will be used in the patch.
 
 // isSensitiveHeader checks if a header is considered sensitive
 func isSensitiveHeader(header string, sensitiveHeaders []string) bool {
@@ -431,7 +476,11 @@ func isSensitiveHeader(header string, sensitiveHeaders []string) bool {
 
 // isJSONContent checks if content type is JSON
 func isJSONContent(contentType string) bool {
-	return strings.Contains(strings.ToLower(contentType), "application/json")
+	ct := strings.ToLower(contentType)
+	// Split by semicolon to ignore parameters like charset
+	mainType := strings.TrimSpace(strings.Split(ct, ";")[0])
+	// Check for exact match or common suffixes like "+json"
+	return mainType == "application/json" || strings.HasSuffix(mainType, "+json")
 }
 
 // isSuspiciousRequest checks if a request might be suspicious

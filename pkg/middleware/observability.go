@@ -111,15 +111,21 @@ func ObservabilityMiddleware(obs *observability.Observability, metrics *observab
 		}
 
 		// Log event
+		statusCode := c.Response().StatusCode()
 		logEvent := logger.Info()
+
 		if err != nil { // If an error occurred in downstream handlers
 			logEvent = logger.Error().Err(err)
+			// If the error is a fiber.Error, its Code should be used as the status
+			if e, ok := err.(*fiber.Error); ok {
+				statusCode = e.Code
+			}
 		}
 
 		logEvent.
 			Str("method", c.Method()).
 			Str("path", c.Path()).
-			Int("status", c.Response().StatusCode()).
+			Int("status", statusCode). // Use potentially overridden status code
 			Dur("latency", latency).
 			Str("client_ip", c.IP()).
 			Str("user_agent", c.Get("User-Agent")). // Get User-Agent header
