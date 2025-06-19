@@ -35,7 +35,8 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/swagger"
 	"github.com/redis/go-redis/v9"
-	// _ "mvp.local/docs" // Import generated docs - disabled for build
+	_ "mvp.local/docs" // Import generated docs for Swagger UI
+	docspkg "mvp.local/pkg/docs"
 
 	"mvp.local/pkg/auth"
 	"mvp.local/pkg/cache"
@@ -331,7 +332,7 @@ func (s *Server) setupRoutes() {
 	adminRoutes.Delete("/users/:userId/roles/:roleId", adminHandler.RemoveRoleFromUser)
 
 	// Swagger documentation
-	s.app.Get("/swagger/*", swagger.HandlerDefault)
+	docspkg.SetupSwagger(s.app)
 
 	// Frontend routes (serve static files)
 	s.app.Static("/", "./frontend/dist")

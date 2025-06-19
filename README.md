@@ -84,6 +84,7 @@ Password: password
 
 ### API Documentation
 - [Swagger UI](http://localhost:8080/swagger/index.html) (when running)
+- [Interactive Guide](docs/development/api-documentation.md)
 - [API Reference](docs/api/README.md)
 - [Authentication Flow](docs/api/authentication.md)
 - [Device Management](docs/api/devices.md)
