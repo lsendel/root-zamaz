@@ -40,7 +40,7 @@ func TestHTTPMiddlewareIntegration(t *testing.T) {
 		})
 
 		// Add observability middleware
-		app.Use(middleware.ObservabilityMiddleware(obs, securityMetrics))
+		app.Use(middleware.ObservabilityMiddleware(obs, securityMetrics, nil))
 
 		// Add a test route that creates spans and logs
 		app.Post("/api/users", func(c *fiber.Ctx) error {
@@ -234,7 +234,7 @@ func TestMiddlewareChainIntegration(t *testing.T) {
 		})
 
 		// Add observability middleware
-		app.Use(middleware.ObservabilityMiddleware(obs, securityMetrics))
+		app.Use(middleware.ObservabilityMiddleware(obs, securityMetrics, nil))
 
 		// Add authentication simulation middleware
 		app.Use(func(c *fiber.Ctx) error {
@@ -390,7 +390,7 @@ func TestErrorPropagationThroughMiddleware(t *testing.T) {
 			},
 		})
 
-		app.Use(middleware.ObservabilityMiddleware(obs, securityMetrics))
+		app.Use(middleware.ObservabilityMiddleware(obs, securityMetrics, nil))
 
 		// Route that throws different types of errors
 		app.Get("/api/error/:type", func(c *fiber.Ctx) error {

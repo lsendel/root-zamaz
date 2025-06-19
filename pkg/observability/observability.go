@@ -77,7 +77,10 @@ type Config struct {
 	Environment string `env:"ENVIRONMENT" envDefault:"development"`
 
 	// OTLPEndpoint is the URL where traces should be sent using OTLP HTTP
-	OTLPEndpoint string `env:"OTLP_ENDPOINT" envDefault:"http://localhost:4318/v1/traces"`
+	OTLPEndpoint string `env:"OTLP_ENDPOINT" envDefault:""`
+
+	// JaegerEndpoint is kept for backward compatibility
+	JaegerEndpoint string `env:"JAEGER_ENDPOINT" envDefault:"http://localhost:14268/api/traces"`
 
 	// PrometheusPort is the port where metrics will be exposed
 	PrometheusPort int `env:"PROMETHEUS_PORT" envDefault:"9090"`
@@ -183,10 +186,13 @@ func New(cfg Config) (*Observability, error) {
 		return nil, fmt.Errorf("failed to create resource: %w", err)
 	}
 
-	// Initialize tracing with OTLP HTTP exporter
+	endpoint := cfg.OTLPEndpoint
+	if endpoint == "" {
+		endpoint = cfg.JaegerEndpoint
+	}
 	otlpExporter, err := otlptracehttp.New(
 		context.Background(),
-		otlptracehttp.WithEndpoint(cfg.OTLPEndpoint),
+		otlptracehttp.WithEndpoint(endpoint),
 		otlptracehttp.WithInsecure(), // Use HTTP instead of HTTPS for local dev
 	)
 	if err != nil {
@@ -194,7 +200,7 @@ func New(cfg Config) (*Observability, error) {
 	}
 
 	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithBatcher(jaegerExporter),
+		sdktrace.WithBatcher(otlpExporter),
 		sdktrace.WithResource(res),
 		sdktrace.WithSampler(sdktrace.AlwaysSample()),
 	)

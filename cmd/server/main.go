@@ -59,6 +59,7 @@ type Server struct {
 	jwtService           *auth.JWTService
 	lockoutService       *security.LockoutService
 	validationMiddleware *validation.ValidationMiddleware
+	slaMetrics           *observability.SLAMetrics
 }
 
 func main() {
@@ -109,6 +110,9 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize observability: %w", err)
 	}
+
+	slaMetrics, _ := observability.NewSLAMetrics(obs.Meter)
+	slaMetrics.StartUptimeCollection(context.Background(), time.Second)
 
 	// Security metrics will be initialized in middleware setup
 
@@ -184,6 +188,7 @@ func NewServer(cfg *config.Config) (*Server, error) {
 		authzService:   authzService,
 		jwtService:     jwtService,
 		lockoutService: lockoutService,
+		slaMetrics:     slaMetrics,
 	}
 
 	server.setupMiddleware()
@@ -226,7 +231,7 @@ func (s *Server) setupMiddleware() {
 
 	// 7. Observability middleware (metrics and monitoring)
 	securityMetrics, _ := observability.NewSecurityMetrics(s.obs.Meter)
-	s.app.Use(middleware.ObservabilityMiddleware(s.obs, securityMetrics))
+	s.app.Use(middleware.ObservabilityMiddleware(s.obs, securityMetrics, s.slaMetrics))
 
 	// 8. Validation middleware (validate requests before processing)
 	s.validationMiddleware = validation.NewValidationMiddleware(s.obs)
@@ -266,13 +271,13 @@ func (s *Server) setupRoutes() {
 
 	// Authentication routes (public)
 	authRoutes := api.Group("/auth")
-	authRoutes.Post("/login", 
+	authRoutes.Post("/login",
 		s.validationMiddleware.ValidateRequest(auth.LoginRequest{}),
 		authHandler.Login)
-	authRoutes.Post("/register", 
+	authRoutes.Post("/register",
 		s.validationMiddleware.ValidateRequest(handlers.RegisterRequest{}),
 		authHandler.Register)
-	authRoutes.Post("/refresh", 
+	authRoutes.Post("/refresh",
 		s.validationMiddleware.ValidateRequest(auth.RefreshRequest{}),
 		authHandler.RefreshToken)
 
@@ -381,7 +386,6 @@ func (s *Server) Start(ctx context.Context) error {
 		return nil
 	}
 }
-
 
 // joinStrings joins a slice of strings with a separator
 func joinStrings(slice []string, sep string) string {
