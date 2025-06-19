@@ -75,9 +75,9 @@ type DeviceAttestation struct {
 
 	// Device identification
 	UserID     uuid.UUID `gorm:"not null;index;type:uuid" json:"user_id"`
-	User       User   `json:"user,omitempty"`
-	DeviceID   string `gorm:"uniqueIndex;not null;size:100" json:"device_id"`
-	DeviceName string `gorm:"size:100" json:"device_name"`
+	User       User      `json:"user,omitempty"`
+	DeviceID   string    `gorm:"uniqueIndex;not null;size:100" json:"device_id"`
+	DeviceName string    `gorm:"size:100" json:"device_name"`
 
 	// Attestation data
 	TrustLevel      int        `gorm:"default:0" json:"trust_level"`
@@ -134,11 +134,11 @@ type LoginAttempt struct {
 	// Attempt details
 	Username      string     `gorm:"not null;size:50;index" json:"username"`
 	UserID        *uuid.UUID `gorm:"type:uuid;index" json:"user_id"`
-	User          *User   `json:"user,omitempty"`
-	IPAddress     string  `gorm:"not null;size:45;index" json:"ip_address"`
-	UserAgent     string  `gorm:"size:500" json:"user_agent"`
-	Success       bool    `gorm:"default:false;index" json:"success"`
-	FailureReason string  `gorm:"size:200" json:"failure_reason"`
+	User          *User      `json:"user,omitempty"`
+	IPAddress     string     `gorm:"not null;size:45;index" json:"ip_address"`
+	UserAgent     string     `gorm:"size:500" json:"user_agent"`
+	Success       bool       `gorm:"default:false;index" json:"success"`
+	FailureReason string     `gorm:"size:200" json:"failure_reason"`
 
 	// Security tracking
 	IsSuspicious  bool   `gorm:"default:false;index" json:"is_suspicious"`
@@ -153,10 +153,10 @@ type AuditLog struct {
 
 	// Audit details
 	UserID   *uuid.UUID `gorm:"index;type:uuid" json:"user_id"`
-	User     *User   `json:"user,omitempty"`
-	Action   string  `gorm:"not null;size:100" json:"action"`
-	Resource string  `gorm:"size:100" json:"resource"`
-	Details  string  `gorm:"type:jsonb" json:"details"` // JSON data
+	User     *User      `json:"user,omitempty"`
+	Action   string     `gorm:"not null;size:100" json:"action"`
+	Resource string     `gorm:"size:100" json:"resource"`
+	Details  string     `gorm:"type:jsonb" json:"details"` // JSON data
 
 	// Request context
 	IPAddress string `gorm:"size:45" json:"ip_address"`
@@ -164,6 +164,10 @@ type AuditLog struct {
 	RequestID string `gorm:"size:100" json:"request_id"`
 	Success   bool   `gorm:"default:false" json:"success"`
 	ErrorMsg  string `gorm:"size:500" json:"error_msg"`
+
+	// Compliance context
+	ComplianceTag string     `gorm:"size:50" json:"compliance_tag"`
+	RetainUntil   *time.Time `json:"retain_until"`
 }
 
 // TableName methods for custom table names if needed

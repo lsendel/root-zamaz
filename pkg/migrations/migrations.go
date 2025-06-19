@@ -556,5 +556,18 @@ DROP INDEX CONCURRENTLY IF EXISTS idx_audit_logs_user_action_time;
 DROP INDEX CONCURRENTLY IF EXISTS idx_user_sessions_user_device_active;
 `,
 		},
+		{
+			ID:          "005_audit_compliance_fields",
+			Description: "Add compliance tag and retention fields to audit logs",
+			Version:     1640995600, // 2022-01-01 + 400 seconds
+			UpSQL: `
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS compliance_tag VARCHAR(50);
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS retain_until TIMESTAMP WITH TIME ZONE;
+`,
+			DownSQL: `
+ALTER TABLE audit_logs DROP COLUMN IF EXISTS compliance_tag;
+ALTER TABLE audit_logs DROP COLUMN IF EXISTS retain_until;
+`,
+		},
 	}
 }
