@@ -2,6 +2,7 @@ package testutil
 
 import (
 	"context"
+	"io"
 	"testing"
 
 	"go.opentelemetry.io/otel/trace"
@@ -9,7 +10,7 @@ import (
 	"mvp.local/pkg/observability"
 )
 
-func SetupTestObservability(t *testing.T) *observability.Observability {
+func SetupTestObservability(t testing.TB) *observability.Observability {
 	t.Helper()
 
 	obs, err := observability.New(observability.Config{
@@ -34,4 +35,14 @@ func SetupTestObservability(t *testing.T) *observability.Observability {
 
 func NoopTracer() trace.Tracer {
 	return noop.NewTracerProvider().Tracer("test")
+}
+
+// SetupTestObservabilityWithWriter is like SetupTestObservability but sends logs
+// to the provided writer for easier assertions in tests.
+func SetupTestObservabilityWithWriter(t testing.TB, w io.Writer) *observability.Observability {
+	t.Helper()
+
+	obs := SetupTestObservability(t)
+	obs.Logger = obs.Logger.Output(w)
+	return obs
 }

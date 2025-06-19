@@ -1,3 +1,5 @@
+//go:build integration
+
 package middleware
 
 import (
@@ -81,10 +83,10 @@ func TestRateLimiter_getClientIP(t *testing.T) {
 	rateLimiter := NewRateLimiter(nil, obs)
 
 	testCases := []struct {
-		name           string
-		headers        map[string]string
-		remoteAddr     string
-		expectedIP     string
+		name       string
+		headers    map[string]string
+		remoteAddr string
+		expectedIP string
 	}{
 		{
 			name: "X-Forwarded-For_SingleIP",
@@ -141,13 +143,13 @@ func TestRateLimiter_getClientIP(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			app := fiber.New()
-			
+
 			app.Get("/test", func(c *fiber.Ctx) error {
 				// Set headers
 				for key, value := range tc.headers {
 					c.Request().Header.Set(key, value)
 				}
-				
+
 				ip := rateLimiter.getClientIP(c)
 				assert.Equal(t, tc.expectedIP, ip)
 				return c.SendStatus(200)
@@ -185,7 +187,7 @@ func TestRateLimiter_WithMockRedis(t *testing.T) {
 	// Create a test Redis client for integration testing
 	// Note: This requires a running Redis instance for full testing
 	testRedisAddr := "localhost:6379"
-	
+
 	t.Run("RateLimit_AllowedRequests", func(t *testing.T) {
 		if testing.Short() {
 			t.Skip("Skipping Redis integration test in short mode")
