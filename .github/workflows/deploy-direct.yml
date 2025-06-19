@@ -1,5 +1,9 @@
 name: Deploy to Kubernetes
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.inputs.environment || github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches:
@@ -45,8 +49,10 @@ jobs:
           
           if [[ "${{ github.event.inputs.image_tag }}" != "" ]]; then
             echo "image_tag=${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref_type }}" == "tag" ]]; then # Check if the ref is a tag
+            echo "image_tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT # Use the tag name
           else
-            echo "image_tag=${{ github.sha }}" >> $GITHUB_OUTPUT
+            echo "image_tag=${{ github.sha }}" >> $GITHUB_OUTPUT # Default to commit SHA
           fi
 
   deploy-staging:
@@ -59,16 +65,17 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
 
       - name: Set up kubectl
-        uses: azure/setup-kubectl@v3
+        uses: azure/setup-kubectl@v4.0.0
         with:
           version: 'v1.28.0'
 
       - name: Set up Kustomize
         run: |
-          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          curl -Lo kustomize.tar.gz "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.6.0/kustomize_v5.6.0_linux_amd64.tar.gz"
+          tar -xzf kustomize.tar.gz
           sudo mv kustomize /usr/local/bin/
 
       - name: Configure Kubernetes context
@@ -113,14 +120,29 @@ jobs:
           echo "🧪 Running smoke tests..."
           
           # Test auth service health
-          kubectl run smoke-test-auth --image=curlimages/curl:latest --rm -it --restart=Never -- \
+          kubectl run staging-smoke-test-auth --image=curlimages/curl:latest --rm -it --restart=Never -n staging -- \
             curl -f http://auth-service.staging.svc.cluster.local:8080/health || exit 1
           
           # Test frontend accessibility
-          kubectl run smoke-test-frontend --image=curlimages/curl:latest --rm -it --restart=Never -- \
+          kubectl run staging-smoke-test-frontend --image=curlimages/curl:latest --rm -it --restart=Never -n staging -- \
             curl -f http://frontend.staging.svc.cluster.local:3000/ || exit 1
+
+          # Test auth service metrics endpoint
+          kubectl run staging-smoke-test-auth-metrics --image=curlimages/curl:latest --rm -it --restart=Never -n staging -- \
+            curl -f http://auth-service.staging.svc.cluster.local:9000/metrics || exit 1
           
           echo "✅ Smoke tests passed"
+
+      - name: Verify all pods are running in staging
+        run: |
+          echo "Verifying pod statuses in staging namespace..."
+          failed_pods=$(kubectl get pods -n staging --field-selector=status.phase!=Running --no-headers | wc -l)
+          if [ $failed_pods -ne 0 ]; then
+            echo "❌ Some pods in staging are not running"
+            kubectl get pods -n staging
+            exit 1
+          fi
+          echo "✅ All pods in staging are running."
 
       - name: Get deployment status
         run: |
@@ -139,16 +161,17 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
 
       - name: Set up kubectl
-        uses: azure/setup-kubectl@v3
+        uses: azure/setup-kubectl@v4.0.0
         with:
           version: 'v1.28.0'
 
       - name: Set up Kustomize
         run: |
-          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          curl -Lo kustomize.tar.gz "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.6.0/kustomize_v5.6.0_linux_amd64.tar.gz"
+          tar -xzf kustomize.tar.gz
           sudo mv kustomize /usr/local/bin/
 
       - name: Configure Kubernetes context
@@ -200,15 +223,15 @@ jobs:
           echo "🧪 Running comprehensive health checks..."
           
           # Test auth service health
-          kubectl run health-check-auth --image=curlimages/curl:latest --rm -it --restart=Never -- \
+          kubectl run production-health-check-auth --image=curlimages/curl:latest --rm -it --restart=Never -n production -- \
             curl -f http://auth-service.production.svc.cluster.local:8080/health || exit 1
           
           # Test frontend accessibility
-          kubectl run health-check-frontend --image=curlimages/curl:latest --rm -it --restart=Never -- \
+          kubectl run production-health-check-frontend --image=curlimages/curl:latest --rm -it --restart=Never -n production -- \
             curl -f http://frontend.production.svc.cluster.local:3000/ || exit 1
           
           # Test metrics endpoints
-          kubectl run health-check-metrics --image=curlimages/curl:latest --rm -it --restart=Never -- \
+          kubectl run production-health-check-auth-metrics --image=curlimages/curl:latest --rm -it --restart=Never -n production -- \
             curl -f http://auth-service.production.svc.cluster.local:9000/metrics || exit 1
           
           echo "✅ All health checks passed"
@@ -249,15 +272,71 @@ jobs:
           echo "- Actor: ${{ github.actor }}"
 
   rollback:
-    if: failure()
+    if: (needs.deploy-staging.result == 'failure' || needs.deploy-production.result == 'failure')
     needs: [determine-environment, deploy-staging, deploy-production]
     runs-on: ubuntu-latest
     steps:
-      - name: Rollback deployment
+      - name: Configure kubectl for Rollback
         run: |
-          echo "🔄 Rolling back deployment..."
-          # This would contain rollback logic
-          # For now, just log the failure
-          echo "❌ Deployment failed. Manual intervention required."
-          echo "Environment: ${{ needs.determine-environment.outputs.environment }}"
-          echo "Image Tag: ${{ needs.determine-environment.outputs.image_tag }}"
+          mkdir -p $HOME/.kube
+          chmod 700 $HOME/.kube
+          NAMESPACE=""
+          if [[ "${{ needs.determine-environment.outputs.environment }}" == "staging" ]]; then
+            NAMESPACE="staging"
+            echo "${{ secrets.KUBE_CONFIG_STAGING }}" | base64 --decode > $HOME/.kube/config
+          elif [[ "${{ needs.determine-environment.outputs.environment }}" == "production" ]]; then
+            NAMESPACE="production"
+            echo "${{ secrets.KUBE_CONFIG_PRODUCTION }}" | base64 --decode > $HOME/.kube/config
+          else
+            echo "::error::Unknown environment for rollback: ${{ needs.determine-environment.outputs.environment }}"
+            exit 1
+          fi
+          chmod 600 $HOME/.kube/config
+          echo "Kubernetes context configured for $NAMESPACE"
+
+      - name: Set up kubectl CLI
+        uses: azure/setup-kubectl@v4.0.0
+        with:
+          version: 'v1.28.0' # Use a specific version consistent with deploy jobs
+
+      - name: Attempt Rollback
+        run: |
+          NAMESPACE=""
+          if [[ "${{ needs.determine-environment.outputs.environment }}" == "staging" ]]; then
+            NAMESPACE="staging"
+          elif [[ "${{ needs.determine-environment.outputs.environment }}" == "production" ]]; then
+            NAMESPACE="production"
+          else
+            # This case should ideally be caught by the previous step, but as a safeguard:
+            echo "::error::Unknown environment, cannot determine namespace for rollback."
+            exit 1
+          fi
+
+          echo "Attempting rollback for environment: $NAMESPACE"
+          echo "Failed Image Tag: ${{ needs.determine-environment.outputs.image_tag }}"
+
+          # Rollback deployments
+          if kubectl rollout undo deployment/auth-service -n $NAMESPACE; then
+            echo "✅ Rollback initiated for auth-service in $NAMESPACE"
+          else
+            echo "::error::Failed to initiate rollback for auth-service in $NAMESPACE. Check deployment name and namespace."
+          fi
+
+          if kubectl rollout undo deployment/frontend -n $NAMESPACE; then
+            echo "✅ Rollback initiated for frontend in $NAMESPACE"
+          else
+            echo "::error::Failed to initiate rollback for frontend in $NAMESPACE. Check deployment name and namespace."
+          fi
+
+          echo "Waiting a few seconds for rollback to apply..."
+          sleep 15 # Give some time for the rollback to take effect
+
+          echo "Verifying pods after rollback attempt in $NAMESPACE namespace..."
+          kubectl get pods -n $NAMESPACE
+
+          echo "Verifying rollout status of deployments in $NAMESPACE namespace..."
+          # Check status of specific deployments
+          kubectl rollout status deployment/auth-service -n $NAMESPACE --timeout=60s || echo "::warning::Rollback status check for auth-service failed or timed out."
+          kubectl rollout status deployment/frontend -n $NAMESPACE --timeout=60s || echo "::warning::Rollback status check for frontend failed or timed out."
+
+          echo "Rollback process completed. Manual verification recommended."
