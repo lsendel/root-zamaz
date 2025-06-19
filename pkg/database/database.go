@@ -45,8 +45,25 @@ func (d *Database) Connect() error {
 	dsn := d.config.DatabaseDSN()
 
 	// Configure GORM logger based on environment
-	var gormLogger logger.Interface
-	gormLogger = logger.Default.LogMode(logger.Info)
+	var gormLogLevel logger.LogLevel
+	switch strings.ToLower(d.config.LogLevel) {
+	case "silent":
+		gormLogLevel = logger.Silent
+	case "error":
+		gormLogLevel = logger.Error
+	case "warn":
+		gormLogLevel = logger.Warn
+	case "info":
+		gormLogLevel = logger.Info
+	default:
+		// Default to Info if the config value is invalid or empty
+		// Log a message indicating the use of default
+		// This requires access to a general-purpose logger if available,
+		// otherwise, just set default. For now, just set default.
+		gormLogLevel = logger.Info // Or logger.Warn as a safer default
+	}
+
+	gormLogger := logger.Default.LogMode(gormLogLevel)
 
 	// GORM configuration
 	gormConfig := &gorm.Config{

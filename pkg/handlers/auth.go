@@ -120,158 +120,27 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	userAgent := c.Get("User-Agent")
 	requestID := c.Get("X-Correlation-ID")
 
-	// Check IP-based lockout first
-	ipStatus, err := h.lockoutService.CheckIPLockout(ipAddress)
-	if err != nil {
-		h.obs.Logger.Error().Err(err).Str("ip_address", ipAddress).Msg("Failed to check IP lockout")
-		// Continue with login attempt even if lockout check fails
-	} else if ipStatus.IsLocked {
-		h.obs.Logger.Warn().
-			Str("ip_address", ipAddress).
-			Int("failed_attempts", ipStatus.FailedAttempts).
-			Dur("remaining_time", ipStatus.RemainingLockTime).
-			Msg("IP address is locked")
-
-		return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
-			"error":       "Too Many Requests",
-			"message":     "Too many failed login attempts from this IP address. Please try again later.",
-			"retry_after": int(ipStatus.RemainingLockTime.Seconds()),
-		})
+	// Check IP-based lockout
+	if locked, err := h.checkIPLockout(c, ipAddress); locked {
+		return err // Returns the JSON response set in checkIPLockout
 	}
 
 	// Check account-specific lockout
-	lockoutStatus, err := h.lockoutService.CheckAccountLockout(req.Username)
-	if err != nil {
-		h.obs.Logger.Error().Err(err).Str("username", req.Username).Msg("Failed to check account lockout")
-		// Continue with login attempt even if lockout check fails
-	} else if lockoutStatus.IsLocked {
-		h.obs.Logger.Warn().
-			Str("username", req.Username).
-			Time("locked_until", *lockoutStatus.LockedUntil).
-			Dur("remaining_time", lockoutStatus.RemainingLockTime).
-			Msg("Account is locked")
-
-		// Record the blocked attempt
-		_ = h.lockoutService.RecordFailedAttempt(req.Username, ipAddress, userAgent, requestID, "Account locked")
-
-		return c.Status(fiber.StatusLocked).JSON(fiber.Map{
-			"error":        "Account Locked",
-			"message":      "Account is temporarily locked due to multiple failed login attempts. Please try again later.",
-			"locked_until": lockoutStatus.LockedUntil.Unix(),
-			"retry_after":  int(lockoutStatus.RemainingLockTime.Seconds()),
-		})
+	if locked, err := h.checkAccountLockout(c, req.Username, ipAddress, userAgent, requestID); locked {
+		return err // Returns the JSON response set in checkAccountLockout
 	}
 
 	// Apply progressive delay if configured
-	if lockoutStatus.RequiresDelay && lockoutStatus.NextAttemptDelay > 0 {
-		h.obs.Logger.Info().
-			Str("username", req.Username).
-			Dur("delay", lockoutStatus.NextAttemptDelay).
-			Msg("Applying progressive delay")
-		time.Sleep(lockoutStatus.NextAttemptDelay)
-	}
+	h.applyLoginDelay(req.Username)
 
-	// Find user by username or email
-	var user models.User
-	err = h.db.Where("username = ? OR email = ?", req.Username, req.Username).First(&user).Error
+	// Authenticate user (find user, check active, verify password)
+	user, err := h.authenticateUser(c, req.Username, req.Password, ipAddress, userAgent, requestID)
 	if err != nil {
-		failureReason := "User not found"
-		if err != gorm.ErrRecordNotFound {
-			failureReason = "Database error"
-			h.obs.Logger.Error().Err(err).Msg("Database error during login")
-		} else {
-			h.obs.Logger.Info().Str("username", req.Username).Msg("User not found in database")
-		}
-
-		// Record failed attempt (protects against user enumeration)
-		_ = h.lockoutService.RecordFailedAttempt(req.Username, ipAddress, userAgent, requestID, failureReason)
-		h.logAuthEvent(c, "", "login_failed", false, failureReason)
-
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error":   "Unauthorized",
-			"message": "Invalid credentials",
-		})
+		return err // Returns the JSON response set in authenticateUser
 	}
 
-	h.obs.Logger.Info().
-		Str("user_id", user.ID).
-		Str("username", user.Username).
-		Bool("is_active", user.IsActive).
-		Msg("User found in database")
-
-	// Check if user is active
-	if !user.IsActive {
-		h.obs.Logger.Info().Msg("User account is disabled")
-		_ = h.lockoutService.RecordFailedAttempt(req.Username, ipAddress, userAgent, requestID, "Account disabled")
-		h.logAuthEvent(c, user.ID, "login_failed", false, "Account disabled")
-
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error":   "Unauthorized",
-			"message": "Account is disabled",
-		})
-	}
-
-	// Ensure JWT service is available
-	if h.jwtService == nil {
-		h.obs.Logger.Error().Msg("JWT service is nil - authentication system misconfigured")
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Internal Server Error",
-			"message": "Authentication system is not properly configured",
-		})
-	}
-
-	// Verify password using JWT service
-	h.obs.Logger.Info().Msg("Verifying password with JWT service")
-	if err := h.jwtService.CheckPassword(user.PasswordHash, req.Password); err != nil {
-		h.obs.Logger.Info().
-			Err(err).
-			Str("user_id", user.ID).
-			Msg("Password verification failed")
-
-		// Record failed attempt
-		_ = h.lockoutService.RecordFailedAttempt(req.Username, ipAddress, userAgent, requestID, "Invalid password")
-		h.logAuthEvent(c, user.ID, "login_failed", false, "Invalid password")
-
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error":   "Unauthorized",
-			"message": "Invalid credentials",
-		})
-	}
-	h.obs.Logger.Info().Msg("Password verified successfully")
-
-	// Get user roles and permissions
-	roles, permissions, err := h.jwtService.GetUserRolesAndPermissions(user.ID)
-	if err != nil {
-		h.obs.Logger.Error().Err(err).Str("user_id", user.ID).Msg("Failed to get user roles and permissions")
-		// Set default roles if authorization service fails
-		roles = []string{"user"}
-		permissions = []string{}
-		if user.IsAdmin {
-			roles = append(roles, "admin")
-		}
-	}
-
-	// Generate JWT tokens
-	tokenResponse, err := h.jwtService.GenerateToken(&user, roles, permissions)
-	if err != nil {
-		h.obs.Logger.Error().Err(err).Str("user_id", user.ID).Msg("Failed to generate JWT token")
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Internal Server Error",
-			"message": "Failed to generate authentication token",
-		})
-	}
-
-	// Record successful login (this resets failed attempts)
-	err = h.lockoutService.RecordSuccessfulAttempt(req.Username, ipAddress, userAgent, requestID)
-	if err != nil {
-		h.obs.Logger.Error().Err(err).Msg("Failed to record successful login attempt")
-		// Don't fail the login for this error
-	}
-
-	// Log successful authentication
-	h.logAuthEvent(c, user.ID, "login_success", true, "")
-
-	return c.JSON(tokenResponse)
+	// Handle successful login (generate tokens, record success, log event)
+	return h.handleSuccessfulLogin(c, user, ipAddress, userAgent, requestID, req.DeviceID)
 }
 
 // Register handles user registration requests
@@ -597,21 +466,192 @@ func (h *AuthHandler) ChangePassword(c *fiber.Ctx) error {
 
 // Helper methods
 
-func (h *AuthHandler) calculateTrustLevel(user *models.User, deviceID string) int {
-	if deviceID == "" {
-		return 30 // Low trust for unidentified devices
+// checkIPLockout checks if an IP address is currently locked out due to too many failed login attempts.
+// It returns true if the IP is locked, along with an error message suitable for the client.
+// Otherwise, it returns false, nil.
+func (h *AuthHandler) checkIPLockout(c *fiber.Ctx, ipAddress string) (bool, error) {
+	ipStatus, err := h.lockoutService.CheckIPLockout(ipAddress)
+	if err != nil {
+		h.obs.Logger.Error().Err(err).Str("ip_address", ipAddress).Msg("Failed to check IP lockout")
+		// Continue with login attempt even if lockout check fails, so return false, nil
+		return false, nil
+	}
+	if ipStatus.IsLocked {
+		h.obs.Logger.Warn().
+			Str("ip_address", ipAddress).
+			Int("failed_attempts", ipStatus.FailedAttempts).
+			Dur("remaining_time", ipStatus.RemainingLockTime).
+			Msg("IP address is locked")
+
+		return true, c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
+			"error":       "Too Many Requests",
+			"message":     "Too many failed login attempts from this IP address. Please try again later.",
+			"retry_after": int(ipStatus.RemainingLockTime.Seconds()),
+		})
+	}
+	return false, nil
+}
+
+// checkAccountLockout checks if a user account is currently locked out.
+// It returns true if the account is locked, along with an error message suitable for the client.
+// Otherwise, it returns false, nil.
+func (h *AuthHandler) checkAccountLockout(c *fiber.Ctx, username, ipAddress, userAgent, requestID string) (bool, error) {
+	lockoutStatus, err := h.lockoutService.CheckAccountLockout(username)
+	if err != nil {
+		h.obs.Logger.Error().Err(err).Str("username", username).Msg("Failed to check account lockout")
+		// Continue with login attempt even if lockout check fails, so return false, nil
+		return false, nil
+	}
+	if lockoutStatus.IsLocked {
+		h.obs.Logger.Warn().
+			Str("username", username).
+			Time("locked_until", *lockoutStatus.LockedUntil).
+			Dur("remaining_time", lockoutStatus.RemainingLockTime).
+			Msg("Account is locked")
+
+		// Record the blocked attempt
+		_ = h.lockoutService.RecordFailedAttempt(username, ipAddress, userAgent, requestID, "Account locked")
+
+		return true, c.Status(fiber.StatusLocked).JSON(fiber.Map{
+			"error":        "Account Locked",
+			"message":      "Account is temporarily locked due to multiple failed login attempts. Please try again later.",
+			"locked_until": lockoutStatus.LockedUntil.Unix(),
+			"retry_after":  int(lockoutStatus.RemainingLockTime.Seconds()),
+		})
+	}
+	return false, nil
+}
+
+// applyLoginDelay applies a progressive delay if required by the lockout status.
+func (h *AuthHandler) applyLoginDelay(username string) {
+	// Check account-specific lockout for delay information
+	lockoutStatus, err := h.lockoutService.CheckAccountLockout(username)
+	if err != nil {
+		h.obs.Logger.Error().Err(err).Str("username", username).Msg("Failed to check account lockout for delay")
+		return
 	}
 
-	// Check if device is attested
-	var attestation models.DeviceAttestation
-	err := h.db.Where("user_id = ? AND device_id = ? AND is_verified = ?", user.ID, deviceID, true).
-		First(&attestation).Error
+	if lockoutStatus.RequiresDelay && lockoutStatus.NextAttemptDelay > 0 {
+		h.obs.Logger.Info().
+			Str("username", username).
+			Dur("delay", lockoutStatus.NextAttemptDelay).
+			Msg("Applying progressive delay")
+		time.Sleep(lockoutStatus.NextAttemptDelay)
+	}
+}
 
-	if err == nil {
-		return attestation.TrustLevel
+// authenticateUser finds a user by username/email, checks if the user is active, and verifies the password.
+// It returns the user object if authentication is successful.
+// Otherwise, it records failed attempts, logs events, and returns an error suitable for the client.
+func (h *AuthHandler) authenticateUser(c *fiber.Ctx, username, password, ipAddress, userAgent, requestID string) (*models.User, error) {
+	// Find user by username or email
+	var user models.User
+	err := h.db.Where("username = ? OR email = ?", username, username).First(&user).Error
+	if err != nil {
+		failureReason := "User not found"
+		if err != gorm.ErrRecordNotFound {
+			failureReason = "Database error"
+			h.obs.Logger.Error().Err(err).Msg("Database error during login")
+		} else {
+			h.obs.Logger.Info().Str("username", username).Msg("User not found in database")
+		}
+
+		// Record failed attempt (protects against user enumeration)
+		_ = h.lockoutService.RecordFailedAttempt(username, ipAddress, userAgent, requestID, failureReason)
+		h.logAuthEvent(c, "", "login_failed", false, failureReason)
+
+		return nil, c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error":   "Unauthorized",
+			"message": "Invalid credentials",
+		})
 	}
 
-	return 50 // Medium trust for identified but unverified devices
+	h.obs.Logger.Info().
+		Str("user_id", user.ID).
+		Str("username", user.Username).
+		Bool("is_active", user.IsActive).
+		Msg("User found in database")
+
+	// Check if user is active
+	if !user.IsActive {
+		h.obs.Logger.Info().Msg("User account is disabled")
+		_ = h.lockoutService.RecordFailedAttempt(username, ipAddress, userAgent, requestID, "Account disabled")
+		h.logAuthEvent(c, user.ID, "login_failed", false, "Account disabled")
+
+		return nil, c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error":   "Unauthorized",
+			"message": "Account is disabled",
+		})
+	}
+
+	// Ensure JWT service is available
+	if h.jwtService == nil {
+		h.obs.Logger.Error().Msg("JWT service is nil - authentication system misconfigured")
+		return nil, c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Internal Server Error",
+			"message": "Authentication system is not properly configured",
+		})
+	}
+
+	// Verify password using JWT service
+	h.obs.Logger.Info().Msg("Verifying password with JWT service")
+	if err := h.jwtService.CheckPassword(user.PasswordHash, password); err != nil {
+		h.obs.Logger.Info().
+			Err(err).
+			Str("user_id", user.ID).
+			Msg("Password verification failed")
+
+		// Record failed attempt
+		_ = h.lockoutService.RecordFailedAttempt(username, ipAddress, userAgent, requestID, "Invalid password")
+		h.logAuthEvent(c, user.ID, "login_failed", false, "Invalid password")
+
+		return nil, c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error":   "Unauthorized",
+			"message": "Invalid credentials",
+		})
+	}
+	h.obs.Logger.Info().Msg("Password verified successfully")
+	return &user, nil
+}
+
+// handleSuccessfulLogin handles the steps after successful authentication:
+// getting roles/permissions, generating JWT tokens, recording success, and logging.
+// It returns an error suitable for the client if token generation fails.
+func (h *AuthHandler) handleSuccessfulLogin(c *fiber.Ctx, user *models.User, ipAddress, userAgent, requestID, deviceID string) error {
+	// Get user roles and permissions
+	roles, permissions, err := h.jwtService.GetUserRolesAndPermissions(user.ID)
+	if err != nil {
+		h.obs.Logger.Error().Err(err).Str("user_id", user.ID).Msg("Failed to get user roles and permissions")
+		// Set default roles if authorization service fails
+		roles = []string{"user"}
+		permissions = []string{}
+		if user.IsAdmin {
+			roles = append(roles, "admin")
+		}
+	}
+
+	// Generate JWT tokens
+	// Pass deviceID from the login request, and 0 for trustLevel to use default logic in GenerateToken.
+	tokenResponse, err := h.jwtService.GenerateToken(user, roles, permissions, deviceID, 0)
+	if err != nil {
+		h.obs.Logger.Error().Err(err).Str("user_id", user.ID).Msg("Failed to generate JWT token")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Internal Server Error",
+			"message": "Failed to generate authentication token",
+		})
+	}
+
+	// Record successful login (this resets failed attempts)
+	err = h.lockoutService.RecordSuccessfulAttempt(user.Username, ipAddress, userAgent, requestID)
+	if err != nil {
+		h.obs.Logger.Error().Err(err).Msg("Failed to record successful login attempt")
+		// Don't fail the login for this error
+	}
+
+	// Log successful authentication
+	h.logAuthEvent(c, user.ID, "login_success", true, "")
+
+	return c.JSON(tokenResponse)
 }
 
 func (h *AuthHandler) logAuthEvent(c *fiber.Ctx, userID string, event string, success bool, details string) {

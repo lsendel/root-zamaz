@@ -49,17 +49,14 @@ type RefreshRequest struct {
 
 // JWTService handles JWT operations
 type JWTService struct {
-	config         *config.JWTConfig
-	authzService   AuthorizationInterface
-	secret         []byte
-	refreshSecret  []byte
-	expiryDuration time.Duration
-	refreshExpiry  time.Duration
+	config       *config.JWTConfig
+	authzService AuthorizationInterface
+	// secret, refreshSecret, expiryDuration, and refreshExpiry are now derived from config
 }
 
 // JWTServiceInterface defines the contract for JWT operations
 type JWTServiceInterface interface {
-	GenerateToken(user *models.User, roles []string, permissions []string) (*LoginResponse, error)
+	GenerateToken(user *models.User, roles []string, permissions []string, deviceID string, trustLevel int) (*LoginResponse, error)
 	GenerateRefreshToken(userID string) (string, error)
 	ValidateToken(tokenString string) (*JWTClaims, error)
 	ValidateRefreshToken(tokenString string) (string, error)
@@ -71,25 +68,19 @@ type JWTServiceInterface interface {
 
 // NewJWTService creates a new JWT service
 func NewJWTService(config *config.JWTConfig, authzService AuthorizationInterface) *JWTService {
-	secret := []byte(config.Secret)
-	if len(secret) == 0 {
-		panic("JWT secret is required and must be set via JWT_SECRET environment variable")
+	if config.Secret == "" {
+		panic("JWT secret is required and must be set via JWT_SECRET environment variable or config")
 	}
 
-	refreshSecret := []byte(config.Secret + "-refresh")
-
 	return &JWTService{
-		config:         config,
-		authzService:   authzService,
-		secret:         secret,
-		refreshSecret:  refreshSecret,
-		expiryDuration: config.ExpiryDuration,
-		refreshExpiry:  time.Hour * 24 * 7, // 7 days for refresh token
+		config:       config,
+		authzService: authzService,
+		// secret, refreshSecret, expiryDuration, and refreshExpiry are derived from config
 	}
 }
 
 // GenerateToken generates a new JWT access token and returns a complete login response
-func (j *JWTService) GenerateToken(user *models.User, roles []string, permissions []string) (*LoginResponse, error) {
+func (j *JWTService) GenerateToken(user *models.User, roles []string, permissions []string, deviceID string, trustLevel int) (*LoginResponse, error) {
 	if j == nil {
 		return nil, fmt.Errorf("JWT service is nil")
 	}
@@ -101,11 +92,13 @@ func (j *JWTService) GenerateToken(user *models.User, roles []string, permission
 	}
 
 	now := time.Now()
-	expiresAt := now.Add(j.expiryDuration)
+	expiresAt := now.Add(j.config.ExpiryDuration)
 
 	// Default device ID and trust level if not provided
-	deviceID := ""
-	trustLevel := 50
+	// deviceID is passed as a parameter
+	if trustLevel == 0 {
+		trustLevel = 50 // TODO: Revisit trustLevel assignment logic; defaults to 50 if 0 is passed.
+	}
 
 	claims := &JWTClaims{
 		UserID:      user.ID,
@@ -127,7 +120,7 @@ func (j *JWTService) GenerateToken(user *models.User, roles []string, permission
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(j.secret)
+	tokenString, err := token.SignedString([]byte(j.config.Secret))
 	if err != nil {
 		return nil, errors.Wrap(err, errors.CodeInternal, "Failed to sign JWT token")
 	}
@@ -149,7 +142,9 @@ func (j *JWTService) GenerateToken(user *models.User, roles []string, permission
 // GenerateRefreshToken generates a new JWT refresh token
 func (j *JWTService) GenerateRefreshToken(userID string) (string, error) {
 	now := time.Now()
-	expiresAt := now.Add(j.refreshExpiry)
+	// Use a fixed refresh expiry, e.g., 7 days, or make it configurable if needed
+	refreshExpiryDuration := time.Hour * 24 * 7
+	expiresAt := now.Add(refreshExpiryDuration)
 
 	claims := &jwt.RegisteredClaims{
 		ID:        fmt.Sprintf("refresh-%s-%d", userID, now.Unix()),
@@ -162,7 +157,7 @@ func (j *JWTService) GenerateRefreshToken(userID string) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(j.refreshSecret)
+	tokenString, err := token.SignedString([]byte(j.config.Secret + "-refresh"))
 	if err != nil {
 		return "", errors.Wrap(err, errors.CodeInternal, "Failed to sign JWT refresh token")
 	}
@@ -176,18 +171,18 @@ func (j *JWTService) ValidateToken(tokenString string) (*JWTClaims, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return j.secret, nil
+		return []byte(j.config.Secret), nil
 	})
 
 	if err != nil {
-		// JWT v5 simplified error handling - check error message patterns
-		errMsg := err.Error()
-		if strings.Contains(errMsg, "expired") {
+		if errors.Is(err, jwt.ErrTokenExpired) {
 			return nil, errors.Unauthorized("Token expired")
-		} else if strings.Contains(errMsg, "not valid yet") {
+		} else if errors.Is(err, jwt.ErrTokenNotValidYet) {
 			return nil, errors.Unauthorized("Token not valid yet")
-		} else if strings.Contains(errMsg, "malformed") {
+		} else if errors.Is(err, jwt.ErrTokenMalformed) {
 			return nil, errors.Unauthorized("Malformed token")
+		} else if errors.Is(err, jwt.ErrTokenSignatureInvalid) {
+			return nil, errors.Unauthorized("Invalid token signature")
 		}
 		return nil, errors.Wrap(err, errors.CodeUnauthorized, "Invalid token")
 	}
@@ -205,7 +200,7 @@ func (j *JWTService) ValidateRefreshToken(tokenString string) (string, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return j.refreshSecret, nil
+		return []byte(j.config.Secret + "-refresh"), nil
 	})
 
 	if err != nil {
@@ -232,7 +227,8 @@ func (j *JWTService) RefreshAccessToken(refreshToken string, user *models.User, 
 	}
 
 	// Generate new access token
-	tokenResponse, err := j.GenerateToken(user, roles, permissions)
+	// TODO: Determine how to handle deviceID and trustLevel during token refresh; using empty/default for now.
+	tokenResponse, err := j.GenerateToken(user, roles, permissions, "", 0)
 	if err != nil {
 		return nil, err
 	}

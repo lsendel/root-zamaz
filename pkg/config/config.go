@@ -71,6 +71,7 @@ type DatabaseConfig struct {
 	// Performance tuning
 	PrepareStmt       bool          `yaml:"prepare_stmt" env:"DB_PREPARE_STMT" default:"true"`
 	DisableForeignKey bool          `yaml:"disable_foreign_key" env:"DB_DISABLE_FOREIGN_KEY" default:"false"`
+	LogLevel          string        `yaml:"log_level" env:"DB_LOG_LEVEL" default:"info"` // New field
 	
 	// Monitoring
 	EnableMetrics     bool          `yaml:"enable_metrics" env:"DB_ENABLE_METRICS" default:"true"`
@@ -261,6 +262,7 @@ func loadFromEnv(config *Config) error {
 	config.Database.MaxConnections = getEnvIntWithDefault("DB_MAX_CONNECTIONS", 25)
 	config.Database.MaxIdleConns = getEnvIntWithDefault("DB_MAX_IDLE_CONNS", 5)
 	config.Database.ConnMaxLifetime = getEnvDurationWithDefault("DB_CONN_MAX_LIFETIME", 300*time.Second)
+	config.Database.LogLevel = getEnvWithDefault("DB_LOG_LEVEL", "info") // Set default for LogLevel
 
 	// Set Redis config
 	config.Redis.Host = getEnvWithDefault("REDIS_HOST", "localhost")
