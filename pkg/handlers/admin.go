@@ -3,9 +3,6 @@
 package handlers
 
 import (
-	"fmt"
-	"strconv"
-
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 
@@ -191,9 +188,6 @@ func (h *AdminHandler) UpdateRole(c *fiber.Ctx) error {
 	role, err := h.fetchRole(c, roleID)
 	if err != nil {
 		return err // Error is already a Fiber response
-	role, err := h.fetchRole(c, roleID)
-	if err != nil {
-		return err // Error is already a Fiber response
 	}
 
 	// Update fields if provided
@@ -298,15 +292,9 @@ func (h *AdminHandler) AssignPermissionToRole(c *fiber.Ctx) error {
 	role, err := h.fetchRole(c, roleID)
 	if err != nil {
 		return err // Error is already a Fiber response
-	role, err := h.fetchRole(c, roleID)
-	if err != nil {
-		return err // Error is already a Fiber response
 	}
 
 	// Verify permission exists
-	permission, err := h.fetchPermission(c, permissionID)
-	if err != nil {
-		return err // Error is already a Fiber response
 	permission, err := h.fetchPermission(c, permissionID)
 	if err != nil {
 		return err // Error is already a Fiber response
@@ -396,12 +384,12 @@ func (h *AdminHandler) RemovePermissionFromRole(c *fiber.Ctx) error {
 // @Router /admin/users [get]
 func (h *AdminHandler) GetUsers(c *fiber.Ctx) error {
 	var users []models.User
-	
+
 	// Fix N+1 query problem: Preload relationships to avoid lazy loading
 	if err := h.db.
-		Preload("Roles", "is_active = ?", true).          // Eager load active roles
+		Preload("Roles", "is_active = ?", true).             // Eager load active roles
 		Preload("Roles.Permissions", "is_active = ?", true). // Eager load active permissions
-		Where("is_active = ?", true).                      // Only active users
+		Where("is_active = ?", true).                        // Only active users
 		Find(&users).Error; err != nil {
 		h.obs.Logger.Error().Err(err).Msg("Failed to fetch users with relationships")
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -472,9 +460,6 @@ func (h *AdminHandler) UpdateUser(c *fiber.Ctx) error {
 		})
 	}
 
-	user, err := h.fetchUser(c, userID)
-	if err != nil {
-		return err // Error is already a Fiber response
 	user, err := h.fetchUser(c, userID)
 	if err != nil {
 		return err // Error is already a Fiber response
@@ -564,9 +549,6 @@ func (h *AdminHandler) AssignRoleToUser(c *fiber.Ctx) error {
 	}
 
 	// Get role name from roleID
-	role, err := h.fetchRole(c, roleID)
-	if err != nil {
-		return err // Error is already a Fiber response
 	role, err := h.fetchRole(c, roleID)
 	if err != nil {
 		return err // Error is already a Fiber response

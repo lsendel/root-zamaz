@@ -168,18 +168,12 @@ func (h *SystemHandler) SystemHealth(c *fiber.Ctx) error {
 	}()
 	userID, err := auth.GetCurrentUserID(c)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error":   "Unauthorized",
-			"message": "Not authenticated",
-		})
+		return HandleAuthenticationError(c, "")
 	}
 
 	// Check permission
 	if err := h.authzService.CheckPermission(userID, "system", "read"); err != nil {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"error":   "Forbidden",
-			"message": "Insufficient permissions",
-		})
+		return HandleAuthorizationError(c, "")
 	}
 
 	response := HealthResponse{

@@ -194,7 +194,7 @@ func New(cfg Config) (*Observability, error) {
 	}
 
 	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithBatcher(jaegerExporter),
+		sdktrace.WithBatcher(otlpExporter),
 		sdktrace.WithResource(res),
 		sdktrace.WithSampler(sdktrace.AlwaysSample()),
 	)
