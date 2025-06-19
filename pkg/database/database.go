@@ -49,7 +49,7 @@ func (d *Database) Connect() error {
 
 	// GORM configuration
 	gormConfig := &gorm.Config{
-		Logger: gormLogger,
+		Logger:         gormLogger,
 		NamingStrategy: nil, // Use default naming strategy
 	}
 
@@ -106,7 +106,7 @@ func (d *Database) Migrate() error {
 	// Skip auto-migration entirely since we're using SQL migrations
 	// The database schema is already created by scripts/sql/init/migrations.sql
 	// The SQL migrations handle all table creation and constraints
-	
+
 	// Only check if the database connection works
 	return d.Health()
 }
@@ -162,16 +162,16 @@ func (d *Database) GetStats() (map[string]interface{}, error) {
 	}
 
 	stats := sqlDB.Stats()
-	
+
 	return map[string]interface{}{
 		"max_open_connections": stats.MaxOpenConnections,
 		"open_connections":     stats.OpenConnections,
-		"in_use":              stats.InUse,
-		"idle":                stats.Idle,
-		"wait_count":          stats.WaitCount,
-		"wait_duration":       stats.WaitDuration.String(),
-		"max_idle_closed":     stats.MaxIdleClosed,
+		"in_use":               stats.InUse,
+		"idle":                 stats.Idle,
+		"wait_count":           stats.WaitCount,
+		"wait_duration":        stats.WaitDuration.String(),
+		"max_idle_closed":      stats.MaxIdleClosed,
 		"max_idle_time_closed": stats.MaxIdleTimeClosed,
-		"max_lifetime_closed": stats.MaxLifetimeClosed,
+		"max_lifetime_closed":  stats.MaxLifetimeClosed,
 	}, nil
 }

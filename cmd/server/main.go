@@ -145,7 +145,7 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	// Initialize authorization service (temporarily disabled for UUID migration)
 	var authzService *auth.AuthorizationService
 	// authzService := auth.NewAuthorizationService()
-	
+
 	// Get the absolute path to the RBAC model
 	// modelPath, err := filepath.Abs("configs/rbac_model.conf")
 	// if err != nil {
@@ -285,18 +285,18 @@ func (s *Server) setupRoutes() {
 		// Simplified admin routes when authorization service is disabled
 		adminRoutes = api.Group("/admin", authMiddleware.RequireAuth())
 	}
-	
+
 	// Role management
 	adminRoutes.Get("/roles", adminHandler.GetRoles)
 	adminRoutes.Post("/roles", adminHandler.CreateRole)
 	adminRoutes.Put("/roles/:id", adminHandler.UpdateRole)
 	adminRoutes.Delete("/roles/:id", adminHandler.DeleteRole)
-	
+
 	// Permission management
 	adminRoutes.Get("/permissions", adminHandler.GetPermissions)
 	adminRoutes.Post("/roles/:roleId/permissions/:permissionId", adminHandler.AssignPermissionToRole)
 	adminRoutes.Delete("/roles/:roleId/permissions/:permissionId", adminHandler.RemovePermissionFromRole)
-	
+
 	// User management
 	adminRoutes.Get("/users", adminHandler.GetUsers)
 	adminRoutes.Get("/users/:id", adminHandler.GetUserById)
@@ -324,7 +324,7 @@ func (s *Server) Start(ctx context.Context) error {
 	go func() {
 		addr := s.config.HTTP.HTTPAddr()
 		s.obs.Logger.Info().Str("address", addr).Msg("Starting HTTP server")
-		
+
 		if s.config.HTTP.TLS.Enabled {
 			errChan <- s.app.ListenTLS(addr, s.config.HTTP.TLS.CertFile, s.config.HTTP.TLS.KeyFile)
 		} else {
@@ -336,30 +336,30 @@ func (s *Server) Start(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		s.obs.Logger.Info().Msg("Shutting down server gracefully")
-		
+
 		// Graceful shutdown with timeout
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		
+
 		if err := s.app.ShutdownWithContext(shutdownCtx); err != nil {
 			s.obs.Logger.Error().Err(err).Msg("Server forced to shutdown")
 		}
-		
+
 		// Close database connection
 		if err := s.db.Close(); err != nil {
 			s.obs.Logger.Error().Err(err).Msg("Failed to close database connection")
 		}
-		
+
 		// Close Redis connection
 		if s.redisClient != nil {
 			if err := s.redisClient.Close(); err != nil {
 				s.obs.Logger.Error().Err(err).Msg("Failed to close Redis connection")
 			}
 		}
-		
+
 		s.obs.Logger.Info().Msg("Server shutdown complete")
 		return nil
-		
+
 	case err := <-errChan:
 		if err != nil {
 			s.obs.Logger.Error().Err(err).Msg("Server error")

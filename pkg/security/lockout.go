@@ -13,7 +13,6 @@ import (
 	"mvp.local/pkg/observability"
 )
 
-
 // LockoutService handles account lockout and brute force protection
 type LockoutService struct {
 	db     *gorm.DB
@@ -28,26 +27,26 @@ type LockoutServiceInterface interface {
 	RecordFailedAttempt(username, ipAddress, userAgent, requestID, reason string) error
 	RecordSuccessfulAttempt(username, ipAddress, userAgent, requestID string) error
 	UnlockAccount(username string) error
-	
+
 	// IP-based protection
 	CheckIPLockout(ipAddress string) (*IPLockoutStatus, error)
-	
+
 	// Progressive delay
 	CalculateDelay(attemptCount int) time.Duration
-	
+
 	// Suspicious activity detection
 	DetectSuspiciousActivity(username, ipAddress string) (*SuspiciousActivityReport, error)
 }
 
 // LockoutStatus represents the current lockout status of an account
 type LockoutStatus struct {
-	IsLocked           bool
-	LockedAt           *time.Time
-	LockedUntil        *time.Time
-	FailedAttempts     int
-	RemainingLockTime  time.Duration
-	NextAttemptDelay   time.Duration
-	RequiresDelay      bool
+	IsLocked          bool
+	LockedAt          *time.Time
+	LockedUntil       *time.Time
+	FailedAttempts    int
+	RemainingLockTime time.Duration
+	NextAttemptDelay  time.Duration
+	RequiresDelay     bool
 }
 
 // IPLockoutStatus represents the lockout status of an IP address
@@ -75,16 +74,16 @@ func NewLockoutService(db *gorm.DB, obs *observability.Observability, lockoutCon
 			LockoutDuration:     15 * time.Minute,
 			ResetWindow:         1 * time.Hour,
 			ProgressiveDelay:    true,
-			BaseDelay:          1 * time.Second,
-			MaxDelay:           30 * time.Second,
+			BaseDelay:           1 * time.Second,
+			MaxDelay:            30 * time.Second,
 			EnableNotifications: true,
-			IPLockoutEnabled:   true,
-			IPLockoutThreshold: 10,
-			IPLockoutDuration:  1 * time.Hour,
+			IPLockoutEnabled:    true,
+			IPLockoutThreshold:  10,
+			IPLockoutDuration:   1 * time.Hour,
 		}
 		lockoutConfig = &defaultConfig
 	}
-	
+
 	return &LockoutService{
 		db:     db,
 		obs:    obs,
@@ -119,18 +118,18 @@ func (s *LockoutService) CheckAccountLockout(username string) (*LockoutStatus, e
 		status.LockedAt = user.AccountLockedAt
 		status.LockedUntil = user.AccountLockedUntil
 		status.RemainingLockTime = user.AccountLockedUntil.Sub(now)
-		
+
 		s.obs.Logger.Info().
 			Str("username", username).
 			Time("locked_until", *user.AccountLockedUntil).
 			Dur("remaining_time", status.RemainingLockTime).
 			Msg("Account is currently locked")
-		
+
 		return status, nil
 	}
 
 	// Check if we need to reset failed attempts due to time window
-	if user.LastFailedLoginAt != nil && 
+	if user.LastFailedLoginAt != nil &&
 		now.Sub(*user.LastFailedLoginAt) > s.config.ResetWindow {
 		// Reset failed attempts counter
 		err = s.db.Model(&user).Updates(map[string]interface{}{
@@ -159,7 +158,7 @@ func (s *LockoutService) CheckAccountLockout(username string) (*LockoutStatus, e
 // RecordFailedAttempt records a failed login attempt and applies lockout if necessary
 func (s *LockoutService) RecordFailedAttempt(username, ipAddress, userAgent, requestID, reason string) error {
 	now := time.Now()
-	
+
 	// Record the login attempt
 	loginAttempt := models.LoginAttempt{
 		Username:      username,
@@ -196,7 +195,7 @@ func (s *LockoutService) RecordFailedAttempt(username, ipAddress, userAgent, req
 	} else {
 		loginAttempt.UserID = &user.ID
 		loginAttempt.User = &user
-		
+
 		// Update user's failed attempt counter
 		newFailedAttempts := user.FailedLoginAttempts + 1
 		updates := map[string]interface{}{
@@ -209,13 +208,13 @@ func (s *LockoutService) RecordFailedAttempt(username, ipAddress, userAgent, req
 			lockedUntil := now.Add(s.config.LockoutDuration)
 			updates["account_locked_at"] = &now
 			updates["account_locked_until"] = &lockedUntil
-			
+
 			s.obs.Logger.Warn().
 				Str("username", username).
 				Int("failed_attempts", newFailedAttempts).
 				Time("locked_until", lockedUntil).
 				Msg("Account locked due to too many failed attempts")
-			
+
 			// TODO: Send notification about account lockout
 			if s.config.EnableNotifications {
 				go s.sendLockoutNotification(username, ipAddress, newFailedAttempts)
@@ -240,7 +239,7 @@ func (s *LockoutService) RecordFailedAttempt(username, ipAddress, userAgent, req
 // RecordSuccessfulAttempt records a successful login and resets failed attempts
 func (s *LockoutService) RecordSuccessfulAttempt(username, ipAddress, userAgent, requestID string) error {
 	now := time.Now()
-	
+
 	// Find the user
 	var user models.User
 	err := s.db.Where("username = ? OR email = ?", username, username).First(&user).Error
@@ -300,7 +299,7 @@ func (s *LockoutService) UnlockAccount(username string) error {
 	result := s.db.Model(&models.User{}).
 		Where("username = ? OR email = ?", username, username).
 		Updates(updates)
-	
+
 	if result.Error != nil {
 		return fmt.Errorf("failed to unlock account: %w", result.Error)
 	}
@@ -325,11 +324,11 @@ func (s *LockoutService) CheckIPLockout(ipAddress string) (*IPLockoutStatus, err
 	// Count failed attempts from this IP in the last hour
 	since := time.Now().Add(-s.config.IPLockoutDuration)
 	var count int64
-	
+
 	err := s.db.Model(&models.LoginAttempt{}).
 		Where("ip_address = ? AND success = false AND created_at > ?", ipAddress, since).
 		Count(&count).Error
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to count IP attempts: %w", err)
 	}
@@ -345,14 +344,14 @@ func (s *LockoutService) CheckIPLockout(ipAddress string) (*IPLockoutStatus, err
 		err = s.db.Where("ip_address = ? AND success = false AND created_at > ?", ipAddress, since).
 			Order("created_at ASC").
 			First(&oldestAttempt).Error
-		
+
 		if err == nil {
 			lockExpiry := oldestAttempt.CreatedAt.Add(s.config.IPLockoutDuration)
 			if lockExpiry.After(time.Now()) {
 				status.RemainingLockTime = lockExpiry.Sub(time.Now())
 			}
 		}
-		
+
 		s.obs.Logger.Warn().
 			Str("ip_address", ipAddress).
 			Int("failed_attempts", int(count)).
@@ -370,7 +369,7 @@ func (s *LockoutService) CalculateDelay(attemptCount int) time.Duration {
 
 	// Exponential backoff: baseDelay * 2^(attemptCount-1)
 	delay := s.config.BaseDelay * time.Duration(1<<uint(attemptCount-1))
-	
+
 	if delay > s.config.MaxDelay {
 		delay = s.config.MaxDelay
 	}
@@ -383,7 +382,7 @@ func (s *LockoutService) DetectSuspiciousActivity(username, ipAddress string) (*
 	now := time.Now()
 	timeWindow := 10 * time.Minute
 	since := now.Add(-timeWindow)
-	
+
 	report := &SuspiciousActivityReport{
 		TimeWindow: timeWindow,
 		Reasons:    []string{},

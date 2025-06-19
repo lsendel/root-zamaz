@@ -36,10 +36,10 @@ type LoginRequest struct {
 
 // LoginResponse represents a login response
 type LoginResponse struct {
-	Token        string      `json:"token"`
-	RefreshToken string      `json:"refresh_token"`
+	Token        string       `json:"token"`
+	RefreshToken string       `json:"refresh_token"`
 	User         *models.User `json:"user"`
-	ExpiresAt    time.Time   `json:"expires_at"`
+	ExpiresAt    time.Time    `json:"expires_at"`
 }
 
 // RefreshRequest represents a token refresh request
@@ -49,12 +49,12 @@ type RefreshRequest struct {
 
 // JWTService handles JWT operations
 type JWTService struct {
-	config            *config.JWTConfig
-	authzService      AuthorizationInterface
-	secret            []byte
-	refreshSecret     []byte
-	expiryDuration    time.Duration
-	refreshExpiry     time.Duration
+	config         *config.JWTConfig
+	authzService   AuthorizationInterface
+	secret         []byte
+	refreshSecret  []byte
+	expiryDuration time.Duration
+	refreshExpiry  time.Duration
 }
 
 // JWTServiceInterface defines the contract for JWT operations
@@ -79,12 +79,12 @@ func NewJWTService(config *config.JWTConfig, authzService AuthorizationInterface
 	refreshSecret := []byte(config.Secret + "-refresh")
 
 	return &JWTService{
-		config:            config,
-		authzService:      authzService,
-		secret:            secret,
-		refreshSecret:     refreshSecret,
-		expiryDuration:    config.ExpiryDuration,
-		refreshExpiry:     time.Hour * 24 * 7, // 7 days for refresh token
+		config:         config,
+		authzService:   authzService,
+		secret:         secret,
+		refreshSecret:  refreshSecret,
+		expiryDuration: config.ExpiryDuration,
+		refreshExpiry:  time.Hour * 24 * 7, // 7 days for refresh token
 	}
 }
 
@@ -99,7 +99,7 @@ func (j *JWTService) GenerateToken(user *models.User, roles []string, permission
 	if user == nil {
 		return nil, fmt.Errorf("user is nil")
 	}
-	
+
 	now := time.Now()
 	expiresAt := now.Add(j.expiryDuration)
 
@@ -281,11 +281,11 @@ func (j *JWTService) GetUserRolesAndPermissions(userID string) ([]string, []stri
 		// Return empty roles and permissions when authorization service is disabled
 		return []string{}, []string{}, nil
 	}
-	
+
 	// Check if the interface contains a nil pointer using type assertion
 	// This happens when a nil *AuthorizationService is assigned to the interface
 	if authz, ok := j.authzService.(*AuthorizationService); ok && authz == nil {
-		// Return empty roles and permissions when authorization service is disabled  
+		// Return empty roles and permissions when authorization service is disabled
 		return []string{}, []string{}, nil
 	}
 

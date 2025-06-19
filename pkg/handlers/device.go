@@ -495,7 +495,7 @@ func (h *DeviceHandler) DeleteDevice(c *fiber.Ctx) error {
 
 	// Check permission - user can delete their own devices, or admin can delete any
 	canDeleteAll, _ := h.authzService.Enforce(userID, "device", "delete")
-	
+
 	var device models.DeviceAttestation
 	if canDeleteAll {
 		if err := h.db.First(&device, uint(deviceID)).Error; err != nil {

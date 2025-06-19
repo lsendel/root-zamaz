@@ -3,17 +3,17 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 	"log"
+	"net/http"
 )
 
 // EnvoyHeaders represents headers that Envoy can add
 type EnvoyHeaders struct {
-	RequestID       string `header:"x-request-id"`
-	SPIFFEID       string `header:"x-spiffe-id"`
-	TrustLevel     string `header:"x-trust-level"`
-	OriginalIP     string `header:"x-forwarded-for"`
-	EnvoyInternal  string `header:"x-envoy-internal"`
+	RequestID     string `header:"x-request-id"`
+	SPIFFEID      string `header:"x-spiffe-id"`
+	TrustLevel    string `header:"x-trust-level"`
+	OriginalIP    string `header:"x-forwarded-for"`
+	EnvoyInternal string `header:"x-envoy-internal"`
 }
 
 // Middleware to extract Envoy-provided headers
@@ -22,9 +22,9 @@ func EnvoyHeadersMiddleware(next http.Handler) http.Handler {
 		// Extract Envoy headers
 		headers := EnvoyHeaders{
 			RequestID:     r.Header.Get("x-request-id"),
-			SPIFFEID:     r.Header.Get("x-spiffe-id"),
-			TrustLevel:   r.Header.Get("x-trust-level"),
-			OriginalIP:   r.Header.Get("x-forwarded-for"),
+			SPIFFEID:      r.Header.Get("x-spiffe-id"),
+			TrustLevel:    r.Header.Get("x-trust-level"),
+			OriginalIP:    r.Header.Get("x-forwarded-for"),
 			EnvoyInternal: r.Header.Get("x-envoy-internal"),
 		}
 
@@ -32,7 +32,7 @@ func EnvoyHeadersMiddleware(next http.Handler) http.Handler {
 		if headers.RequestID != "" {
 			log.Printf("Request ID from Envoy: %s", headers.RequestID)
 		}
-		
+
 		if headers.SPIFFEID != "" {
 			log.Printf("SPIFFE ID from Envoy: %s", headers.SPIFFEID)
 		}
@@ -46,7 +46,7 @@ func EnvoyHeadersMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
-		
+
 		next.ServeHTTP(w, r)
 	})
 }
@@ -82,14 +82,14 @@ func authHandler(w http.ResponseWriter, r *http.Request) {
 // Example of how to configure your server to work with Envoy
 func main() {
 	mux := http.NewServeMux()
-	
+
 	// Apply Envoy headers middleware to all routes
 	handler := EnvoyHeadersMiddleware(mux)
-	
+
 	// Register routes
 	mux.HandleFunc("/health", healthCheckHandler)
 	mux.HandleFunc("/api/auth/login", authHandler)
-	
+
 	// Start server on port that Envoy forwards to
 	log.Println("Starting server on :8080 (behind Envoy proxy)")
 	log.Fatal(http.ListenAndServe(":8080", handler))

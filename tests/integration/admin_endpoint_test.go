@@ -29,14 +29,14 @@ import (
 )
 
 func TestAdminEndpointsWithFullStack(t *testing.T) {
-	// Set up test environment 
+	// Set up test environment
 	os.Setenv("DISABLE_AUTH", "true")
 	os.Setenv("ENVIRONMENT", "test")
-	
+
 	// Load config
 	cfg, err := config.Load()
 	require.NoError(t, err)
-	
+
 	// Initialize observability with reduced logging
 	obsConfig := observability.Config{
 		ServiceName:    cfg.Observability.ServiceName,
@@ -48,20 +48,20 @@ func TestAdminEndpointsWithFullStack(t *testing.T) {
 	obs, err := observability.New(obsConfig)
 	require.NoError(t, err)
 	defer obs.Shutdown()
-	
+
 	// Initialize database
 	db := database.NewDatabase(&cfg.Database)
 	err = db.Connect()
 	require.NoError(t, err)
-	
+
 	// Ensure we have test data
 	setupAdminTestData(t, db.GetDB())
-	
+
 	// Initialize handlers and middleware
 	adminHandler := handlers.NewAdminHandler(db.GetDB(), nil, obs)
 	authMiddleware := auth.NewAuthenticationService(db.GetDB(), obs, &cfg.Security)
 	middlewareService := middleware.NewMiddleware(obs, authMiddleware)
-	
+
 	// Create full Fiber app like in production
 	app := fiber.New(fiber.Config{
 		ErrorHandler: func(c *fiber.Ctx, err error) error {
@@ -78,13 +78,13 @@ func TestAdminEndpointsWithFullStack(t *testing.T) {
 			})
 		},
 	})
-	
+
 	// Add observability middleware
 	app.Use(middlewareService.Observability())
-	
+
 	// Setup routes exactly like production
 	api := app.Group("/api")
-	
+
 	// Add authentication middleware for admin routes
 	admin := api.Group("/admin", middlewareService.RequireAuth())
 	admin.Get("/roles", adminHandler.GetRoles)
@@ -92,7 +92,7 @@ func TestAdminEndpointsWithFullStack(t *testing.T) {
 	admin.Post("/roles", adminHandler.CreateRole)
 	admin.Put("/roles/:id", adminHandler.UpdateRole)
 	admin.Delete("/roles/:id", adminHandler.DeleteRole)
-	
+
 	// Test cases covering different scenarios
 	testCases := []struct {
 		name           string
@@ -127,7 +127,7 @@ func TestAdminEndpointsWithFullStack(t *testing.T) {
 		},
 		{
 			name:           "Get Users - Test User Endpoint",
-			method:         "GET", 
+			method:         "GET",
 			path:           "/api/admin/users",
 			expectedStatus: 200,
 			validateFunc: func(t *testing.T, resp *http.Response, body []byte) {
@@ -157,14 +157,14 @@ func TestAdminEndpointsWithFullStack(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Setup if needed
 			if tc.setupFunc != nil {
 				tc.setupFunc(t)
 			}
-			
+
 			// Prepare request
 			var req *http.Request
 			if tc.body != nil {
@@ -175,25 +175,25 @@ func TestAdminEndpointsWithFullStack(t *testing.T) {
 			} else {
 				req = httptest.NewRequest(tc.method, tc.path, nil)
 			}
-			
+
 			// Execute request
 			resp, err := app.Test(req, 10000) // 10 second timeout
 			require.NoError(t, err)
-			
+
 			// Read response body
 			body := make([]byte, 2048)
 			n, _ := resp.Body.Read(body)
 			body = body[:n]
-			
+
 			t.Logf("Test: %s", tc.name)
 			t.Logf("Status: %d (expected: %d)", resp.StatusCode, tc.expectedStatus)
 			t.Logf("Body: %s", string(body))
-			
+
 			// Validate response
 			if resp.StatusCode != tc.expectedStatus {
 				t.Errorf("Expected status %d, got %d. Body: %s", tc.expectedStatus, resp.StatusCode, string(body))
 			}
-			
+
 			if tc.validateFunc != nil && resp.StatusCode == tc.expectedStatus {
 				tc.validateFunc(t, resp, body)
 			}
@@ -204,48 +204,48 @@ func TestAdminEndpointsWithFullStack(t *testing.T) {
 func TestNilPointerDebugging(t *testing.T) {
 	// Isolated test to reproduce and fix the nil pointer issue
 	os.Setenv("DISABLE_AUTH", "true")
-	
+
 	cfg, err := config.Load()
 	require.NoError(t, err)
-	
+
 	obsConfig := observability.Config{
 		ServiceName:    "test-admin",
 		ServiceVersion: "test",
 		Environment:    "test",
-		LogLevel:       "debug", // Enable debug logging 
+		LogLevel:       "debug", // Enable debug logging
 		LogFormat:      "json",
 	}
 	obs, err := observability.New(obsConfig)
 	require.NoError(t, err)
 	defer obs.Shutdown()
-	
+
 	db := database.NewDatabase(&cfg.Database)
 	err = db.Connect()
 	require.NoError(t, err)
-	
+
 	t.Run("Test Admin Handler Creation", func(t *testing.T) {
 		// Test that handler can be created without panic
 		adminHandler := handlers.NewAdminHandler(db.GetDB(), nil, obs)
 		assert.NotNil(t, adminHandler)
 	})
-	
+
 	t.Run("Test Handler Method Call Directly", func(t *testing.T) {
 		adminHandler := handlers.NewAdminHandler(db.GetDB(), nil, obs)
-		
+
 		// Create a minimal Fiber context for testing
 		app := fiber.New()
 		req := httptest.NewRequest("GET", "/admin/roles", nil)
-		
+
 		// Test the handler method directly
 		err := app.Test(req, 1000)
 		assert.NoError(t, err)
 	})
-	
+
 	t.Run("Test With Middleware Stack", func(t *testing.T) {
 		adminHandler := handlers.NewAdminHandler(db.GetDB(), nil, obs)
 		authMiddleware := auth.NewAuthenticationService(db.GetDB(), obs, &cfg.Security)
 		middlewareService := middleware.NewMiddleware(obs, authMiddleware)
-		
+
 		app := fiber.New(fiber.Config{
 			ErrorHandler: func(c *fiber.Ctx, err error) error {
 				t.Logf("🚨 ERROR CAUGHT: %+v", err)
@@ -254,27 +254,27 @@ func TestNilPointerDebugging(t *testing.T) {
 				return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 			},
 		})
-		
+
 		// Add middleware step by step and test at each step
 		app.Use(middlewareService.Observability())
-		
+
 		// Test without auth middleware first
 		app.Get("/test1", adminHandler.GetRoles)
 		req1 := httptest.NewRequest("GET", "/test1", nil)
 		resp1, err := app.Test(req1, 1000)
 		require.NoError(t, err)
 		t.Logf("✅ Without auth middleware: Status %d", resp1.StatusCode)
-		
+
 		// Now add auth middleware
 		api := app.Group("/api")
 		admin := api.Group("/admin", middlewareService.RequireAuth())
 		admin.Get("/roles", adminHandler.GetRoles)
-		
+
 		req2 := httptest.NewRequest("GET", "/api/admin/roles", nil)
 		resp2, err := app.Test(req2, 1000)
 		require.NoError(t, err)
 		t.Logf("🔍 With auth middleware: Status %d", resp2.StatusCode)
-		
+
 		// Read response to see what happened
 		body := make([]byte, 1024)
 		n, _ := resp2.Body.Read(body)
@@ -286,34 +286,34 @@ func setupAdminTestData(t *testing.T, db *gorm.DB) {
 	// Ensure we have some basic roles for testing
 	var count int64
 	db.Model(&models.Role{}).Count(&count)
-	
+
 	if count == 0 {
 		roles := []models.Role{
 			{Name: "admin", Description: "System administrator", IsActive: true},
 			{Name: "user", Description: "Regular user", IsActive: true},
 		}
-		
+
 		for _, role := range roles {
 			result := db.Create(&role)
 			require.NoError(t, result.Error)
 			t.Logf("Created test role: %+v", role)
 		}
 	}
-	
+
 	// Ensure we have some basic users
 	db.Model(&models.User{}).Count(&count)
 	if count == 0 {
 		users := []models.User{
 			{
-				ID:       "test-admin-user",
-				Username: "testadmin",
-				Email:    "testadmin@example.com",
+				ID:           "test-admin-user",
+				Username:     "testadmin",
+				Email:        "testadmin@example.com",
 				PasswordHash: "test-hash",
-				IsActive: true,
-				IsAdmin:  true,
+				IsActive:     true,
+				IsAdmin:      true,
 			},
 		}
-		
+
 		for _, user := range users {
 			result := db.Create(&user)
 			require.NoError(t, result.Error)

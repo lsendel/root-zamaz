@@ -18,12 +18,12 @@ import (
 
 // AuthHandler handles authentication-related HTTP requests
 type AuthHandler struct {
-	db            *gorm.DB
-	jwtService    auth.JWTServiceInterface
-	authzService  auth.AuthorizationInterface
+	db             *gorm.DB
+	jwtService     auth.JWTServiceInterface
+	authzService   auth.AuthorizationInterface
 	lockoutService security.LockoutServiceInterface
-	obs           *observability.Observability
-	config        *config.Config
+	obs            *observability.Observability
+	config         *config.Config
 }
 
 // AuthHandlerInterface defines the contract for authentication handlers
@@ -75,12 +75,12 @@ func NewAuthHandler(
 	config *config.Config,
 ) *AuthHandler {
 	return &AuthHandler{
-		db:            db,
-		jwtService:    jwtService,
-		authzService:  authzService,
+		db:             db,
+		jwtService:     jwtService,
+		authzService:   authzService,
 		lockoutService: lockoutService,
-		obs:           obs,
-		config:        config,
+		obs:            obs,
+		config:         config,
 	}
 }
 
@@ -131,10 +131,10 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 			Int("failed_attempts", ipStatus.FailedAttempts).
 			Dur("remaining_time", ipStatus.RemainingLockTime).
 			Msg("IP address is locked")
-		
+
 		return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
-			"error":   "Too Many Requests",
-			"message": "Too many failed login attempts from this IP address. Please try again later.",
+			"error":       "Too Many Requests",
+			"message":     "Too many failed login attempts from this IP address. Please try again later.",
 			"retry_after": int(ipStatus.RemainingLockTime.Seconds()),
 		})
 	}
@@ -150,15 +150,15 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 			Time("locked_until", *lockoutStatus.LockedUntil).
 			Dur("remaining_time", lockoutStatus.RemainingLockTime).
 			Msg("Account is locked")
-		
+
 		// Record the blocked attempt
 		_ = h.lockoutService.RecordFailedAttempt(req.Username, ipAddress, userAgent, requestID, "Account locked")
-		
+
 		return c.Status(fiber.StatusLocked).JSON(fiber.Map{
-			"error":   "Account Locked",
-			"message": "Account is temporarily locked due to multiple failed login attempts. Please try again later.",
+			"error":        "Account Locked",
+			"message":      "Account is temporarily locked due to multiple failed login attempts. Please try again later.",
 			"locked_until": lockoutStatus.LockedUntil.Unix(),
-			"retry_after": int(lockoutStatus.RemainingLockTime.Seconds()),
+			"retry_after":  int(lockoutStatus.RemainingLockTime.Seconds()),
 		})
 	}
 
@@ -182,17 +182,17 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 		} else {
 			h.obs.Logger.Info().Str("username", req.Username).Msg("User not found in database")
 		}
-		
+
 		// Record failed attempt (protects against user enumeration)
 		_ = h.lockoutService.RecordFailedAttempt(req.Username, ipAddress, userAgent, requestID, failureReason)
 		h.logAuthEvent(c, "", "login_failed", false, failureReason)
-		
+
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error":   "Unauthorized",
 			"message": "Invalid credentials",
 		})
 	}
-	
+
 	h.obs.Logger.Info().
 		Str("user_id", user.ID).
 		Str("username", user.Username).
@@ -204,7 +204,7 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 		h.obs.Logger.Info().Msg("User account is disabled")
 		_ = h.lockoutService.RecordFailedAttempt(req.Username, ipAddress, userAgent, requestID, "Account disabled")
 		h.logAuthEvent(c, user.ID, "login_failed", false, "Account disabled")
-		
+
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error":   "Unauthorized",
 			"message": "Account is disabled",
@@ -227,11 +227,11 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 			Err(err).
 			Str("user_id", user.ID).
 			Msg("Password verification failed")
-		
+
 		// Record failed attempt
 		_ = h.lockoutService.RecordFailedAttempt(req.Username, ipAddress, userAgent, requestID, "Invalid password")
 		h.logAuthEvent(c, user.ID, "login_failed", false, "Invalid password")
-		
+
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error":   "Unauthorized",
 			"message": "Invalid credentials",
@@ -606,7 +606,7 @@ func (h *AuthHandler) calculateTrustLevel(user *models.User, deviceID string) in
 	var attestation models.DeviceAttestation
 	err := h.db.Where("user_id = ? AND device_id = ? AND is_verified = ?", user.ID, deviceID, true).
 		First(&attestation).Error
-	
+
 	if err == nil {
 		return attestation.TrustLevel
 	}

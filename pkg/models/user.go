@@ -38,7 +38,7 @@ type User struct {
 	// Zero Trust fields
 	DeviceAttestations []DeviceAttestation `json:"device_attestations,omitempty"`
 	Sessions           []UserSession       `json:"sessions,omitempty"`
-	
+
 	// RBAC relationships
 	Roles []Role `gorm:"many2many:user_roles;" json:"roles,omitempty"`
 }
@@ -58,11 +58,11 @@ type UserSession struct {
 	IsActive     bool      `gorm:"default:true" json:"is_active"`
 
 	// Device and location tracking
-	DeviceID    string `gorm:"size:100" json:"device_id"`
-	IPAddress   string `gorm:"size:45" json:"ip_address"`
-	UserAgent   string `gorm:"size:500" json:"user_agent"`
-	Location    string `gorm:"size:100" json:"location"`
-	TrustLevel  int    `gorm:"default:0" json:"trust_level"`
+	DeviceID   string `gorm:"size:100" json:"device_id"`
+	IPAddress  string `gorm:"size:45" json:"ip_address"`
+	UserAgent  string `gorm:"size:500" json:"user_agent"`
+	Location   string `gorm:"size:100" json:"location"`
+	TrustLevel int    `gorm:"default:0" json:"trust_level"`
 }
 
 // DeviceAttestation represents device attestation data for Zero Trust
@@ -79,15 +79,15 @@ type DeviceAttestation struct {
 	DeviceName string `gorm:"size:100" json:"device_name"`
 
 	// Attestation data
-	TrustLevel       int       `gorm:"default:0" json:"trust_level"`
-	IsVerified       bool      `gorm:"default:false" json:"is_verified"`
-	VerifiedAt       *time.Time `json:"verified_at"`
-	AttestationData  string    `gorm:"type:jsonb" json:"attestation_data"` // JSON data
-	Platform         string    `gorm:"size:50" json:"platform"`
-	
+	TrustLevel      int        `gorm:"default:0" json:"trust_level"`
+	IsVerified      bool       `gorm:"default:false" json:"is_verified"`
+	VerifiedAt      *time.Time `json:"verified_at"`
+	AttestationData string     `gorm:"type:jsonb" json:"attestation_data"` // JSON data
+	Platform        string     `gorm:"size:50" json:"platform"`
+
 	// SPIRE integration
-	SPIFFEID         string    `gorm:"size:200" json:"spiffe_id"`
-	WorkloadSelector string    `gorm:"size:200" json:"workload_selector"`
+	SPIFFEID         string `gorm:"size:200" json:"spiffe_id"`
+	WorkloadSelector string `gorm:"size:200" json:"workload_selector"`
 }
 
 // Role represents a role in the RBAC system
@@ -131,14 +131,14 @@ type LoginAttempt struct {
 	CreatedAt time.Time `json:"created_at"`
 
 	// Attempt details
-	Username     string  `gorm:"not null;size:50;index" json:"username"`
-	UserID       *string `gorm:"type:uuid;index" json:"user_id"`
-	User         *User   `json:"user,omitempty"`
-	IPAddress    string  `gorm:"not null;size:45;index" json:"ip_address"`
-	UserAgent    string  `gorm:"size:500" json:"user_agent"`
-	Success      bool    `gorm:"default:false;index" json:"success"`
-	FailureReason string `gorm:"size:200" json:"failure_reason"`
-	
+	Username      string  `gorm:"not null;size:50;index" json:"username"`
+	UserID        *string `gorm:"type:uuid;index" json:"user_id"`
+	User          *User   `json:"user,omitempty"`
+	IPAddress     string  `gorm:"not null;size:45;index" json:"ip_address"`
+	UserAgent     string  `gorm:"size:500" json:"user_agent"`
+	Success       bool    `gorm:"default:false;index" json:"success"`
+	FailureReason string  `gorm:"size:200" json:"failure_reason"`
+
 	// Security tracking
 	IsSuspicious  bool   `gorm:"default:false;index" json:"is_suspicious"`
 	BlockedByRate bool   `gorm:"default:false" json:"blocked_by_rate"`
@@ -151,18 +151,18 @@ type AuditLog struct {
 	CreatedAt time.Time `json:"created_at"`
 
 	// Audit details
-	UserID    *string `gorm:"index;type:uuid" json:"user_id"`
-	User      *User  `json:"user,omitempty"`
-	Action    string `gorm:"not null;size:100" json:"action"`
-	Resource  string `gorm:"size:100" json:"resource"`
-	Details   string `gorm:"type:jsonb" json:"details"` // JSON data
-	
+	UserID   *string `gorm:"index;type:uuid" json:"user_id"`
+	User     *User   `json:"user,omitempty"`
+	Action   string  `gorm:"not null;size:100" json:"action"`
+	Resource string  `gorm:"size:100" json:"resource"`
+	Details  string  `gorm:"type:jsonb" json:"details"` // JSON data
+
 	// Request context
-	IPAddress   string `gorm:"size:45" json:"ip_address"`
-	UserAgent   string `gorm:"size:500" json:"user_agent"`
-	RequestID   string `gorm:"size:100" json:"request_id"`
-	Success     bool   `gorm:"default:false" json:"success"`
-	ErrorMsg    string `gorm:"size:500" json:"error_msg"`
+	IPAddress string `gorm:"size:45" json:"ip_address"`
+	UserAgent string `gorm:"size:500" json:"user_agent"`
+	RequestID string `gorm:"size:100" json:"request_id"`
+	Success   bool   `gorm:"default:false" json:"success"`
+	ErrorMsg  string `gorm:"size:500" json:"error_msg"`
 }
 
 // TableName methods for custom table names if needed

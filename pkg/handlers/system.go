@@ -37,10 +37,10 @@ type HealthResponse struct {
 
 // ServiceInfo represents service health information
 type ServiceInfo struct {
-	Status      string                 `json:"status"`
-	LastCheck   time.Time              `json:"last_check"`
-	ResponseTime string                `json:"response_time"`
-	Details     map[string]interface{} `json:"details,omitempty"`
+	Status       string                 `json:"status"`
+	LastCheck    time.Time              `json:"last_check"`
+	ResponseTime string                 `json:"response_time"`
+	Details      map[string]interface{} `json:"details,omitempty"`
 }
 
 // SystemStatsResponse represents system statistics

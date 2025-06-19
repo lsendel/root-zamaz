@@ -12,6 +12,7 @@ import (
 	"mvp.local/pkg/auth"
 	"mvp.local/pkg/models"
 	"mvp.local/pkg/observability"
+	"mvp.local/pkg/security"
 )
 
 // MockJWTService is a mock implementation of auth.JWTServiceInterface
@@ -296,4 +297,53 @@ func NewMockObservability() *observability.Observability {
 func (m *MockAuthorizationService) AssignUserRole(userID string, role string) error {
 	// This is an alias for AddRoleForUser to match the test expectations
 	return m.AddRoleForUser(userID, role)
+}
+
+// MockLockoutService is a mock implementation of security.LockoutServiceInterface
+type MockLockoutService struct {
+	mock.Mock
+}
+
+func (m *MockLockoutService) CheckAccountLockout(username string) (*security.LockoutStatus, error) {
+	args := m.Called(username)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*security.LockoutStatus), args.Error(1)
+}
+
+func (m *MockLockoutService) RecordFailedAttempt(username, ipAddress, userAgent, requestID, reason string) error {
+	args := m.Called(username, ipAddress, userAgent, requestID, reason)
+	return args.Error(0)
+}
+
+func (m *MockLockoutService) RecordSuccessfulAttempt(username, ipAddress, userAgent, requestID string) error {
+	args := m.Called(username, ipAddress, userAgent, requestID)
+	return args.Error(0)
+}
+
+func (m *MockLockoutService) UnlockAccount(username string) error {
+	args := m.Called(username)
+	return args.Error(0)
+}
+
+func (m *MockLockoutService) CheckIPLockout(ipAddress string) (*security.IPLockoutStatus, error) {
+	args := m.Called(ipAddress)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*security.IPLockoutStatus), args.Error(1)
+}
+
+func (m *MockLockoutService) CalculateDelay(attemptCount int) time.Duration {
+	args := m.Called(attemptCount)
+	return args.Get(0).(time.Duration)
+}
+
+func (m *MockLockoutService) DetectSuspiciousActivity(username, ipAddress string) (*security.SuspiciousActivityReport, error) {
+	args := m.Called(username, ipAddress)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*security.SuspiciousActivityReport), args.Error(1)
 }

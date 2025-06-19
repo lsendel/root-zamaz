@@ -57,7 +57,7 @@ func (h *AdminHandler) GetRoles(c *fiber.Ctx) error {
 			"is_active":   true,
 		},
 	}
-	
+
 	return c.JSON(testRoles)
 }
 

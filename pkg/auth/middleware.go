@@ -62,7 +62,6 @@ func (a *AuthMiddleware) RequireAuth() fiber.Handler {
 			return a.sendUnauthorized(c, err.Error())
 		}
 
-
 		// Validate token
 		claims, err := a.jwtService.ValidateToken(tokenString)
 		if err != nil {
