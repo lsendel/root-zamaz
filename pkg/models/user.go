@@ -27,6 +27,14 @@ type User struct {
 	IsActive  bool   `gorm:"default:true" json:"is_active"`
 	IsAdmin   bool   `gorm:"default:false" json:"is_admin"`
 
+	// Account security fields
+	FailedLoginAttempts int        `gorm:"default:0" json:"-"`
+	LastFailedLoginAt   *time.Time `json:"-"`
+	AccountLockedAt     *time.Time `json:"-"`
+	AccountLockedUntil  *time.Time `json:"-"`
+	LastLoginAt         *time.Time `json:"last_login_at"`
+	LastLoginIP         string     `gorm:"size:45" json:"-"`
+
 	// Zero Trust fields
 	DeviceAttestations []DeviceAttestation `json:"device_attestations,omitempty"`
 	Sessions           []UserSession       `json:"sessions,omitempty"`
@@ -117,6 +125,26 @@ type Permission struct {
 	Roles []Role `gorm:"many2many:role_permissions;" json:"roles,omitempty"`
 }
 
+// LoginAttempt represents a login attempt for security tracking and rate limiting
+type LoginAttempt struct {
+	ID        string    `gorm:"primarykey;type:uuid;default:gen_random_uuid()" json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+
+	// Attempt details
+	Username     string  `gorm:"not null;size:50;index" json:"username"`
+	UserID       *string `gorm:"type:uuid;index" json:"user_id"`
+	User         *User   `json:"user,omitempty"`
+	IPAddress    string  `gorm:"not null;size:45;index" json:"ip_address"`
+	UserAgent    string  `gorm:"size:500" json:"user_agent"`
+	Success      bool    `gorm:"default:false;index" json:"success"`
+	FailureReason string `gorm:"size:200" json:"failure_reason"`
+	
+	// Security tracking
+	IsSuspicious  bool   `gorm:"default:false;index" json:"is_suspicious"`
+	BlockedByRate bool   `gorm:"default:false" json:"blocked_by_rate"`
+	RequestID     string `gorm:"size:100" json:"request_id"`
+}
+
 // AuditLog represents system audit logs for security tracking
 type AuditLog struct {
 	ID        string    `gorm:"primarykey;type:uuid;default:gen_random_uuid()" json:"id"`
@@ -162,6 +190,11 @@ func (Role) TableName() string {
 // TableName sets the table name for Permission model
 func (Permission) TableName() string {
 	return "permissions"
+}
+
+// TableName sets the table name for LoginAttempt model
+func (LoginAttempt) TableName() string {
+	return "login_attempts"
 }
 
 // TableName sets the table name for AuditLog model

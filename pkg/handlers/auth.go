@@ -4,7 +4,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -14,15 +13,17 @@ import (
 	"mvp.local/pkg/config"
 	"mvp.local/pkg/models"
 	"mvp.local/pkg/observability"
+	"mvp.local/pkg/security"
 )
 
 // AuthHandler handles authentication-related HTTP requests
 type AuthHandler struct {
-	db           *gorm.DB
-	jwtService   auth.JWTServiceInterface
-	authzService auth.AuthorizationInterface
-	obs          *observability.Observability
-	config       *config.Config
+	db            *gorm.DB
+	jwtService    auth.JWTServiceInterface
+	authzService  auth.AuthorizationInterface
+	lockoutService security.LockoutServiceInterface
+	obs           *observability.Observability
+	config        *config.Config
 }
 
 // AuthHandlerInterface defines the contract for authentication handlers
@@ -69,28 +70,32 @@ func NewAuthHandler(
 	db *gorm.DB,
 	jwtService auth.JWTServiceInterface,
 	authzService auth.AuthorizationInterface,
+	lockoutService security.LockoutServiceInterface,
 	obs *observability.Observability,
 	config *config.Config,
 ) *AuthHandler {
 	return &AuthHandler{
-		db:           db,
-		jwtService:   jwtService,
-		authzService: authzService,
-		obs:          obs,
-		config:       config,
+		db:            db,
+		jwtService:    jwtService,
+		authzService:  authzService,
+		lockoutService: lockoutService,
+		obs:           obs,
+		config:        config,
 	}
 }
 
-// Login handles user login requests
+// Login handles user login requests with comprehensive security protections
 // @Summary User login
-// @Description Authenticate user and return JWT tokens
+// @Description Authenticate user and return JWT tokens with brute force protection
 // @Tags auth
 // @Accept json
 // @Produce json
 // @Param login body auth.LoginRequest true "Login credentials"
-// @Success 200 {object} map[string]interface{} "Login successful"
+// @Success 200 {object} auth.LoginResponse "Login successful"
 // @Failure 400 {object} map[string]interface{} "Invalid request"
 // @Failure 401 {object} map[string]interface{} "Invalid credentials"
+// @Failure 423 {object} map[string]interface{} "Account locked"
+// @Failure 429 {object} map[string]interface{} "Too many requests"
 // @Failure 500 {object} map[string]interface{} "Server error"
 // @Router /auth/login [post]
 func (h *AuthHandler) Login(c *fiber.Ctx) error {
@@ -110,47 +115,81 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 		})
 	}
 
-	// SIMPLIFIED AUTH MODE: Skip all validation when auth is disabled
-	if h.config.Security.DisableAuth {
+	// Get request context for security tracking
+	ipAddress := c.IP()
+	userAgent := c.Get("User-Agent")
+	requestID := c.Get("X-Correlation-ID")
+
+	// Check IP-based lockout first
+	ipStatus, err := h.lockoutService.CheckIPLockout(ipAddress)
+	if err != nil {
+		h.obs.Logger.Error().Err(err).Str("ip_address", ipAddress).Msg("Failed to check IP lockout")
+		// Continue with login attempt even if lockout check fails
+	} else if ipStatus.IsLocked {
+		h.obs.Logger.Warn().
+			Str("ip_address", ipAddress).
+			Int("failed_attempts", ipStatus.FailedAttempts).
+			Dur("remaining_time", ipStatus.RemainingLockTime).
+			Msg("IP address is locked")
+		
+		return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
+			"error":   "Too Many Requests",
+			"message": "Too many failed login attempts from this IP address. Please try again later.",
+			"retry_after": int(ipStatus.RemainingLockTime.Seconds()),
+		})
+	}
+
+	// Check account-specific lockout
+	lockoutStatus, err := h.lockoutService.CheckAccountLockout(req.Username)
+	if err != nil {
+		h.obs.Logger.Error().Err(err).Str("username", req.Username).Msg("Failed to check account lockout")
+		// Continue with login attempt even if lockout check fails
+	} else if lockoutStatus.IsLocked {
+		h.obs.Logger.Warn().
+			Str("username", req.Username).
+			Time("locked_until", *lockoutStatus.LockedUntil).
+			Dur("remaining_time", lockoutStatus.RemainingLockTime).
+			Msg("Account is locked")
+		
+		// Record the blocked attempt
+		_ = h.lockoutService.RecordFailedAttempt(req.Username, ipAddress, userAgent, requestID, "Account locked")
+		
+		return c.Status(fiber.StatusLocked).JSON(fiber.Map{
+			"error":   "Account Locked",
+			"message": "Account is temporarily locked due to multiple failed login attempts. Please try again later.",
+			"locked_until": lockoutStatus.LockedUntil.Unix(),
+			"retry_after": int(lockoutStatus.RemainingLockTime.Seconds()),
+		})
+	}
+
+	// Apply progressive delay if configured
+	if lockoutStatus.RequiresDelay && lockoutStatus.NextAttemptDelay > 0 {
 		h.obs.Logger.Info().
 			Str("username", req.Username).
-			Msg("Login successful - SIMPLIFIED AUTH MODE (no validation)")
-		
-		return c.Status(fiber.StatusOK).JSON(fiber.Map{
-			"user": map[string]interface{}{
-				"id":         12345, // Fixed test ID
-				"username":   req.Username,
-				"email":      req.Username + "@test.local",
-				"first_name": "Test",
-				"last_name":  "User",
-				"is_active":  true,
-				"is_admin":   true,
-				"created_at": time.Now().Format("2006-01-02T15:04:05Z07:00"),
-				"updated_at": time.Now().Format("2006-01-02T15:04:05Z07:00"),
-				"roles":      []string{"admin", "user"},
-			},
-			"token":         "test-token-" + req.Username,
-			"refresh_token": "test-refresh-" + req.Username,
-			"expires_at":    "2030-12-31T23:59:59Z",
-		})
+			Dur("delay", lockoutStatus.NextAttemptDelay).
+			Msg("Applying progressive delay")
+		time.Sleep(lockoutStatus.NextAttemptDelay)
 	}
 
 	// Find user by username or email
 	var user models.User
-	err := h.db.Where("username = ? OR email = ?", req.Username, req.Username).First(&user).Error
+	err = h.db.Where("username = ? OR email = ?", req.Username, req.Username).First(&user).Error
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
+		failureReason := "User not found"
+		if err != gorm.ErrRecordNotFound {
+			failureReason = "Database error"
+			h.obs.Logger.Error().Err(err).Msg("Database error during login")
+		} else {
 			h.obs.Logger.Info().Str("username", req.Username).Msg("User not found in database")
-			h.logAuthEvent(c, "", "login_failed", false, "User not found")
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error":   "Unauthorized",
-				"message": "Invalid credentials",
-			})
 		}
-		h.obs.Logger.Error().Err(err).Msg("Database error during login")
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Internal Server Error",
-			"message": "Database error",
+		
+		// Record failed attempt (protects against user enumeration)
+		_ = h.lockoutService.RecordFailedAttempt(req.Username, ipAddress, userAgent, requestID, failureReason)
+		h.logAuthEvent(c, "", "login_failed", false, failureReason)
+		
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error":   "Unauthorized",
+			"message": "Invalid credentials",
 		})
 	}
 	
@@ -163,57 +202,21 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	// Check if user is active
 	if !user.IsActive {
 		h.obs.Logger.Info().Msg("User account is disabled")
+		_ = h.lockoutService.RecordFailedAttempt(req.Username, ipAddress, userAgent, requestID, "Account disabled")
+		h.logAuthEvent(c, user.ID, "login_failed", false, "Account disabled")
+		
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error":   "Unauthorized",
 			"message": "Account is disabled",
 		})
 	}
 
-	h.obs.Logger.Info().
-		Str("password_hash", user.PasswordHash).
-		Bool("has_jwt_service", h.jwtService != nil).
-		Msg("User found and is active, checking JWT service")
-
-	// Check if JWT service is available - if not, use simplified mode
+	// Ensure JWT service is available
 	if h.jwtService == nil {
-		h.obs.Logger.Warn().Msg("JWT service is nil - using simplified authentication")
-		
-		// Simple password verification (for demo purposes)
-		if req.Password != "password" {
-			h.logAuthEvent(c, user.ID, "login_failed", false, "Invalid password")
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error":   "Unauthorized",
-				"message": "Invalid credentials",
-			})
-		}
-
-		// Return simplified response
-		userIDHash := int64(0)
-		for _, b := range []byte(user.ID[:8]) {
-			userIDHash = userIDHash*31 + int64(b)
-		}
-		if userIDHash < 0 {
-			userIDHash = -userIDHash
-		}
-		
-		h.obs.Logger.Info().Str("user_id", user.ID).Msg("Login successful (simplified mode)")
-		
-		return c.Status(fiber.StatusOK).JSON(fiber.Map{
-			"user": map[string]interface{}{
-				"id":         userIDHash,
-				"username":   user.Username,
-				"email":      user.Email,
-				"first_name": user.FirstName,
-				"last_name":  user.LastName,
-				"is_active":  user.IsActive,
-				"is_admin":   user.IsAdmin,
-				"created_at": user.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-				"updated_at": user.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
-				"roles":      []string{"admin"},
-			},
-			"token":         "simplified-token-" + user.ID,
-			"refresh_token": "simplified-refresh-" + user.ID,
-			"expires_at":    time.Now().Add(time.Hour * 24).Format(time.RFC3339),
+		h.obs.Logger.Error().Msg("JWT service is nil - authentication system misconfigured")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Internal Server Error",
+			"message": "Authentication system is not properly configured",
 		})
 	}
 
@@ -224,7 +227,11 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 			Err(err).
 			Str("user_id", user.ID).
 			Msg("Password verification failed")
+		
+		// Record failed attempt
+		_ = h.lockoutService.RecordFailedAttempt(req.Username, ipAddress, userAgent, requestID, "Invalid password")
 		h.logAuthEvent(c, user.ID, "login_failed", false, "Invalid password")
+		
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error":   "Unauthorized",
 			"message": "Invalid credentials",
@@ -232,40 +239,39 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	}
 	h.obs.Logger.Info().Msg("Password verified successfully")
 
-	// TEMPORARY WORKAROUND: Simplified authentication for debugging
-	h.obs.Logger.Info().Msg("Using simplified authentication response")
-	
-	// Convert string UUID to number for frontend compatibility
-	userIDHash := int64(0)
-	for _, b := range []byte(user.ID[:8]) { // Use first 8 chars of UUID for hash
-		userIDHash = userIDHash*31 + int64(b)
+	// Get user roles and permissions
+	roles, permissions, err := h.jwtService.GetUserRolesAndPermissions(user.ID)
+	if err != nil {
+		h.obs.Logger.Error().Err(err).Str("user_id", user.ID).Msg("Failed to get user roles and permissions")
+		// Set default roles if authorization service fails
+		roles = []string{"user"}
+		permissions = []string{}
+		if user.IsAdmin {
+			roles = append(roles, "admin")
+		}
 	}
-	if userIDHash < 0 {
-		userIDHash = -userIDHash
-	}
-	
-	h.obs.Logger.Info().Str("user_id", user.ID).Msg("Login successful (simplified mode)")
-	
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"user": map[string]interface{}{
-			"id":         userIDHash, // Convert to number for frontend
-			"username":   user.Username,
-			"email":      user.Email,
-			"first_name": user.FirstName,
-			"last_name":  user.LastName,
-			"is_active":  user.IsActive,
-			"is_admin":   user.IsAdmin,
-			"created_at": user.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-			"updated_at": user.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
-			"roles":      []string{"admin", "user"},
-		},
-		"token":         "demo-token-" + user.Username + "-" + fmt.Sprintf("%d", time.Now().Unix()),
-		"refresh_token": "demo-refresh-" + user.ID,
-		"expires_at":    time.Now().Add(time.Hour * 24).Format(time.RFC3339),
-	})
 
-	// TODO: Restore token generation and session creation after fixing authorization service
-	// h.logAuthEvent(c, user.ID, "login_success", true, "")
+	// Generate JWT tokens
+	tokenResponse, err := h.jwtService.GenerateToken(&user, roles, permissions)
+	if err != nil {
+		h.obs.Logger.Error().Err(err).Str("user_id", user.ID).Msg("Failed to generate JWT token")
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error":   "Internal Server Error",
+			"message": "Failed to generate authentication token",
+		})
+	}
+
+	// Record successful login (this resets failed attempts)
+	err = h.lockoutService.RecordSuccessfulAttempt(req.Username, ipAddress, userAgent, requestID)
+	if err != nil {
+		h.obs.Logger.Error().Err(err).Msg("Failed to record successful login attempt")
+		// Don't fail the login for this error
+	}
+
+	// Log successful authentication
+	h.logAuthEvent(c, user.ID, "login_success", true, "")
+
+	return c.JSON(tokenResponse)
 }
 
 // Register handles user registration requests
@@ -487,59 +493,7 @@ func (h *AuthHandler) Logout(c *fiber.Ctx) error {
 // @Failure 401 {object} map[string]interface{} "Not authenticated"
 // @Router /auth/me [get]
 func (h *AuthHandler) GetCurrentUser(c *fiber.Ctx) error {
-	// TEMPORARY WORKAROUND: Handle demo tokens for debugging
-	authHeader := c.Get("Authorization")
-	if authHeader != "" && (len(authHeader) > 7) {
-		token := authHeader[7:] // Remove "Bearer " prefix
-		
-		// Check if it's a demo token
-		if len(token) > 10 && token[:10] == "demo-token" {
-			h.obs.Logger.Info().Str("token", token).Msg("Processing demo token for GetCurrentUser")
-			
-			// Extract username from demo token (format: demo-token-{username}-{timestamp})
-			if len(token) > 11 {
-				// Try to extract username from token
-				tokenParts := token[11:] // Remove "demo-token-"
-				if len(tokenParts) > 0 {
-					// Find the admin user in the database
-					var user models.User
-					if err := h.db.Where("username = ?", "admin").First(&user).Error; err != nil {
-						h.obs.Logger.Error().Err(err).Msg("Failed to find admin user for demo token")
-						return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-							"error":   "Unauthorized",
-							"message": "User not found",
-						})
-					}
-					
-					// Convert string UUID to number for frontend compatibility
-					userIDHash := int64(0)
-					for _, b := range []byte(user.ID[:8]) { // Use first 8 chars of UUID for hash
-						userIDHash = userIDHash*31 + int64(b)
-					}
-					if userIDHash < 0 {
-						userIDHash = -userIDHash
-					}
-					
-					userResponse := UserResponse{
-						ID:        fmt.Sprintf("%d", userIDHash), // Convert to string representation of number
-						Username:  user.Username,
-						Email:     user.Email,
-						FirstName: user.FirstName,
-						LastName:  user.LastName,
-						IsActive:  user.IsActive,
-						IsAdmin:   user.IsAdmin,
-						CreatedAt: user.CreatedAt,
-						UpdatedAt: user.UpdatedAt,
-						Roles:     []string{"admin", "user"},
-					}
-					
-					return c.JSON(userResponse)
-				}
-			}
-		}
-	}
-	
-	// Fall back to original implementation for real JWT tokens
+	// Get current user from JWT token
 	user, err := auth.GetCurrentUser(c)
 	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{

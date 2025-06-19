@@ -1,5 +1,5 @@
 export interface User {
-  id: number
+  id: string
   username: string
   email: string
   first_name?: string
@@ -32,7 +32,7 @@ export interface AuthResponse {
 }
 
 export interface Role {
-  id: number
+  id: string
   name: string
   description: string
   is_active: boolean
@@ -42,7 +42,7 @@ export interface Role {
 }
 
 export interface Permission {
-  id: number
+  id: string
   name: string
   resource: string
   action: string

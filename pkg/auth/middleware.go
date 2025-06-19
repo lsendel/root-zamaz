@@ -54,20 +54,6 @@ func NewAuthMiddleware(
 // RequireAuth middleware that requires valid JWT authentication
 func (a *AuthMiddleware) RequireAuth() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		// SIMPLIFIED AUTH MODE: Skip all authentication when disabled
-		if a.config.Security.DisableAuth {
-			// Create a fake user context for the application with proper UUID
-			c.Locals("user_id", "00000000-0000-0000-0000-000000000000")
-			c.Locals("user", &models.User{
-				ID:       "00000000-0000-0000-0000-000000000000",
-				Username: "testuser",
-				Email:    "testuser@test.local",
-				IsActive: true,
-				IsAdmin:  true,
-			})
-			c.Locals("user_roles", []string{"admin", "user"})
-			return c.Next()
-		}
 
 		// Extract token from header
 		authHeader := c.Get("Authorization")
@@ -76,28 +62,6 @@ func (a *AuthMiddleware) RequireAuth() fiber.Handler {
 			return a.sendUnauthorized(c, err.Error())
 		}
 
-		// TEMPORARY WORKAROUND: Handle demo tokens for debugging
-		if len(tokenString) > 10 && tokenString[:10] == "demo-token" {
-			a.obs.Logger.Info().Str("token", tokenString).Msg("Processing demo token in middleware")
-			
-			// Find the admin user in the database
-			var user models.User
-			if err := a.db.Where("username = ?", "admin").First(&user).Error; err != nil {
-				a.obs.Logger.Error().Err(err).Msg("Failed to find admin user for demo token")
-				return a.sendUnauthorized(c, "User not found")
-			}
-			
-			if !user.IsActive {
-				return a.sendUnauthorized(c, "User account is disabled")
-			}
-			
-			// Store user information in context
-			c.Locals("user_id", user.ID)
-			c.Locals("user", &user)
-			c.Locals("user_roles", []string{"admin", "user"})
-			
-			return c.Next()
-		}
 
 		// Validate token
 		claims, err := a.jwtService.ValidateToken(tokenString)

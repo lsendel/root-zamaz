@@ -139,9 +139,9 @@ services:
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_DB=mvp_db
-      - POSTGRES_USER=mvp_user
-      - POSTGRES_PASSWORD=mvp_password
+      - POSTGRES_DB=${POSTGRES_DB:-mvp_db}
+      - POSTGRES_USER=${POSTGRES_USER:-mvp_user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-please_change_this_password_in_production}
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./scripts/sql/init:/docker-entrypoint-initdb.d

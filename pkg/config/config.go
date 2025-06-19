@@ -54,7 +54,7 @@ type DatabaseConfig struct {
 	Port            int           `yaml:"port" env:"DB_PORT" default:"5432"`
 	Database        string        `yaml:"database" env:"DB_NAME" default:"mvp_db"`
 	Username        string        `yaml:"username" env:"DB_USER" default:"mvp_user"`
-	Password        string        `yaml:"password" env:"DB_PASSWORD" default:"mvp_password"`
+	Password        string        `yaml:"password" env:"DB_PASSWORD" default:"please_change_this_password_in_production"`
 	SSLMode         string        `yaml:"ssl_mode" env:"DB_SSL_MODE" default:"disable"`
 	MaxConnections  int           `yaml:"max_connections" env:"DB_MAX_CONNECTIONS" default:"25"`
 	MaxIdleConns    int           `yaml:"max_idle_conns" env:"DB_MAX_IDLE_CONNS" default:"5"`
@@ -107,6 +107,7 @@ type SecurityConfig struct {
 	JWT                JWTConfig       `yaml:"jwt"`
 	CORS               CORSConfig      `yaml:"cors"`
 	RateLimit          RateLimitConfig `yaml:"rate_limit"`
+	Lockout            LockoutConfig   `yaml:"lockout"`
 	TrustedProxies     []string        `yaml:"trusted_proxies" env:"TRUSTED_PROXIES"`
 	AllowedOrigins     []string        `yaml:"allowed_origins" env:"ALLOWED_ORIGINS"`
 	SecureHeaders      bool            `yaml:"secure_headers" env:"SECURE_HEADERS" default:"true"`
@@ -152,6 +153,20 @@ type RateLimitConfig struct {
 	SkipPaths  []string      `yaml:"skip_paths" env:"RATE_LIMIT_SKIP_PATHS"`
 	SkipIPs    []string      `yaml:"skip_ips" env:"RATE_LIMIT_SKIP_IPS"`
 	StatusCode int           `yaml:"status_code" env:"RATE_LIMIT_STATUS_CODE" default:"429"`
+}
+
+// LockoutConfig contains account lockout and brute force protection settings
+type LockoutConfig struct {
+	MaxFailedAttempts   int           `yaml:"max_failed_attempts" env:"LOCKOUT_MAX_FAILED_ATTEMPTS" default:"5"`
+	LockoutDuration     time.Duration `yaml:"lockout_duration" env:"LOCKOUT_DURATION" default:"15m"`
+	ResetWindow         time.Duration `yaml:"reset_window" env:"LOCKOUT_RESET_WINDOW" default:"1h"`
+	ProgressiveDelay    bool          `yaml:"progressive_delay" env:"LOCKOUT_PROGRESSIVE_DELAY" default:"true"`
+	BaseDelay           time.Duration `yaml:"base_delay" env:"LOCKOUT_BASE_DELAY" default:"1s"`
+	MaxDelay            time.Duration `yaml:"max_delay" env:"LOCKOUT_MAX_DELAY" default:"30s"`
+	EnableNotifications bool          `yaml:"enable_notifications" env:"LOCKOUT_ENABLE_NOTIFICATIONS" default:"true"`
+	IPLockoutEnabled    bool          `yaml:"ip_lockout_enabled" env:"IP_LOCKOUT_ENABLED" default:"true"`
+	IPLockoutThreshold  int           `yaml:"ip_lockout_threshold" env:"IP_LOCKOUT_THRESHOLD" default:"10"`
+	IPLockoutDuration   time.Duration `yaml:"ip_lockout_duration" env:"IP_LOCKOUT_DURATION" default:"1h"`
 }
 
 // Load loads configuration from environment variables with defaults
@@ -225,7 +240,7 @@ func loadFromEnv(config *Config) error {
 	config.Database.Port = getEnvIntWithDefault("DB_PORT", 5432)
 	config.Database.Database = getEnvWithDefault("DB_NAME", "mvp_db")
 	config.Database.Username = getEnvWithDefault("DB_USER", "mvp_user")
-	config.Database.Password = getEnvWithDefault("DB_PASSWORD", "mvp_password")
+	config.Database.Password = getEnvWithDefault("DB_PASSWORD", "please_change_this_password_in_production")
 	config.Database.SSLMode = getEnvWithDefault("DB_SSL_MODE", "disable")
 	config.Database.MaxConnections = getEnvIntWithDefault("DB_MAX_CONNECTIONS", 25)
 	config.Database.MaxIdleConns = getEnvIntWithDefault("DB_MAX_IDLE_CONNS", 5)
@@ -289,7 +304,7 @@ func loadFromEnv(config *Config) error {
 
 	// Set CORS config
 	config.Security.CORS.Enabled = getEnvBoolWithDefault("CORS_ENABLED", true)
-	config.Security.CORS.AllowedOrigins = getEnvSliceWithDefault("CORS_ALLOWED_ORIGINS", []string{"*"})
+	config.Security.CORS.AllowedOrigins = getEnvSliceWithDefault("CORS_ALLOWED_ORIGINS", []string{"http://localhost:3000", "http://localhost:5173", "https://localhost:3000", "https://localhost:5173"})
 	config.Security.CORS.AllowedMethods = getEnvSliceWithDefault("CORS_ALLOWED_METHODS", []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"})
 	config.Security.CORS.AllowedHeaders = getEnvSliceWithDefault("CORS_ALLOWED_HEADERS", []string{"*"})
 	config.Security.CORS.ExposedHeaders = getEnvSliceWithDefault("CORS_EXPOSED_HEADERS", []string{})
@@ -303,6 +318,18 @@ func loadFromEnv(config *Config) error {
 	config.Security.RateLimit.SkipPaths = getEnvSliceWithDefault("RATE_LIMIT_SKIP_PATHS", []string{"/health", "/metrics"})
 	config.Security.RateLimit.SkipIPs = getEnvSliceWithDefault("RATE_LIMIT_SKIP_IPS", []string{})
 	config.Security.RateLimit.StatusCode = getEnvIntWithDefault("RATE_LIMIT_STATUS_CODE", 429)
+
+	// Set Lockout config
+	config.Security.Lockout.MaxFailedAttempts = getEnvIntWithDefault("LOCKOUT_MAX_FAILED_ATTEMPTS", 5)
+	config.Security.Lockout.LockoutDuration = getEnvDurationWithDefault("LOCKOUT_DURATION", 15*time.Minute)
+	config.Security.Lockout.ResetWindow = getEnvDurationWithDefault("LOCKOUT_RESET_WINDOW", 1*time.Hour)
+	config.Security.Lockout.ProgressiveDelay = getEnvBoolWithDefault("LOCKOUT_PROGRESSIVE_DELAY", true)
+	config.Security.Lockout.BaseDelay = getEnvDurationWithDefault("LOCKOUT_BASE_DELAY", 1*time.Second)
+	config.Security.Lockout.MaxDelay = getEnvDurationWithDefault("LOCKOUT_MAX_DELAY", 30*time.Second)
+	config.Security.Lockout.EnableNotifications = getEnvBoolWithDefault("LOCKOUT_ENABLE_NOTIFICATIONS", true)
+	config.Security.Lockout.IPLockoutEnabled = getEnvBoolWithDefault("IP_LOCKOUT_ENABLED", true)
+	config.Security.Lockout.IPLockoutThreshold = getEnvIntWithDefault("IP_LOCKOUT_THRESHOLD", 10)
+	config.Security.Lockout.IPLockoutDuration = getEnvDurationWithDefault("IP_LOCKOUT_DURATION", 1*time.Hour)
 
 	return nil
 }

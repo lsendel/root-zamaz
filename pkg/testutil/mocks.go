@@ -19,9 +19,12 @@ type MockJWTService struct {
 	mock.Mock
 }
 
-func (m *MockJWTService) GenerateToken(user *models.User, deviceID string, trustLevel int, roles []string, permissions []string) (string, error) {
-	args := m.Called(user, deviceID, trustLevel, roles, permissions)
-	return args.String(0), args.Error(1)
+func (m *MockJWTService) GenerateToken(user *models.User, roles []string, permissions []string) (*auth.LoginResponse, error) {
+	args := m.Called(user, roles, permissions)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*auth.LoginResponse), args.Error(1)
 }
 
 func (m *MockJWTService) GenerateRefreshToken(userID string) (string, error) {
