@@ -35,7 +35,8 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/swagger"
 	"github.com/redis/go-redis/v9"
-	// _ "mvp.local/docs" // Import generated docs - disabled for build
+	_ "mvp.local/docs" // Import generated docs for Swagger UI
+	docspkg "mvp.local/pkg/docs"
 
 	"mvp.local/pkg/auth"
 	"mvp.local/pkg/config"
@@ -266,13 +267,13 @@ func (s *Server) setupRoutes() {
 
 	// Authentication routes (public)
 	authRoutes := api.Group("/auth")
-	authRoutes.Post("/login", 
+	authRoutes.Post("/login",
 		s.validationMiddleware.ValidateRequest(auth.LoginRequest{}),
 		authHandler.Login)
-	authRoutes.Post("/register", 
+	authRoutes.Post("/register",
 		s.validationMiddleware.ValidateRequest(handlers.RegisterRequest{}),
 		authHandler.Register)
-	authRoutes.Post("/refresh", 
+	authRoutes.Post("/refresh",
 		s.validationMiddleware.ValidateRequest(auth.RefreshRequest{}),
 		authHandler.RefreshToken)
 
@@ -319,7 +320,7 @@ func (s *Server) setupRoutes() {
 	adminRoutes.Delete("/users/:userId/roles/:roleId", adminHandler.RemoveRoleFromUser)
 
 	// Swagger documentation
-	s.app.Get("/swagger/*", swagger.HandlerDefault)
+	docspkg.SetupSwagger(s.app)
 
 	// Frontend routes (serve static files)
 	s.app.Static("/", "./frontend/dist")
@@ -381,7 +382,6 @@ func (s *Server) Start(ctx context.Context) error {
 		return nil
 	}
 }
-
 
 // joinStrings joins a slice of strings with a separator
 func joinStrings(slice []string, sep string) string {
