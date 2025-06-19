@@ -1,0 +1,93 @@
+groups:
+- name: zamaz.application
+  rules:
+  - alert: ZamazAPIHighErrorRate
+    expr: |
+      (
+        sum(rate(http_requests_total{service_name="zamaz-api",response_code=~"5.."}[5m])) /
+        sum(rate(http_requests_total{service_name="zamaz-api"}[5m]))
+      ) > 0.05
+    for: 5m
+    labels:
+      severity: critical
+      service: zamaz-api
+    annotations:
+      summary: "Zamaz API error rate is above 5%"
+      description: "The error rate for Zamaz API is {{ $value | humanizePercentage }} which is above the 5% threshold"
+  - alert: ZamazAPIHighLatency
+    expr: |
+      histogram_quantile(0.95,
+        sum(rate(http_request_duration_seconds_bucket{service_name="zamaz-api"}[5m])) by (le)
+      ) > 0.5
+    for: 5m
+    labels:
+      severity: warning
+      service: zamaz-api
+    annotations:
+      summary: "Zamaz API 95th percentile latency is high"
+      description: "The 95th percentile latency for Zamaz API is {{ $value }}s which is above 500ms"
+  - alert: ZamazDatabaseConnectionHigh
+    expr: |
+      zamaz_database_connections_active / zamaz_database_connections_max > 0.8
+    for: 2m
+    labels:
+      severity: warning
+      service: database
+    annotations:
+      summary: "Database connection pool usage is high"
+      description: "Database connection pool usage is {{ $value | humanizePercentage }} which is above 80%"
+- name: zamaz.security
+  rules:
+  - alert: HighFailedAuthenticationRate
+    expr: |
+      rate(zamaz_auth_failures_total[5m]) > 10
+    for: 2m
+    labels:
+      severity: warning
+      service: auth
+    annotations:
+      summary: "High authentication failure rate detected"
+      description: "Authentication failure rate is {{ $value }} failures/second"
+  - alert: AccountLockoutIncident
+    expr: |
+      increase(zamaz_account_lockouts_total[5m]) > 0
+    for: 0m
+    labels:
+      severity: warning
+      service: auth
+    annotations:
+      summary: "Account lockout detected"
+      description: "{{ $value }} account(s) have been locked out in the last 5 minutes"
+  - alert: SuspiciousJWTActivity
+    expr: |
+      rate(zamaz_jwt_validation_failures_total[5m]) > 5
+    for: 1m
+    labels:
+      severity: critical
+      service: auth
+    annotations:
+      summary: "High JWT validation failure rate"
+      description: "JWT validation failure rate is {{ $value }} failures/second"
+- name: zamaz.infrastructure
+  rules:
+  - alert: IstioSidecarDown
+    expr: |
+      up{job="istio-proxy"} == 0
+    for: 1m
+    labels:
+      severity: critical
+      service: istio
+    annotations:
+      summary: "Istio sidecar is down"
+      description: "Istio sidecar on {{ $labels.instance }} is down"
+  - alert: SPIREServerDown
+    expr: |
+      up{job="spire-server"} == 0
+    for: 2m
+    labels:
+      severity: critical
+      service: spire
+    annotations:
+      summary: "SPIRE server is down"
+      description: "SPIRE server is not responding to health checks"
+
