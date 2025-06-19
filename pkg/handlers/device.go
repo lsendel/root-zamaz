@@ -3,6 +3,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"mvp.local/pkg/auth"
 	"mvp.local/pkg/models"
 	"mvp.local/pkg/observability"
+	"mvp.local/pkg/utils"
 )
 
 // DeviceHandler handles device attestation-related HTTP requests
@@ -247,13 +249,9 @@ func (h *DeviceHandler) VerifyDevice(c *fiber.Ctx) error {
 		})
 	}
 
-	deviceIDStr := c.Params("id")
-	deviceID, err := strconv.ParseUint(deviceIDStr, 10, 32)
+	deviceID, err := utils.ParseUintParam(c, "id")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": "Invalid device ID",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	var req VerifyDeviceRequest
@@ -273,18 +271,9 @@ func (h *DeviceHandler) VerifyDevice(c *fiber.Ctx) error {
 	}
 
 	// Find device
-	var device models.DeviceAttestation
-	if err := h.db.First(&device, uint(deviceID)).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error":   "Not Found",
-				"message": "Device not found",
-			})
-		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":   "Internal Server Error",
-			"message": "Database error",
-		})
+	device, err := h.fetchDeviceByID(c, deviceID)
+	if err != nil {
+		return err // Error is already a Fiber response
 	}
 
 	// Update device verification
@@ -330,13 +319,9 @@ func (h *DeviceHandler) GetDeviceById(c *fiber.Ctx) error {
 		})
 	}
 
-	deviceIDStr := c.Params("id")
-	deviceID, err := strconv.ParseUint(deviceIDStr, 10, 32)
+	deviceID, err := utils.ParseUintParam(c, "id")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": "Invalid device ID",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	var device models.DeviceAttestation
@@ -401,13 +386,9 @@ func (h *DeviceHandler) UpdateDevice(c *fiber.Ctx) error {
 		})
 	}
 
-	deviceIDStr := c.Params("id")
-	deviceID, err := strconv.ParseUint(deviceIDStr, 10, 32)
+	deviceID, err := utils.ParseUintParam(c, "id")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": "Invalid device ID",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	var req AttestDeviceRequest
@@ -494,13 +475,9 @@ func (h *DeviceHandler) DeleteDevice(c *fiber.Ctx) error {
 		})
 	}
 
-	deviceIDStr := c.Params("id")
-	deviceID, err := strconv.ParseUint(deviceIDStr, 10, 32)
+	deviceID, err := utils.ParseUintParam(c, "id")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error":   "Bad Request",
-			"message": "Invalid device ID",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	// Check permission - user can delete their own devices, or admin can delete any
@@ -548,6 +525,19 @@ func (h *DeviceHandler) DeleteDevice(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"message": "Device deleted successfully",
 	})
+}
+
+// fetchDeviceByID is a helper to fetch a device by ID and handle common errors
+func (h *DeviceHandler) fetchDeviceByID(c *fiber.Ctx, deviceID uint64) (*models.DeviceAttestation, error) {
+	var device models.DeviceAttestation
+	if err := h.db.First(&device, uint(deviceID)).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Device not found"})
+		}
+		h.obs.Logger.Error().Err(err).Uint64("device_id", deviceID).Msg("Failed to fetch device by ID")
+		return nil, c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch device"})
+	}
+	return &device, nil
 }
 
 // Helper methods

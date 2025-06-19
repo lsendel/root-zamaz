@@ -219,12 +219,13 @@ func (c *Container) ResolveWithScope(serviceType interface{}, scope *Scope) (int
 }
 
 // MustResolve resolves a service and panics if resolution fails
-func (c *Container) MustResolve(serviceType interface{}) interface{} {
+// Deprecated: Use Resolve instead. This function will be removed in a future version.
+func (c *Container) MustResolve(serviceType interface{}) (interface{}, error) {
 	instance, err := c.Resolve(serviceType)
 	if err != nil {
-		panic(fmt.Sprintf("failed to resolve service: %v", err))
+		return nil, fmt.Errorf("failed to resolve service %v: %w", serviceType, err)
 	}
-	return instance
+	return instance, nil
 }
 
 // AutoWire automatically injects dependencies into a struct using reflection

@@ -119,10 +119,10 @@ func generateKeyID() string {
 }
 
 // NewJWTService creates a new JWT service
-func NewJWTService(config *config.JWTConfig, authzService AuthorizationInterface) *JWTService {
+func NewJWTService(config *config.JWTConfig, authzService AuthorizationInterface) (*JWTService, error) {
 	secret := []byte(config.Secret)
 	if len(secret) == 0 {
-		panic("JWT secret is required and must be set via JWT_SECRET environment variable")
+		return nil, fmt.Errorf("JWT secret is required and must be set via JWT_SECRET environment variable")
 	}
 
 	refreshSecret := []byte(config.Secret + "-refresh")
@@ -137,7 +137,7 @@ func NewJWTService(config *config.JWTConfig, authzService AuthorizationInterface
 		refreshSecret:  refreshSecret,
 		expiryDuration: config.ExpiryDuration,
 		refreshExpiry:  time.Hour * 24 * 7, // 7 days for refresh token
-	}
+	}, nil
 }
 
 // GenerateToken generates a new JWT access token and returns a complete login response

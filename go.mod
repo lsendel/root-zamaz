@@ -2,6 +2,8 @@ module mvp.local
 
 go 1.23.8
 
+toolchain go1.24.3
+
 require (
 	github.com/casbin/casbin/v2 v2.100.0
 	github.com/casbin/gorm-adapter/v3 v3.25.0

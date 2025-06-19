@@ -149,9 +149,9 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	authzService := auth.NewAuthorizationService()
 
 	// Get the absolute path to the RBAC model
-	modelPath, err := filepath.Abs("configs/rbac_model.conf")
+	modelPath, err := filepath.Abs(cfg.App.RBACModelPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get absolute path for RBAC model: %w", err)
+		return nil, fmt.Errorf("failed to get absolute path for RBAC model (%s): %w", cfg.App.RBACModelPath, err)
 	}
 
 	if err := authzService.Initialize(db.GetDB(), modelPath); err != nil {
@@ -159,7 +159,10 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	}
 
 	// Initialize JWT service
-	jwtService := auth.NewJWTService(&cfg.Security.JWT, authzService)
+	jwtService, err := auth.NewJWTService(&cfg.Security.JWT, authzService)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize JWT service: %w", err)
+	}
 
 	// Initialize lockout service
 	lockoutService := security.NewLockoutService(db.GetDB(), obs, &cfg.Security.Lockout)

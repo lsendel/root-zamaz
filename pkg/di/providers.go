@@ -39,7 +39,11 @@ type ObservabilityServiceProvider struct{}
 func (p *ObservabilityServiceProvider) Register(container *Container) error {
 	// Register observability as singleton
 	container.RegisterSingleton((*observability.Observability)(nil), func(c *Container) (interface{}, error) {
-		cfg := c.MustResolve((*config.Config)(nil)).(*config.Config)
+		cfgRaw, err := c.MustResolve((*config.Config)(nil))
+		if err != nil {
+			return nil, err
+		}
+		cfg := cfgRaw.(*config.Config)
 
 		obsCfg := observability.Config{
 			ServiceName:    cfg.Observability.ServiceName,
@@ -66,25 +70,41 @@ func (p *ObservabilityServiceProvider) Register(container *Container) error {
 
 	// Register tracer as singleton (extracted from observability)
 	container.RegisterSingleton((*trace.Tracer)(nil), func(c *Container) (interface{}, error) {
-		obs := c.MustResolve((*observability.Observability)(nil)).(*observability.Observability)
+		obsRaw, err := c.MustResolve((*observability.Observability)(nil))
+		if err != nil {
+			return nil, err
+		}
+		obs := obsRaw.(*observability.Observability)
 		return obs.Tracer, nil
 	})
 
 	// Register security metrics as singleton
 	container.RegisterSingleton((*observability.SecurityMetrics)(nil), func(c *Container) (interface{}, error) {
-		obs := c.MustResolve((*observability.Observability)(nil)).(*observability.Observability)
+		obsRaw, err := c.MustResolve((*observability.Observability)(nil))
+		if err != nil {
+			return nil, err
+		}
+		obs := obsRaw.(*observability.Observability)
 		return observability.NewSecurityMetrics(obs.Meter)
 	})
 
 	// Register business metrics as singleton
 	container.RegisterSingleton((*observability.BusinessMetrics)(nil), func(c *Container) (interface{}, error) {
-		obs := c.MustResolve((*observability.Observability)(nil)).(*observability.Observability)
+		obsRaw, err := c.MustResolve((*observability.Observability)(nil))
+		if err != nil {
+			return nil, err
+		}
+		obs := obsRaw.(*observability.Observability)
 		return observability.NewBusinessMetrics(obs.Meter)
 	})
 
 	// Register performance metrics as singleton
 	container.RegisterSingleton((*observability.PerformanceMetrics)(nil), func(c *Container) (interface{}, error) {
-		obs := c.MustResolve((*observability.Observability)(nil)).(*observability.Observability)
+		obsRaw, err := c.MustResolve((*observability.Observability)(nil))
+		if err != nil {
+			return nil, err
+		}
+		obs := obsRaw.(*observability.Observability)
 		return observability.NewPerformanceMetrics(obs.Meter)
 	})
 
@@ -98,8 +118,17 @@ type MessagingServiceProvider struct{}
 func (p *MessagingServiceProvider) Register(container *Container) error {
 	// Register NATS client as singleton
 	container.RegisterSingleton((*messaging.Client)(nil), func(c *Container) (interface{}, error) {
-		cfg := c.MustResolve((*config.Config)(nil)).(*config.Config)
-		tracer := c.MustResolve((*trace.Tracer)(nil)).(trace.Tracer)
+		cfgRaw, err := c.MustResolve((*config.Config)(nil))
+		if err != nil {
+			return nil, err
+		}
+		cfg := cfgRaw.(*config.Config)
+
+		tracerRaw, err := c.MustResolve((*trace.Tracer)(nil))
+		if err != nil {
+			return nil, err
+		}
+		tracer := tracerRaw.(trace.Tracer)
 
 		natsConfig := messaging.Config{
 			URL:         cfg.NATS.URL,
@@ -120,7 +149,11 @@ type DatabaseServiceProvider struct{}
 func (p *DatabaseServiceProvider) Register(container *Container) error {
 	// Register database connection as singleton
 	container.RegisterSingleton((*sql.DB)(nil), func(c *Container) (interface{}, error) {
-		cfg := c.MustResolve((*config.Config)(nil)).(*config.Config)
+		cfgRaw, err := c.MustResolve((*config.Config)(nil))
+		if err != nil {
+			return nil, err
+		}
+		cfg := cfgRaw.(*config.Config)
 
 		db, err := sql.Open("postgres", cfg.Database.DatabaseDSN())
 		if err != nil {

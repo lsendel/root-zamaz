@@ -325,6 +325,8 @@ func (h *SystemHandler) DatabaseStats(c *fiber.Ctx) error {
 		var count int64
 		if err := gormDB.Table(table).Count(&count).Error; err == nil {
 			tableCounts[table] = count
+		} else {
+			h.obs.Logger.Warn().Err(err).Str("table", table).Msg("Failed to get count for table in DatabaseStats")
 		}
 	}
 

@@ -206,12 +206,13 @@ func (c *Container) Resolve(serviceType interface{}) (interface{}, error) {
 // Example:
 //
 //	obs := container.MustResolve((*observability.Observability)(nil)).(*observability.Observability)
-func (c *Container) MustResolve(serviceType interface{}) interface{} {
+// Deprecated: Use Resolve instead. This function will be removed in a future version.
+func (c *Container) MustResolve(serviceType interface{}) (interface{}, error) {
 	instance, err := c.Resolve(serviceType)
 	if err != nil {
-		panic(fmt.Sprintf("failed to resolve service: %v", err))
+		return nil, fmt.Errorf("failed to resolve service %v: %w", serviceType, err)
 	}
-	return instance
+	return instance, nil
 }
 
 // IsRegistered checks if a service type is registered in the container.

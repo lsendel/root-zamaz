@@ -1,6 +1,6 @@
 # Multi-stage Dockerfile for MVP Zero Trust Auth System
 # Stage 1: Build stage
-FROM golang:1.23-alpine AS builder
+FROM golang:1.22.5-alpine AS builder
 
 # Install build dependencies
 RUN apk add --no-cache git ca-certificates tzdata
@@ -27,7 +27,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
     -o mvp-auth ./cmd/server
 
 # Stage 2: Runtime stage
-FROM alpine:3.18
+FROM alpine:3.20
 
 # Install runtime dependencies
 RUN apk --no-cache add ca-certificates tzdata curl && \

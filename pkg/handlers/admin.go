@@ -3,6 +3,7 @@
 package handlers
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/gofiber/fiber/v2"
@@ -11,6 +12,7 @@ import (
 	"mvp.local/pkg/auth"
 	"mvp.local/pkg/models"
 	"mvp.local/pkg/observability"
+	"mvp.local/pkg/utils"
 )
 
 // AdminHandler handles admin-related HTTP requests for role and user management
@@ -113,6 +115,45 @@ func (h *AdminHandler) CreateRole(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(role)
 }
 
+// fetchRole is a helper to fetch a role by ID and handle common errors
+func (h *AdminHandler) fetchRole(c *fiber.Ctx, roleID uint64) (*models.Role, error) {
+	var role models.Role
+	if err := h.db.First(&role, uint(roleID)).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Role not found"})
+		}
+		h.obs.Logger.Error().Err(err).Uint64("role_id", roleID).Msg("Failed to fetch role")
+		return nil, c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch role"})
+	}
+	return &role, nil
+}
+
+// fetchPermission is a helper to fetch a permission by ID and handle common errors
+func (h *AdminHandler) fetchPermission(c *fiber.Ctx, permissionID uint64) (*models.Permission, error) {
+	var permission models.Permission
+	if err := h.db.First(&permission, uint(permissionID)).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Permission not found"})
+		}
+		h.obs.Logger.Error().Err(err).Uint64("permission_id", permissionID).Msg("Failed to fetch permission")
+		return nil, c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch permission"})
+	}
+	return &permission, nil
+}
+
+// fetchUser is a helper to fetch a user by ID and handle common errors
+func (h *AdminHandler) fetchUser(c *fiber.Ctx, userID uint64) (*models.User, error) {
+	var user models.User
+	if err := h.db.First(&user, uint(userID)).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User not found"})
+		}
+		h.obs.Logger.Error().Err(err).Uint64("user_id", userID).Msg("Failed to fetch user")
+		return nil, c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch user"})
+	}
+	return &user, nil
+}
+
 // UpdateRole updates an existing role
 // @Summary Update a role
 // @Description Update an existing role
@@ -130,11 +171,9 @@ func (h *AdminHandler) CreateRole(c *fiber.Ctx) error {
 // @Failure 500 {object} map[string]interface{} "Server error"
 // @Router /admin/roles/{id} [put]
 func (h *AdminHandler) UpdateRole(c *fiber.Ctx) error {
-	roleID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	roleID, err := utils.ParseUintParam(c, "id")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid role ID",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	var req struct {
@@ -149,16 +188,12 @@ func (h *AdminHandler) UpdateRole(c *fiber.Ctx) error {
 		})
 	}
 
-	var role models.Role
-	if err := h.db.First(&role, uint(roleID)).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error": "Role not found",
-			})
-		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to fetch role",
-		})
+	role, err := h.fetchRole(c, roleID)
+	if err != nil {
+		return err // Error is already a Fiber response
+	role, err := h.fetchRole(c, roleID)
+	if err != nil {
+		return err // Error is already a Fiber response
 	}
 
 	// Update fields if provided
@@ -199,11 +234,9 @@ func (h *AdminHandler) UpdateRole(c *fiber.Ctx) error {
 // @Failure 500 {object} map[string]interface{} "Server error"
 // @Router /admin/roles/{id} [delete]
 func (h *AdminHandler) DeleteRole(c *fiber.Ctx) error {
-	roleID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	roleID, err := utils.ParseUintParam(c, "id")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid role ID",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	var role models.Role
@@ -251,44 +284,32 @@ func (h *AdminHandler) GetPermissions(c *fiber.Ctx) error {
 
 // AssignPermissionToRole assigns a permission to a role
 func (h *AdminHandler) AssignPermissionToRole(c *fiber.Ctx) error {
-	roleID, err := strconv.ParseUint(c.Params("roleId"), 10, 32)
+	roleID, err := utils.ParseUintParam(c, "roleId")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid role ID",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	permissionID, err := strconv.ParseUint(c.Params("permissionId"), 10, 32)
+	permissionID, err := utils.ParseUintParam(c, "permissionId")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid permission ID",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	// Verify role exists
-	var role models.Role
-	if err := h.db.First(&role, uint(roleID)).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error": "Role not found",
-			})
-		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to fetch role",
-		})
+	role, err := h.fetchRole(c, roleID)
+	if err != nil {
+		return err // Error is already a Fiber response
+	role, err := h.fetchRole(c, roleID)
+	if err != nil {
+		return err // Error is already a Fiber response
 	}
 
 	// Verify permission exists
-	var permission models.Permission
-	if err := h.db.First(&permission, uint(permissionID)).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error": "Permission not found",
-			})
-		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to fetch permission",
-		})
+	permission, err := h.fetchPermission(c, permissionID)
+	if err != nil {
+		return err // Error is already a Fiber response
+	permission, err := h.fetchPermission(c, permissionID)
+	if err != nil {
+		return err // Error is already a Fiber response
 	}
 
 	// Assign permission to role
@@ -309,18 +330,14 @@ func (h *AdminHandler) AssignPermissionToRole(c *fiber.Ctx) error {
 
 // RemovePermissionFromRole removes a permission from a role
 func (h *AdminHandler) RemovePermissionFromRole(c *fiber.Ctx) error {
-	roleID, err := strconv.ParseUint(c.Params("roleId"), 10, 32)
+	roleID, err := utils.ParseUintParam(c, "roleId")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid role ID",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	permissionID, err := strconv.ParseUint(c.Params("permissionId"), 10, 32)
+	permissionID, err := utils.ParseUintParam(c, "permissionId")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid permission ID",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	// Verify role exists
@@ -413,11 +430,9 @@ func (h *AdminHandler) GetUsers(c *fiber.Ctx) error {
 
 // GetUserById returns a specific user with their roles
 func (h *AdminHandler) GetUserById(c *fiber.Ctx) error {
-	userID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	userID, err := utils.ParseUintParam(c, "id")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid user ID",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	var user models.User
@@ -437,11 +452,9 @@ func (h *AdminHandler) GetUserById(c *fiber.Ctx) error {
 
 // UpdateUser updates user information
 func (h *AdminHandler) UpdateUser(c *fiber.Ctx) error {
-	userID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	userID, err := utils.ParseUintParam(c, "id")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid user ID",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	var req struct {
@@ -459,16 +472,12 @@ func (h *AdminHandler) UpdateUser(c *fiber.Ctx) error {
 		})
 	}
 
-	var user models.User
-	if err := h.db.First(&user, uint(userID)).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error": "User not found",
-			})
-		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to fetch user",
-		})
+	user, err := h.fetchUser(c, userID)
+	if err != nil {
+		return err // Error is already a Fiber response
+	user, err := h.fetchUser(c, userID)
+	if err != nil {
+		return err // Error is already a Fiber response
 	}
 
 	// Update fields if provided
@@ -504,11 +513,9 @@ func (h *AdminHandler) UpdateUser(c *fiber.Ctx) error {
 
 // DeleteUser deletes a user
 func (h *AdminHandler) DeleteUser(c *fiber.Ctx) error {
-	userID, err := strconv.ParseUint(c.Params("id"), 10, 32)
+	userID, err := utils.ParseUintParam(c, "id")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid user ID",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	// Get current user from context (set by auth middleware)
@@ -544,31 +551,25 @@ func (h *AdminHandler) DeleteUser(c *fiber.Ctx) error {
 
 // AssignRoleToUser assigns a role to a user
 func (h *AdminHandler) AssignRoleToUser(c *fiber.Ctx) error {
-	userID := c.Params("userId")
+	userID := c.Params("userId") // UserID from authzService is string (likely UUID)
 	if userID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid user ID",
+			"error": "userId parameter is missing",
 		})
 	}
 
-	roleID, err := strconv.ParseUint(c.Params("roleId"), 10, 32)
+	roleID, err := utils.ParseUintParam(c, "roleId")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid role ID",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	// Get role name from roleID
-	var role models.Role
-	if err := h.db.First(&role, uint(roleID)).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error": "Role not found",
-			})
-		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Failed to fetch role",
-		})
+	role, err := h.fetchRole(c, roleID)
+	if err != nil {
+		return err // Error is already a Fiber response
+	role, err := h.fetchRole(c, roleID)
+	if err != nil {
+		return err // Error is already a Fiber response
 	}
 
 	// Use authorization service to assign role by name
@@ -589,18 +590,16 @@ func (h *AdminHandler) AssignRoleToUser(c *fiber.Ctx) error {
 
 // RemoveRoleFromUser removes a role from a user
 func (h *AdminHandler) RemoveRoleFromUser(c *fiber.Ctx) error {
-	userID := c.Params("userId")
+	userID := c.Params("userId") // UserID from authzService is string (likely UUID)
 	if userID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid user ID",
+			"error": "userId parameter is missing",
 		})
 	}
 
-	roleID, err := strconv.ParseUint(c.Params("roleId"), 10, 32)
+	roleID, err := utils.ParseUintParam(c, "roleId")
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "Invalid role ID",
-		})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	// Get role name from roleID
