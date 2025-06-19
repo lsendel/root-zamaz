@@ -1,0 +1,54 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "zamaz.fullname" . }}-slo
+  labels:
+    {{- include "zamaz.labels" . | nindent 4 }}
+    prometheus: k8s
+    role: alert-rules
+spec:
+  groups:
+  - name: zamaz.slo.rules
+    rules:
+    # Availability SLO - 99.9%
+    - record: slo:http_requests_total:ratio_rate_1h
+      expr: |
+        sum(rate(http_requests_total{job="{{ include "zamaz.fullname" . }}",status!~"5.*"}[1h]))
+        /
+        sum(rate(http_requests_total{job="{{ include "zamaz.fullname" . }}"}[1h]))
+
+    - record: slo:http_requests_total:ratio_rate_6h
+      expr: |
+        sum(rate(http_requests_total{job="{{ include "zamaz.fullname" . }}",status!~"5.*"}[6h]))
+        /
+        sum(rate(http_requests_total{job="{{ include "zamaz.fullname" . }}"}[6h]))
+
+    # Latency SLO - 99% of requests under 300ms
+    - record: slo:request_duration_seconds:ratio_rate_1h
+      expr: |
+        sum(rate(http_request_duration_seconds_bucket{job="{{ include "zamaz.fullname" . }}",le="0.3"}[1h]))
+        /
+        sum(rate(http_request_duration_seconds_count{job="{{ include "zamaz.fullname" . }}"}[1h]))
+
+    # SLO Alerts
+    - alert: AvailabilitySLOBreach
+      expr: |
+        avg_over_time(slo:http_requests_total:ratio_rate_1h[1h]) < 0.999
+      for: 5m
+      labels:
+        severity: critical
+        team: platform
+      annotations:
+        summary: Availability SLO breach detected
+        description: Service availability has dropped below 99.9% in the last hour
+
+    - alert: LatencySLOBreach
+      expr: |
+        avg_over_time(slo:request_duration_seconds:ratio_rate_1h[1h]) < 0.99
+      for: 5m
+      labels:
+        severity: critical
+        team: platform
+      annotations:
+        summary: Latency SLO breach detected
+        description: Less than 99% of requests are completing within 300ms

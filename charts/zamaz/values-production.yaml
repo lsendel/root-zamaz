@@ -1,0 +1,111 @@
+# Production environment configuration
+environment: production
+
+# Deployment Configuration
+replicaCount: 5
+maxSurge: 1
+maxUnavailable: 0
+
+# Resource Management
+resources:
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+  requests:
+    cpu: 1000m
+    memory: 1Gi
+
+# Autoscaling
+autoscaling:
+  enabled: true
+  minReplicas: 5
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# Progressive Delivery
+rollout:
+  strategy:
+    canary:
+      steps:
+        - setWeight: 5
+        - pause: {duration: 5m}
+        - setWeight: 20
+        - pause: {duration: 10m}
+        - setWeight: 50
+        - pause: {duration: 10m}
+        - setWeight: 80
+        - pause: {duration: 5m}
+
+# Monitoring and Observability
+monitoring:
+  serviceMonitor:
+    enabled: true
+    interval: 15s
+  alerts:
+    enabled: true
+  grafana:
+    dashboards: true
+  tracing:
+    enabled: true
+    samplingRate: 0.1
+
+# Security
+security:
+  networkPolicy:
+    enabled: true
+    ingressRules:
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                name: istio-system
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 2000
+  vault:
+    enabled: true
+    role: zamaz-prod
+    authPath: auth/kubernetes
+    secretsPath: secret/data/zamaz/production
+
+# SLO Configurations
+slo:
+  availability:
+    target: 0.999
+    window: 28d
+  latency:
+    target: 0.99
+    threshold: 300ms
+    window: 28d
+
+# Backup Configuration
+backup:
+  enabled: true
+  schedule: "0 */6 * * *"
+  retention: 720h
+  includeSecrets: true
+
+# Load Testing
+loadTesting:
+  enabled: true
+  schedule: "0 1 * * 1"  # Every Monday at 1 AM
+  duration: 30m
+  concurrent: 100
+
+# Cost Optimization
+costOptimization:
+  enabled: true
+  alertThresholds:
+    cpuUtilization: 0.3
+    memoryUtilization: 0.4
+    dailyCost: 100
+
+# Maintenance Windows
+maintenance:
+  enabled: true
+  schedule: "0 2 * * SUN"
+  duration: 4h
+  blackoutPeriods:
+    - "* * * 12 *"  # December
+    - "* * * * 1-5" # Weekdays

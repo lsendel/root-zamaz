@@ -1,0 +1,12 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "zamaz.fullname" . }}
+  labels:
+    {{- include "zamaz.labels" . | nindent 4 }}
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      {{- include "zamaz.selectorLabels" . | nindent 6 }}
+

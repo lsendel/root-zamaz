@@ -1,0 +1,58 @@
+# Default pod security standards for the zamaz namespace
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: zamaz-${environment}
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: zamaz-authz
+  namespace: zamaz-${environment}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zamaz
+  rules:
+    - from:
+        - source:
+            principals: ["cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account"]
+      to:
+        - operation:
+            methods: ["GET", "POST"]
+            paths: ["/api/*"]
+    - from:
+        - source:
+            principals: ["cluster.local/ns/monitoring/sa/prometheus"]
+      to:
+        - operation:
+            methods: ["GET"]
+            paths: ["/metrics"]
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: zamaz-tls
+  namespace: zamaz-${environment}
+spec:
+  secretName: zamaz-tls
+  duration: 2160h # 90 days
+  renewBefore: 360h # 15 days
+  subject:
+    organizations:
+      - Your Organization
+  commonName: zamaz.yourdomain.com
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  dnsNames:
+    - zamaz.yourdomain.com
+    - zamaz-staging.yourdomain.com
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer

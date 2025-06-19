@@ -1,0 +1,45 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: {{ include "zamaz.fullname" . }}
+  labels:
+    {{- include "zamaz.labels" . | nindent 4 }}
+spec:
+  hosts:
+    - "{{ .Values.hostname }}"
+  gateways:
+    - {{ .Values.istio.gateway }}
+  http:
+    - match:
+        - uri:
+            prefix: "/api/v1"
+      route:
+        - destination:
+            host: {{ include "zamaz.fullname" . }}
+            port:
+              number: {{ .Values.service.port }}
+          weight: 100
+      retries:
+        attempts: 3
+        perTryTimeout: "2s"
+        retryOn: "connect-failure,refused-stream,unavailable,cancelled,5xx"
+      timeout: "10s"
+      fault:
+        delay:
+          percentage:
+            value: 0.1
+          fixedDelay: "100ms"
+      corsPolicy:
+        allowOrigins:
+          - exact: "https://{{ .Values.hostname }}"
+        allowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+        allowHeaders:
+          - authorization
+          - content-type
+        maxAge: "24h"
+

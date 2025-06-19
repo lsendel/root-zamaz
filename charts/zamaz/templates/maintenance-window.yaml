@@ -1,0 +1,43 @@
+apiVersion: maintenance.aws/v1alpha1
+kind: MaintenanceWindow
+metadata:
+  name: {{ include "zamaz.fullname" . }}-maintenance
+  labels:
+    {{- include "zamaz.labels" . | nindent 4 }}
+spec:
+  schedule: "0 2 * * SUN"  # 2 AM every Sunday
+  duration: 4h
+  timeZone: UTC
+  restrictions:
+    - type: blackout
+      startTime: "* * * 12 *"  # Blackout for entire December
+    - type: blackout
+      startTime: "* * * * 1-5"  # No maintenance Mon-Fri
+  tasks:
+    - name: node-updates
+      description: "Update kubernetes nodes"
+      maxDuration: 2h
+      beforeTask:
+        - name: notify-teams
+          command: ["curl", "-X", "POST", "$(TEAMS_WEBHOOK)", "-d", "Node updates starting"]
+      afterTask:
+        - name: verify-workloads
+          command: ["kubectl", "get", "pods", "-n", "$(NAMESPACE)"]
+    - name: security-patches
+      description: "Apply security patches"
+      maxDuration: 1h
+      beforeTask:
+        - name: backup
+          command: ["velero", "backup", "create", "pre-security-patch-$(DATE)"]
+  notification:
+    - type: slack
+      channel: "#platform-ops"
+    - type: email
+      recipients: ["platform-team@company.com"]
+  rollback:
+    automatic: true
+    criteria:
+      - metric: "slo:http_requests_total:ratio_rate_1h"
+        threshold: 0.995
+        duration: "10m"
+

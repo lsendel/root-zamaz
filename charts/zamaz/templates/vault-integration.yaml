@@ -1,0 +1,33 @@
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultAuth
+metadata:
+  name: {{ include "zamaz.fullname" . }}
+  labels:
+    {{- include "zamaz.labels" . | nindent 4 }}
+spec:
+  method: kubernetes
+  mount: kubernetes
+  kubernetes:
+    role: zamaz
+    serviceAccount: {{ include "zamaz.serviceAccountName" . }}
+---
+apiVersion: secrets.hashicorp.com/v1beta1
+kind: VaultStaticSecret
+metadata:
+  name: {{ include "zamaz.fullname" . }}-app-secrets
+spec:
+  vaultAuth: {{ include "zamaz.fullname" . }}
+  mount: secret
+  type: kv-v2
+  path: zamaz/{{ .Values.environment }}
+  destination:
+    create: true
+    name: {{ include "zamaz.fullname" . }}-secrets
+  refreshAfter: 10m
+  rolloutRestartTargets:
+    - kind: Rollout
+      name: {{ include "zamaz.fullname" . }}
+  messages:
+    onError: |
+      Failed to fetch secrets from Vault. Check Vault status and authentication.
+

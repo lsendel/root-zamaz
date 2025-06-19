@@ -1,0 +1,28 @@
+apiVersion: security.istio.io/v1beta1
+kind: RateLimit
+metadata:
+  name: {{ include "zamaz.fullname" . }}
+  labels:
+    {{- include "zamaz.labels" . | nindent 4 }}
+spec:
+  workloadSelector:
+    labels:
+      {{- include "zamaz.selectorLabels" . | nindent 6 }}
+  config:
+    domain: zamaz
+    descriptors:
+      - key: remote_address
+        rate:
+          unit: minute
+          requests_per_unit: 600
+      - key: auth_token
+        rate:
+          unit: minute
+          requests_per_unit: 1200
+    actions:
+      - header: x-real-ip
+        request_headers:
+          header_name: x-real-ip
+      - generic_key:
+          descriptor_value: default
+

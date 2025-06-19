@@ -72,7 +72,13 @@ BOLD := \033[1m
 	cache cache-clean cache-warmup \
 	db db-migrate db-reset db-backup db-restore \
 	docs docs-generate docs-serve docs-deploy \
-	monitor monitor-setup monitor-status monitor-logs
+	monitor monitor-setup monitor-status monitor-logs \
+	gitops-setup gitops-validate gitops-sync gitops-rollback \
+	gitops-test gitops-deploy gitops-monitor gitops-backup \
+	helm-validate helm-test helm-lint helm-push \
+	argocd-sync argocd-status argocd-diff argocd-rollback \
+	canary-deploy canary-promote canary-rollback \
+	slo-validate slo-report slo-alert
 
 # =============================================================================
 # HELP & INFO
@@ -1746,22 +1752,107 @@ clean-all: build-clean cache-clean ## 🧹 Complete cleanup
 	@printf "$(GREEN)✅ Complete cleanup finished$(RESET)\n"
 
 # =============================================================================
-# UTILITY FUNCTIONS
+# GitOps Workflow Targets
 # =============================================================================
-_check_command = $(shell command -v $(1) >/dev/null 2>&1 && echo "✅" || echo "❌")
-_check_file = $(shell [ -f $(1) ] && echo "✅" || echo "❌")
-_check_dir = $(shell [ -d $(1) ] && echo "✅" || echo "❌")
+.PHONY: gitops-setup gitops-validate gitops-sync gitops-rollback \
+	gitops-test gitops-deploy gitops-monitor gitops-backup \
+	helm-validate helm-test helm-lint helm-push \
+	argocd-sync argocd-status argocd-diff argocd-rollback \
+	canary-deploy canary-promote canary-rollback \
+	slo-validate slo-report slo-alert
 
-# Health check function
-define check_health
-	@printf "$(BLUE)🔍 Health Check: $(1)$(RESET)\n"
-	@curl -f $(2) >/dev/null 2>&1 && \
-		printf "  Status: $(GREEN)✅ Healthy$(RESET)\n" || \
-		printf "  Status: $(RED)❌ Unhealthy$(RESET)\n"
-endef
+# GitOps Setup and Validation
+gitops-setup: ## Initialize GitOps tools and configurations
+	@echo "$(BLUE)Setting up GitOps infrastructure...$(RESET)"
+	@scripts/pre-deployment-check.sh
+	@helm dependency update charts/zamaz
+	@kubectl apply -f deployments/kubernetes/argocd/application.yaml
 
-# =============================================================================
-# DEFAULT TARGETS
-# =============================================================================
-.DEFAULT: help
+gitops-validate: ## Validate GitOps configurations
+	@echo "$(BLUE)Validating GitOps configurations...$(RESET)"
+	@scripts/validate-gitops.sh
+	@helm lint charts/zamaz
+	@kubectl neat -f charts/zamaz/templates/* | kubeconform -
 
+# Helm Operations
+helm-validate: ## Validate Helm charts
+	@echo "$(BLUE)Validating Helm charts...$(RESET)"
+	@helm lint charts/zamaz
+	@helm template charts/zamaz | kubectl neat - | kubeconform -
+
+helm-test: ## Test Helm chart deployment
+	@echo "$(BLUE)Testing Helm chart deployment...$(RESET)"
+	@helm test charts/zamaz --namespace zamaz-staging
+
+helm-push: ## Push Helm chart to registry
+	@echo "$(BLUE)Pushing Helm chart to registry...$(RESET)"
+	@helm package charts/zamaz
+	@helm push mvp-zero-trust-auth-*.tgz oci://registry.example.com/charts
+
+# ArgoCD Operations
+argocd-sync: ## Sync ArgoCD applications
+	@echo "$(BLUE)Syncing ArgoCD applications...$(RESET)"
+	@argocd app sync zamaz-staging
+	@argocd app wait zamaz-staging --health
+
+argocd-status: ## Check ArgoCD sync status
+	@echo "$(BLUE)Checking ArgoCD status...$(RESET)"
+	@argocd app get zamaz-staging
+	@argocd app get zamaz-production
+
+argocd-diff: ## Show changes to be applied
+	@echo "$(BLUE)Showing configuration differences...$(RESET)"
+	@argocd app diff zamaz-staging
+
+# Canary Deployment
+canary-deploy: ## Start canary deployment
+	@echo "$(BLUE)Starting canary deployment...$(RESET)"
+	@kubectl argo rollouts set image zamaz zamaz=registry.example.com/zamaz:${VERSION}
+	@kubectl argo rollouts promote zamaz
+
+canary-promote: ## Promote canary to full deployment
+	@echo "$(BLUE)Promoting canary deployment...$(RESET)"
+	@kubectl argo rollouts promote zamaz
+
+canary-rollback: ## Rollback canary deployment
+	@echo "$(BLUE)Rolling back canary deployment...$(RESET)"
+	@kubectl argo rollouts undo zamaz
+
+# SLO Management
+slo-validate: ## Validate SLO compliance
+	@echo "$(BLUE)Validating SLO metrics...$(RESET)"
+	@scripts/validate-slo.sh
+
+slo-report: ## Generate SLO compliance report
+	@echo "$(BLUE)Generating SLO report...$(RESET)"
+	@scripts/generate-slo-report.sh
+
+# Comprehensive GitOps Workflows
+gitops-deploy: gitops-validate helm-validate ## Deploy with GitOps
+	@echo "$(BLUE)Deploying with GitOps...$(RESET)"
+	@make argocd-sync
+	@make canary-deploy
+	@make slo-validate
+
+gitops-monitor: ## Monitor GitOps deployment
+	@echo "$(BLUE)Monitoring deployment...$(RESET)"
+	@scripts/monitor-deployment.sh
+
+gitops-backup: ## Backup GitOps configurations
+	@echo "$(BLUE)Backing up GitOps configurations...$(RESET)"
+	@velero backup create zamaz-backup-${BUILD_DATE} --include-namespaces zamaz-staging,zamaz-production
+
+# Development Environment
+dev-gitops: ## Start local GitOps development environment
+	@echo "$(BLUE)Starting local GitOps development environment...$(RESET)"
+	@kind create cluster --name zamaz-dev || true
+	@kubectl apply -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+	@helm dependency update charts/zamaz
+	@helm install zamaz charts/zamaz --namespace zamaz-dev --create-namespace
+
+# Cleanup
+clean-gitops: ## Clean up GitOps resources
+	@echo "$(BLUE)Cleaning up GitOps resources...$(RESET)"
+	@kubectl delete -f deployments/kubernetes/argocd/application.yaml || true
+	@helm uninstall zamaz --namespace zamaz-dev || true
+	@kind delete cluster --name zamaz-dev || true

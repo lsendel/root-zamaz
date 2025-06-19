@@ -1,0 +1,40 @@
+apiVersion: autoscaling.k8s.io/v2
+kind: VerticalPodAutoscaler
+metadata:
+  name: {{ include "zamaz.fullname" . }}-vpa
+spec:
+  targetRef:
+    apiVersion: argoproj.io/v1alpha1
+    kind: Rollout
+    name: {{ include "zamaz.fullname" . }}
+  updatePolicy:
+    updateMode: "Auto"
+  resourcePolicy:
+    containerPolicies:
+    - containerName: "*"
+      minAllowed:
+        cpu: 100m
+        memory: 128Mi
+      maxAllowed:
+        cpu: 4
+        memory: 8Gi
+      controlledResources: ["cpu", "memory"]
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "zamaz.fullname" . }}-pdb
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      {{- include "zamaz.selectorLabels" . | nindent 6 }}
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: {{ include "zamaz.fullname" . }}-high-priority
+value: 1000000
+globalDefault: false
+description: "High priority class for zamaz production workloads"
+

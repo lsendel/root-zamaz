@@ -1,0 +1,53 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: zamaz
+  namespace: argocd
+  annotations:
+    notifications.argoproj.io/subscribe.on-deployed.slack: platform-team
+    notifications.argoproj.io/subscribe.on-health-degraded.slack: platform-team
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: platform-team
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/your-org/zamaz'
+    path: charts/zamaz
+    targetRevision: HEAD
+    helm:
+      valueFiles:
+        - values-${values.environment}.yaml
+      parameters:
+        - name: image.tag
+          value: '{{.Values.image.tag}}'
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: zamaz-${values.environment}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - Replace=false
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas
+    - group: autoscaling
+      kind: HorizontalPodAutoscaler
+      jsonPointers:
+        - /spec/metrics/0/resource/target/averageUtilization
+  revisionHistoryLimit: 10
+  info:
+    - name: Runbook
+      value: https://github.com/your-org/zamaz/blob/main/docs/deployment/DEPLOYMENT_RUNBOOK.md

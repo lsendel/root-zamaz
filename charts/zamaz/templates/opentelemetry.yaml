@@ -1,0 +1,49 @@
+apiVersion: opentelemetry.io/v1alpha1
+kind: OpenTelemetryCollector
+metadata:
+  name: {{ include "zamaz.fullname" . }}-otel
+  labels:
+    {{- include "zamaz.labels" . | nindent 4 }}
+spec:
+  mode: deployment
+  config: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: "0.0.0.0:4317"
+          http:
+            endpoint: "0.0.0.0:4318"
+
+    processors:
+      batch:
+        timeout: 1s
+        send_batch_size: 1024
+      memory_limiter:
+        check_interval: 1s
+        limit_mib: 1024
+      attributes:
+        actions:
+          - action: insert
+            key: env
+            value: {{ .Values.environment }}
+
+    exporters:
+      jaeger:
+        endpoint: jaeger-collector.monitoring:14250
+        tls:
+          insecure: false
+      prometheus:
+        endpoint: "0.0.0.0:8889"
+        namespace: {{ .Release.Namespace }}
+
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [memory_limiter, batch, attributes]
+          exporters: [jaeger]
+        metrics:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters: [prometheus]

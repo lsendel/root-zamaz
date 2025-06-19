@@ -1,0 +1,73 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "zamaz.fullname" . }}-dashboards
+  labels:
+    {{- include "zamaz.labels" . | nindent 4 }}
+    grafana_dashboard: "true"
+data:
+  application-overview.json: |
+    {
+      "annotations": {
+        "list": []
+      },
+      "editable": true,
+      "graphTooltip": 0,
+      "id": null,
+      "links": [],
+      "panels": [
+        {
+          "title": "Request Rate",
+          "type": "timeseries",
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "sum(rate(http_requests_total{job=\"{{ include "zamaz.fullname" . }}\"}[5m])) by (status)",
+              "legendFormat": "{{status}}"
+            }
+          ]
+        },
+        {
+          "title": "Response Latency",
+          "type": "timeseries",
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{job=\"{{ include "zamaz.fullname" . }}\"}[5m])) by (le))",
+              "legendFormat": "P99"
+            },
+            {
+              "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"{{ include "zamaz.fullname" . }}\"}[5m])) by (le))",
+              "legendFormat": "P95"
+            }
+          ]
+        },
+        {
+          "title": "Memory Usage",
+          "type": "gauge",
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "sum(container_memory_usage_bytes{container=\"{{ include "zamaz.fullname" . }}\"}) / sum(container_spec_memory_limit_bytes{container=\"{{ include "zamaz.fullname" . }}\"})",
+              "legendFormat": "Memory Usage"
+            }
+          ]
+        },
+        {
+          "title": "Authentication Success Rate",
+          "type": "timeseries",
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "sum(rate(auth_requests_total{job=\"{{ include "zamaz.fullname" . }}\",status=\"success\"}[5m])) / sum(rate(auth_requests_total{job=\"{{ include "zamaz.fullname" . }}\"}[5m]))",
+              "legendFormat": "Success Rate"
+            }
+          ]
+        }
+      ],
+      "refresh": "10s",
+      "schemaVersion": 38,
+      "title": "{{ include "zamaz.fullname" . }} Overview",
+      "version": 1
+    }
+

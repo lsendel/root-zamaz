@@ -1,0 +1,51 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "zamaz.fullname" . }}-cost-monitoring
+  labels:
+    {{- include "zamaz.labels" . | nindent 4 }}
+spec:
+  groups:
+  - name: zamaz.cost.rules
+    rules:
+    # Resource utilization efficiency
+    - record: zamaz:container_cpu_utilization:ratio
+      expr: |
+        sum(rate(container_cpu_usage_seconds_total{container="{{ include "zamaz.fullname" . }}"}[5m]))
+        /
+        sum(container_spec_cpu_quota{container="{{ include "zamaz.fullname" . }}"})
+
+    - record: zamaz:container_memory_utilization:ratio
+      expr: |
+        sum(container_memory_working_set_bytes{container="{{ include "zamaz.fullname" . }}"})
+        /
+        sum(container_spec_memory_limit_bytes{container="{{ include "zamaz.fullname" . }}"})
+
+    # Cost optimization alerts
+    - alert: LowResourceUtilization
+      expr: |
+        avg_over_time(zamaz:container_cpu_utilization:ratio[6h]) < 0.3
+        and
+        avg_over_time(zamaz:container_memory_utilization:ratio[6h]) < 0.4
+      for: 24h
+      labels:
+        severity: warning
+        team: platform
+        cost_optimization: "true"
+      annotations:
+        summary: Resource utilization consistently low
+        description: Consider reducing resource requests/limits to optimize costs
+        runbook_url: https://github.com/your-org/zamaz/blob/main/docs/operations/cost-optimization.md
+
+    - alert: HighResourceCosts
+      expr: |
+        sum(container_spec_cpu_quota{container="{{ include "zamaz.fullname" . }}"}) * on() group_left() avg(node_cpu_cost_per_hour)
+        > 100
+      for: 24h
+      labels:
+        severity: warning
+        team: platform
+        cost_optimization: "true"
+      annotations:
+        summary: High compute costs detected
+        description: Daily compute costs exceeding threshold, review resource allocation

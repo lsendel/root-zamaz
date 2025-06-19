@@ -1,0 +1,42 @@
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: {{ include "zamaz.fullname" . }}-backup
+  labels:
+    {{- include "zamaz.labels" . | nindent 4 }}
+spec:
+  schedule: "0 */6 * * *"  # Every 6 hours
+  template:
+    includedNamespaces:
+      - {{ .Release.Namespace }}
+    ttl: 720h  # 30 days
+    hooks:
+      resources:
+        - name: database-backup
+          includedNamespaces:
+            - {{ .Release.Namespace }}
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/component: database
+          hooks:
+            - exec:
+                command:
+                  - /backup/pre-backup.sh
+                container: database
+                onError: Fail
+                timeout: 300s  # 5 minutes
+    includedResources:
+      - deployments
+      - statefulsets
+      - configmaps
+      - secrets
+      - persistentvolumeclaims
+      - services
+      - ingresses
+    excludedResources:
+      - nodes
+      - events
+    storageLocation: default
+    volumeSnapshotLocations:
+      - default
+

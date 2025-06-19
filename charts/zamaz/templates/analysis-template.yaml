@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: {{ include "zamaz.fullname" . }}-deployment-validation
+spec:
+  metrics:
+  - name: success-rate
+    interval: 30s
+    successCondition: result >= 0.95
+    failureLimit: 3
+    provider:
+      prometheus:
+        address: http://prometheus-operated.monitoring.svc.cluster.local:9090
+        query: |
+          sum(rate(http_requests_total{job="{{ include "zamaz.fullname" . }}",status!~"5.*"}[5m]))
+          /
+          sum(rate(http_requests_total{job="{{ include "zamaz.fullname" . }}"}[5m]))
+  - name: latency-p95
+    interval: 30s
+    successCondition: result <= 0.5
+    failureLimit: 3
+    provider:
+      prometheus:
+        query: |
+          histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job="{{ include "zamaz.fullname" . }}"}[5m])) by (le))
+  - name: auth-success-rate
+    interval: 30s
+    successCondition: result >= 0.98
+    failureLimit: 2
+    provider:
+      prometheus:
+        query: |
+          sum(rate(auth_requests_total{job="{{ include "zamaz.fullname" . }}",status="success"}[5m]))
+          /
+          sum(rate(auth_requests_total{job="{{ include "zamaz.fullname" . }}"}[5m]))
+

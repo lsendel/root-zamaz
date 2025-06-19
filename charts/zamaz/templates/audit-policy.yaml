@@ -1,0 +1,38 @@
+apiVersion: audit.k8s.io/v1
+kind: Policy
+metadata:
+  name: {{ include "zamaz.fullname" . }}-audit-policy
+spec:
+  rules:
+    # Log all modifications to our deployments at RequestResponse level
+    - level: RequestResponse
+      resources:
+      - group: "apps"
+        resources: ["deployments", "statefulsets"]
+        namespaces: ["zamaz-*"]
+
+    # Log pod and service operations
+    - level: Metadata
+      resources:
+      - group: ""
+        resources: ["pods", "services"]
+
+    # Log authentication and authorization failures
+    - level: Metadata
+      omitStages:
+        - RequestReceived
+      users: ["system:anonymous"]
+      verbs: ["get", "list"]
+
+    # Log all ConfigMap and Secret changes
+    - level: Request
+      resources:
+      - group: "" # core API group
+        resources: ["configmaps", "secrets"]
+        namespaces: ["zamaz-*"]
+      verbs: ["create", "update", "patch", "delete"]
+
+    # Default catch-all rule
+    - level: Metadata
+      omitStages:
+        - RequestReceived

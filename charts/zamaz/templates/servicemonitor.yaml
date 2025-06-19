@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "zamaz.fullname" . }}
+  labels:
+    {{- include "zamaz.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "zamaz.selectorLabels" . | nindent 6 }}
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: {{ .Values.monitoring.serviceMonitor.interval }}
+    scrapeTimeout: 10s
+  namespaceSelector:
+    matchNames:
+    - {{ .Release.Namespace }}
+

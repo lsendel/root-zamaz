@@ -1,0 +1,32 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "zamaz.fullname" . }}-api
+  labels:
+    {{- include "zamaz.labels" . | nindent 4 }}
+spec:
+  endpoints:
+  - bearerTokenSecret:
+      key: token
+      name: {{ include "zamaz.fullname" . }}-metrics
+    interval: 15s
+    path: /metrics
+    port: http
+    metricRelabelings:
+    - sourceLabels: [__name__]
+      regex: 'http_(request_duration_seconds.*|requests_total)'
+      action: keep
+    - sourceLabels: [handler]
+      regex: '(/metrics|/health).*'
+      action: drop
+  - interval: 30s
+    path: /auth/metrics
+    port: http
+    metricRelabelings:
+    - sourceLabels: [__name__]
+      regex: 'auth_(requests_total|failures_total|latency_.*)'
+      action: keep
+  selector:
+    matchLabels:
+      {{- include "zamaz.selectorLabels" . | nindent 6 }}
+

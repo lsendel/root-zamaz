@@ -1,0 +1,56 @@
+apiVersion: chaos-mesh.org/v1alpha1
+kind: Schedule
+metadata:
+  name: {{ include "zamaz.fullname" . }}-chaos-testing
+spec:
+  schedule: "0 2 * * 0"  # Weekly at 2 AM on Sunday
+  historyLimit: 5
+  concurrencyPolicy: Forbid
+  type: PodChaos
+  podChaos:
+    action: pod-failure
+    mode: one
+    duration: "5m"
+    selector:
+      namespaces:
+        - {{ .Release.Namespace }}
+      labelSelectors:
+        app: {{ include "zamaz.fullname" . }}
+    scheduler:
+      cron: "@every 30m"
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: NetworkChaos
+metadata:
+  name: {{ include "zamaz.fullname" . }}-network-delay
+spec:
+  action: delay
+  mode: one
+  selector:
+    namespaces:
+      - {{ .Release.Namespace }}
+    labelSelectors:
+      app: {{ include "zamaz.fullname" . }}
+  delay:
+    latency: "100ms"
+    correlation: "100"
+    jitter: "0ms"
+  duration: "30s"
+---
+apiVersion: chaos-mesh.org/v1alpha1
+kind: StressChaos
+metadata:
+  name: {{ include "zamaz.fullname" . }}-cpu-stress
+spec:
+  mode: one
+  selector:
+    namespaces:
+      - {{ .Release.Namespace }}
+    labelSelectors:
+      app: {{ include "zamaz.fullname" . }}
+  stressors:
+    cpu:
+      workers: 1
+      load: 20
+  duration: "300s"
+

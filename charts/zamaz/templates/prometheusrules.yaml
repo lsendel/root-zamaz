@@ -1,0 +1,61 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "zamaz.fullname" . }}
+  labels:
+    {{- include "zamaz.labels" . | nindent 4 }}
+spec:
+  groups:
+  - name: zamaz.rules
+    rules:
+    - alert: HighErrorRate
+      expr: |
+        sum(rate(http_requests_total{job="{{ include "zamaz.fullname" . }}",status=~"5.*"}[5m]))
+        /
+        sum(rate(http_requests_total{job="{{ include "zamaz.fullname" . }}"}[5m])) > 0.05
+      for: 5m
+      labels:
+        severity: critical
+        team: platform
+      annotations:
+        summary: High error rate on {{ include "zamaz.fullname" . }}
+        description: Error rate is above 5% for 5 minutes
+        runbook_url: https://github.com/your-org/zamaz/blob/main/docs/deployment/DEPLOYMENT_RUNBOOK.md
+
+    - alert: HighLatency
+      expr: |
+        histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{job="{{ include "zamaz.fullname" . }}"}[5m])) by (le)) > 0.5
+      for: 5m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: High latency on {{ include "zamaz.fullname" . }}
+        description: P99 latency is above 500ms for 5 minutes
+        runbook_url: https://github.com/your-org/zamaz/blob/main/docs/deployment/DEPLOYMENT_RUNBOOK.md
+
+    - alert: PodRestarts
+      expr: |
+        increase(kube_pod_container_status_restarts_total{container="{{ include "zamaz.fullname" . }}"}[1h]) > 2
+      for: 5m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: Frequent pod restarts detected
+        description: Pod has restarted more than 2 times in the last hour
+        runbook_url: https://github.com/your-org/zamaz/blob/main/docs/deployment/DEPLOYMENT_RUNBOOK.md
+
+    - alert: HighMemoryUsage
+      expr: |
+        container_memory_usage_bytes{container="{{ include "zamaz.fullname" . }}"}
+        /
+        container_spec_memory_limit_bytes{container="{{ include "zamaz.fullname" . }}"} > 0.85
+      for: 15m
+      labels:
+        severity: warning
+        team: platform
+      annotations:
+        summary: High memory usage detected
+        description: Memory usage is above 85% of the limit for 15 minutes
+        runbook_url: https://github.com/your-org/zamaz/blob/main/docs/deployment/DEPLOYMENT_RUNBOOK.md
