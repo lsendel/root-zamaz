@@ -1,102 +1,70 @@
-# IDE specific files
+# Build
+bin/
+dist/
+build/
+
+# Dependencies
+node_modules/
+vendor/
+
+# IDE
 .idea/
 .vscode/
 *.swp
 *.swo
-*~
-.DS_Store
 
-# Go
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-*.test
-*.out
-vendor/
-go.work.sum
+# Logs
+logs/*
+!logs/.gitkeep
 
-# Build artifacts
-/build/
-/dist/
-/bin/
-
-# Test and coverage
-*.test
-*.out
-coverage.html
+# Test results
+test-results/*
+!test-results/.gitkeep
 coverage.out
-*.prof
-*.coverprofile
-.coverage/
+coverage.html
+*.test
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Kubernetes
+kubeconfig
+*.kubeconfig
+
+# Certificates
+*.pem
+*.key
+*.crt
+!certs/example/*
 
 # Temporary files
 *.tmp
 *.temp
-*.log
-tmp/
-temp/
-
-# Environment files
-.env
-.env.local
-.env.*.local
-*.env
-
-# Certificates and keys
-*.pem
-*.key
-*.crt
-*.csr
-*.p12
-*.pfx
-
-# Frontend
-node_modules/
-frontend/node_modules/
-frontend/dist/
-frontend/build/
-frontend/.vite/
-frontend/test-results/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Docker
-.dockerignore
-docker-compose.override.yml
-
-# Kubernetes
-*.kubeconfig
-kubeconfig
-deployments/kubernetes/overlays/*/secrets.env
-
-# SPIRE
-spire-data/
-.spire/
-
-# OS files
-Thumbs.db
 .DS_Store
 
-# Backup files
-*.bak
-*.backup
-*~
+# Build cache
+.cache/
+.npm/
+.pnpm-store/
 
-# Database
-*.sqlite
-*.sqlite3
-*.db
+# Generated files
+*.generated.*
+generated/
+*.gen.go
 
-# Monitoring and observability
-prometheus-data/
-grafana-data/
-jaeger-data/
+# Debug
+__debug_bin
+debug.test
 
-# k6 test results
-k6-results/
+# Observability data
+observability/data/
 
-# Istio
-istio-*/
+# GitOps
+charts/*/charts/
+charts/*/Chart.lock
+
+# Security scans
+security-reports/
+trivy-results.json

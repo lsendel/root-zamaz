@@ -1,0 +1,8 @@
+🔨 Building authentication server...
+✅ Server build completed
+🚀 Starting authentication server...
+
+2025/06/17 21:50:00 [35m/Users/lsendel/IdeaProjects/projects/root-zamaz/pkg/database/database.go:57
+[0m[31m[error] [0mfailed to initialize database, got error failed to connect to `host=localhost user=mvp_user database=mvp_db`: dial error (dial tcp 127.0.0.1:5432: connect: connection refused)
+2025/06/17 21:50:00 Failed to create server: failed to connect to database: INTERNAL_ERROR: Failed to connect to database (caused by: failed to connect to `host=localhost user=mvp_user database=mvp_db`: dial error (dial tcp 127.0.0.1:5432: connect: connection refused))
+make: *** [run-server] Error 1
