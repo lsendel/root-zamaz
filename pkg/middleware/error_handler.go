@@ -273,16 +273,28 @@ func RecoveryMiddleware(obs *observability.Observability) fiber.Handler {
 			if r := recover(); r != nil {
 				// Check if there's an active transaction and roll it back
 				if tx := GetTransactionFromContext(c); tx != nil {
-					if rollbackTx := tx.Rollback(); rollbackTx.Error != nil {
-						obs.Logger.Error().
-							Err(rollbackTx.Error).
-							Interface("panic", r).
-							Msg("Failed to rollback transaction during panic recovery")
-					} else {
-						obs.Logger.Warn().
-							Interface("panic", r).
-							Msg("Transaction rolled back due to panic")
-					}
+					// Use a defer to handle any panics during rollback
+					func() {
+						defer func() {
+							if rollbackPanic := recover(); rollbackPanic != nil {
+								obs.Logger.Error().
+									Interface("panic", r).
+									Interface("rollback_panic", rollbackPanic).
+									Msg("Panic occurred during transaction rollback")
+							}
+						}()
+						
+						if err := tx.Rollback().Error; err != nil {
+							obs.Logger.Error().
+								Err(err).
+								Interface("panic", r).
+								Msg("Failed to rollback transaction during panic recovery")
+						} else {
+							obs.Logger.Warn().
+								Interface("panic", r).
+								Msg("Transaction rolled back due to panic")
+						}
+					}()
 				}
 
 				// Log the panic with additional context

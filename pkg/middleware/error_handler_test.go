@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -506,8 +505,14 @@ func TestRecoveryMiddleware(t *testing.T) {
 
 		resp, err := app.Test(req)
 		require.NoError(t, err)
+		defer resp.Body.Close()
 		assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
 
+		// Verify both panic and transaction rollback were logged
+		logOutput := logBuffer.String()
+		assert.Contains(t, logOutput, "Panic recovered")
+		assert.Contains(t, logOutput, "panic with active transaction")
+	})
 }
 
 func BenchmarkGetHTTPStatusCode(b *testing.B) {

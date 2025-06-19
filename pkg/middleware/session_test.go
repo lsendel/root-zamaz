@@ -100,7 +100,7 @@ func TestSessionMiddleware_WithRedis(t *testing.T) {
 	redisClient.FlushDB(ctx)
 	defer redisClient.FlushDB(ctx)
 
-	sessionManager := session.NewSessionManager(redisClient)
+	sessionManager := session.NewSessionManager(redisClient, nil)
 
 	t.Run("SessionMiddleware_ValidSession", func(t *testing.T) {
 		app := fiber.New()
@@ -257,7 +257,7 @@ func TestCreateSessionHandler(t *testing.T) {
 	redisClient.FlushDB(ctx)
 	defer redisClient.FlushDB(ctx)
 
-	sessionManager := session.NewSessionManager(redisClient)
+	sessionManager := session.NewSessionManager(redisClient, nil)
 
 	t.Run("CreateSessionHandler_Success", func(t *testing.T) {
 		createSession := CreateSessionHandler(sessionManager)
@@ -308,9 +308,9 @@ func TestCreateSessionHandler(t *testing.T) {
 
 		require.NotNil(t, sessionCookie)
 		assert.NotEmpty(t, sessionCookie.Value)
-		assert.True(t, sessionCookie.HTTPOnly)
+		assert.True(t, sessionCookie.HttpOnly)
 		assert.True(t, sessionCookie.Secure)
-		assert.Equal(t, "Strict", sessionCookie.SameSite.String())
+		assert.Equal(t, http.SameSiteStrictMode, sessionCookie.SameSite)
 	})
 }
 
@@ -332,7 +332,7 @@ func TestDestroySessionHandler(t *testing.T) {
 	redisClient.FlushDB(ctx)
 	defer redisClient.FlushDB(ctx)
 
-	sessionManager := session.NewSessionManager(redisClient)
+	sessionManager := session.NewSessionManager(redisClient, nil)
 
 	t.Run("DestroySessionHandler_Success", func(t *testing.T) {
 		// Create a session first

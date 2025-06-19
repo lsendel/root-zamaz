@@ -144,7 +144,9 @@ func TestMessagingServiceProvider(t *testing.T) {
 		defer natsClient.Close()
 
 		// Cleanup observability
-		obs := container.MustResolve((*observability.Observability)(nil)).(*observability.Observability)
+		obsIface, err := container.MustResolve((*observability.Observability)(nil))
+		require.NoError(t, err)
+		obs := obsIface.(*observability.Observability)
 		obs.Shutdown(context.Background())
 	})
 }
@@ -257,7 +259,9 @@ func TestAppServiceProvider(t *testing.T) {
 		assert.NoError(t, err)
 
 		// Cleanup
-		obs := container.MustResolve((*observability.Observability)(nil)).(*observability.Observability)
+		obsIface, err := container.MustResolve((*observability.Observability)(nil))
+		require.NoError(t, err)
+		obs := obsIface.(*observability.Observability)
 		obs.Shutdown(context.Background())
 	})
 }

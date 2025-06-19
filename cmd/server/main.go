@@ -33,7 +33,6 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/swagger"
 	"github.com/redis/go-redis/v9"
 	_ "mvp.local/docs" // Import generated docs for Swagger UI
 	docspkg "mvp.local/pkg/docs"

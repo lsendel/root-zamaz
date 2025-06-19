@@ -85,7 +85,8 @@ func TestContainer_RegisterSingleton(t *testing.T) {
 			return &TestServiceImpl{value: "must_resolve"}, nil
 		})
 
-		service := newContainer.MustResolve((*TestService)(nil))
+		service, err := newContainer.MustResolve((*TestService)(nil))
+		require.NoError(t, err)
 		require.NotNil(t, service)
 
 		testService := service.(TestService)
@@ -152,7 +153,11 @@ func TestContainer_DependencyResolution(t *testing.T) {
 
 		// Register service that depends on TestService
 		container.RegisterSingleton((*DependentService)(nil), func(c *Container) (interface{}, error) {
-			testService := c.MustResolve((*TestService)(nil)).(TestService)
+			testServiceIface, err := c.MustResolve((*TestService)(nil))
+			if err != nil {
+				return nil, err
+			}
+			testService := testServiceIface.(TestService)
 			return &DependentServiceImpl{testService: testService}, nil
 		})
 
@@ -384,13 +389,21 @@ func TestContainerLifecycle(t *testing.T) {
 
 		// Register logger that depends on config
 		container.RegisterSingleton((*string)(nil), func(c *Container) (interface{}, error) {
-			config := c.MustResolve((*map[string]string)(nil)).(map[string]string)
+			configIface, err := c.MustResolve((*map[string]string)(nil))
+			if err != nil {
+				return nil, err
+			}
+			config := configIface.(map[string]string)
 			return "Logger for " + config["service_name"], nil
 		})
 
 		// Register service that depends on logger
 		container.RegisterTransient((*TestService)(nil), func(c *Container) (interface{}, error) {
-			logger := c.MustResolve((*string)(nil)).(string)
+			loggerIface, err := c.MustResolve((*string)(nil))
+			if err != nil {
+				return nil, err
+			}
+			logger := loggerIface.(string)
 			return &TestServiceImpl{value: logger + " - test implementation"}, nil
 		})
 

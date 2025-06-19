@@ -16,7 +16,7 @@ func TestCacheLayer_InMemoryOnly(t *testing.T) {
 	key := "foo"
 	val := []byte("bar")
 
-	if err := cl.Set(ctx, key, val); err != nil {
+	if err := cl.Set(ctx, key, val, time.Minute); err != nil {
 		t.Fatalf("set error: %v", err)
 	}
 

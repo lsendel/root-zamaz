@@ -173,7 +173,7 @@ func (sm *SessionManager) CreateSession(ctx context.Context, userID string, sess
 	}
 
 	if sm.cache != nil {
-		_ = sm.cache.Set(ctx, sm.getSessionKey(sessionID), sessionJSON)
+		_ = sm.cache.Set(ctx, sm.getSessionKey(sessionID), sessionJSON, sm.getSessionTTL())
 	}
 
 	return &sessionData, nil
@@ -206,7 +206,7 @@ func (sm *SessionManager) GetSession(ctx context.Context, sessionID string) (*Se
 	}
 
 	if sm.cache != nil {
-		_ = sm.cache.Set(ctx, sessionKey, []byte(sessionJSON))
+		_ = sm.cache.Set(ctx, sessionKey, []byte(sessionJSON), sm.getSessionTTL())
 	}
 
 	var sessionData SessionData
@@ -257,7 +257,7 @@ func (sm *SessionManager) UpdateSession(ctx context.Context, sessionID string, s
 	}
 
 	if sm.cache != nil {
-		_ = sm.cache.Set(ctx, sessionKey, sessionJSON)
+		_ = sm.cache.Set(ctx, sessionKey, sessionJSON, sm.getSessionTTL())
 	}
 
 	return nil
@@ -293,7 +293,7 @@ func (sm *SessionManager) RefreshSession(ctx context.Context, sessionID string) 
 
 	if sm.cache != nil {
 		if data, err := json.Marshal(sessionData); err == nil {
-			_ = sm.cache.Set(ctx, sessionKey, data)
+			_ = sm.cache.Set(ctx, sessionKey, data, sm.getSessionTTL())
 		}
 	}
 
@@ -505,6 +505,10 @@ func (sm *SessionManager) GetSessionStats(ctx context.Context) (map[string]inter
 
 func (sm *SessionManager) getSessionKey(sessionID string) string {
 	return fmt.Sprintf("%s:%s", sm.config.KeyPrefix, sessionID)
+}
+
+func (sm *SessionManager) getSessionTTL() time.Duration {
+	return sm.config.DefaultExpiration
 }
 
 func (sm *SessionManager) getUserSessionsKey(userID string) string {
