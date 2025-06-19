@@ -179,7 +179,9 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 			Msg("Account is locked")
 
 		// Record the blocked attempt
-		_ = h.lockoutService.RecordFailedAttempt(req.Username, ipAddress, userAgent, requestID, "Account locked")
+		if err := h.lockoutService.RecordFailedAttempt(req.Username, ipAddress, userAgent, requestID, "Account locked"); err != nil {
+			h.obs.Logger.Error().Err(err).Str("username", req.Username).Str("ip_address", ipAddress).Str("user_agent", userAgent).Str("request_id", requestID).Msg("Failed to record failed login attempt")
+		}
 
 		return c.Status(fiber.StatusLocked).JSON(fiber.Map{
 			"error":        "Account Locked",
@@ -216,7 +218,9 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 		_ = h.jwtService.CheckPassword(dummyHash, req.Password)
 
 		// Record failed attempt (protects against user enumeration)
-		_ = h.lockoutService.RecordFailedAttempt(req.Username, ipAddress, userAgent, requestID, failureReason)
+		if err := h.lockoutService.RecordFailedAttempt(req.Username, ipAddress, userAgent, requestID, failureReason); err != nil {
+			h.obs.Logger.Error().Err(err).Str("username", req.Username).Str("ip_address", ipAddress).Str("user_agent", userAgent).Str("request_id", requestID).Msg("Failed to record failed login attempt")
+		}
 		h.logAuthEvent(c, "", "login_failed", false, failureReason)
 
 		return HandleAuthenticationError(c, ErrMsgInvalidCredentials)
@@ -231,7 +235,9 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	// Check if user is active
 	if !user.IsActive {
 		h.obs.Logger.Info().Msg("User account is disabled")
-		_ = h.lockoutService.RecordFailedAttempt(req.Username, ipAddress, userAgent, requestID, "Account disabled")
+		if err := h.lockoutService.RecordFailedAttempt(req.Username, ipAddress, userAgent, requestID, "Account disabled"); err != nil {
+			h.obs.Logger.Error().Err(err).Str("username", req.Username).Str("ip_address", ipAddress).Str("user_agent", userAgent).Str("request_id", requestID).Msg("Failed to record failed login attempt")
+		}
 		h.logAuthEvent(c, user.ID.String(), "login_failed", false, "Account disabled")
 
 		// Use generic error message to prevent user enumeration
@@ -259,7 +265,9 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 			Msg("Password verification failed")
 
 		// Record failed attempt
-		_ = h.lockoutService.RecordFailedAttempt(req.Username, ipAddress, userAgent, requestID, "Invalid password")
+		if err := h.lockoutService.RecordFailedAttempt(req.Username, ipAddress, userAgent, requestID, "Invalid password"); err != nil {
+			h.obs.Logger.Error().Err(err).Str("username", req.Username).Str("ip_address", ipAddress).Str("user_agent", userAgent).Str("request_id", requestID).Msg("Failed to record failed login attempt")
+		}
 		h.logAuthEvent(c, user.ID.String(), "login_failed", false, "Invalid password")
 
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{

@@ -25,10 +25,11 @@ type Config struct {
 
 // AppConfig contains general application settings
 type AppConfig struct {
-	Name        string `yaml:"name" env:"APP_NAME" default:"mvp-zero-trust-auth"`
-	Version     string `yaml:"version" env:"APP_VERSION" default:"dev"`
-	Environment string `yaml:"environment" env:"ENVIRONMENT" default:"development"`
-	Debug       bool   `yaml:"debug" env:"DEBUG" default:"false"`
+	Name          string `yaml:"name" env:"APP_NAME" default:"mvp-zero-trust-auth"`
+	Version       string `yaml:"version" env:"APP_VERSION" default:"dev"`
+	Environment   string `yaml:"environment" env:"ENVIRONMENT" default:"development"`
+	Debug         bool   `yaml:"debug" env:"DEBUG" default:"false"`
+	RBACModelPath string `yaml:"rbac_model_path" env:"RBAC_MODEL_PATH" default:"configs/rbac_model.conf"`
 }
 
 // HTTPConfig contains HTTP server configuration
@@ -238,6 +239,7 @@ func loadFromEnv(config *Config) error {
 	config.App.Version = getEnvWithDefault("APP_VERSION", "dev")
 	config.App.Environment = getEnvWithDefault("ENVIRONMENT", "development")
 	config.App.Debug = getEnvBoolWithDefault("DEBUG", false)
+	config.App.RBACModelPath = getEnvWithDefault("RBAC_MODEL_PATH", "configs/rbac_model.conf")
 
 	// Set HTTP config
 	config.HTTP.Port = getEnvIntWithDefault("HTTP_PORT", 8080)

@@ -172,6 +172,7 @@ config:
   environment: production
   logLevel: info
   logFormat: json
+  rbacModelPath: "configs/rbac_model.conf"
   
   # Database configuration
   database:
@@ -224,8 +225,10 @@ config:
 postgresql:
   enabled: true
   auth:
+    # IMPORTANT: Change this in production!
     postgresPassword: "changeme"
     username: "zamaz"
+    # IMPORTANT: Change this in production!
     password: "changeme"
     database: "zamaz"
   primary:
@@ -247,6 +250,7 @@ redis:
   enabled: true
   auth:
     enabled: true
+    # IMPORTANT: Change this in production!
     password: "changeme"
   master:
     persistence:

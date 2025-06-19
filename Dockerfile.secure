@@ -1,6 +1,6 @@
 # Multi-stage Dockerfile with security best practices
 # Build stage
-FROM golang:1.23.8-alpine3.19 AS builder
+FROM golang:1.22.5-alpine3.19 AS builder
 
 # Security: Run as non-root user during build
 RUN adduser -D -s /bin/sh -u 1001 appuser
