@@ -1732,23 +1732,87 @@ db-restore: ## Restore database from backup (set BACKUP_FILE)
 # =============================================================================
 # DOCUMENTATION
 # =============================================================================
-docs: docs-generate docs-schema ## 📚 Generate and serve documentation
+docs: docs-manual docs-schema-optional docs-combined ## 📚 Generate complete documentation when possible
 
-docs-ci: ## 🤖 Complete CI documentation pipeline
+docs-ci: ## 🤖 Complete CI documentation pipeline (manual docs only)
 	@./scripts/docs-generate.sh
 
-docs-deploy: ## 📖 Deploy documentation to GitHub Wiki
-	@printf "$(BLUE)📖 Deploying documentation to GitHub Wiki...$(RESET)\n"
-	@printf "$(YELLOW)1/2 Generating documentation...$(RESET)\n"
+docs-manual: ## 📚 Generate manual documentation (always available)
+	@printf "$(BLUE)📚 Generating manual documentation...$(RESET)\n"
+	@./scripts/docs-generate.sh
+	@printf "$(GREEN)✅ Manual documentation generated$(RESET)\n"
+
+docs-schema-optional: ## 💾 Generate schema documentation if database available
+	@printf "$(BLUE)💾 Attempting schema documentation generation...$(RESET)\n"
+	@if make docs-schema 2>/dev/null; then \
+		printf "$(GREEN)✅ Schema documentation generated$(RESET)\n"; \
+	else \
+		printf "$(YELLOW)⚠️  Schema generation skipped (database unavailable)$(RESET)\n"; \
+	fi
+
+docs-combined: ## 📖 Create combined documentation from manual + schema
+	@printf "$(BLUE)📖 Creating combined documentation...$(RESET)\n"
+	@rm -rf docs/combined/*
+	@cp -r docs/manual/* docs/combined/ 2>/dev/null || true
+	@if [ -d docs/schema ] && [ -n "$$(ls docs/schema/*.md 2>/dev/null)" ]; then \
+		mkdir -p docs/combined/schema; \
+		cp docs/schema/*.md docs/combined/schema/ 2>/dev/null || true; \
+		printf "$(GREEN)✅ Combined with schema documentation$(RESET)\n"; \
+	else \
+		printf "$(YELLOW)⚠️  Combined manual documentation only$(RESET)\n"; \
+	fi
+	@printf "$(GREEN)✅ Combined documentation ready$(RESET)\n"
+
+docs-wiki: docs-deploy ## 📖 Complete documentation with wiki integration (alias for docs-deploy)
+
+docs-full: ## 🚀 Generate complete documentation and deploy to wiki
+	@printf "$(BLUE)🚀 Complete documentation workflow...$(RESET)\n"
+	@printf "$(YELLOW)Step 1/4: Generate base documentation...$(RESET)\n"
 	@make docs-ci
-	@printf "$(YELLOW)2/2 Syncing to GitHub Wiki...$(RESET)\n"
+	@printf "$(YELLOW)Step 2/4: Generate schema documentation...$(RESET)\n"
+	@make docs-schema || printf "$(YELLOW)⚠️  Using existing schema documentation$(RESET)\n"
+	@printf "$(YELLOW)Step 3/4: Build MkDocs site...$(RESET)\n"
+	@make docs-mkdocs-build
+	@printf "$(YELLOW)Step 4/4: Deploy to GitHub Wiki...$(RESET)\n"
 	@if [ -n "$$GITHUB_TOKEN" ]; then \
-		./scripts/sync-wiki-api-test.sh; \
+		./scripts/sync-wiki-git.sh; \
+		printf "$(GREEN)✅ Complete documentation deployed to GitHub Wiki!$(RESET)\n"; \
+		printf "$(BLUE)🔗 Wiki: https://github.com/lsendel/root-zamaz/wiki$(RESET)\n"; \
+	else \
+		printf "$(YELLOW)⚠️  Skipping wiki sync (no GITHUB_TOKEN)$(RESET)\n"; \
+		printf "$(BLUE)💡 To deploy to wiki: export GITHUB_TOKEN=your_token && make docs-full$(RESET)\n"; \
+		printf "$(GREEN)✅ Documentation generated locally!$(RESET)\n"; \
+	fi
+
+docs-deploy: ## 📖 Deploy documentation to GitHub Wiki (safe subdirectory only)
+	@printf "$(BLUE)📖 Deploying documentation to GitHub Wiki...$(RESET)\n"
+	@printf "$(YELLOW)1/4 Generating manual documentation...$(RESET)\n"
+	@make docs-manual
+	@printf "$(YELLOW)2/4 Generating schema documentation (optional)...$(RESET)\n"
+	@make docs-schema-optional
+	@printf "$(YELLOW)3/4 Creating combined documentation...$(RESET)\n"
+	@make docs-combined
+	@printf "$(YELLOW)4/4 Syncing to GitHub Wiki (safe mode)...$(RESET)\n"
+	@if [ -n "$$GITHUB_TOKEN" ]; then \
+		./scripts/sync-wiki-safe.sh; \
 	else \
 		printf "$(YELLOW)⚠️  Skipping wiki sync (no GITHUB_TOKEN)$(RESET)\n"; \
 		printf "$(BLUE)💡 Set GITHUB_TOKEN to deploy: export GITHUB_TOKEN=your_token$(RESET)\n"; \
+		printf "$(BLUE)💡 Or preview sync: make docs-wiki-preview$(RESET)\n"; \
 	fi
-	@printf "$(GREEN)✅ Documentation ready for GitHub Wiki!$(RESET)\n"
+	@printf "$(GREEN)✅ Documentation deployed safely to GitHub Wiki!$(RESET)\n"
+
+docs-wiki-preview: ## 🔍 Preview what would be synced to wiki (safe)
+	@./scripts/sync-wiki-safe.sh
+
+docs-wiki-sync-safe: ## 📚 Safely sync documentation to wiki subdirectory only
+	@if [ -z "$$GITHUB_TOKEN" ]; then \
+		printf "$(RED)❌ GITHUB_TOKEN required$(RESET)\n"; \
+		printf "$(BLUE)💡 Export GITHUB_TOKEN and try again$(RESET)\n"; \
+		exit 1; \
+	fi
+	@make docs-combined
+	@./scripts/sync-wiki-safe.sh
 
 docs-wiki-sync: ## 📚 Sync documentation to GitHub Wiki (SSH)
 	@./scripts/sync-wiki.sh
@@ -1765,15 +1829,27 @@ docs-wiki-sync-api: ## 📚 Sync documentation to GitHub Wiki (API)
 		done; \
 		exit 1; \
 	else \
-		./scripts/sync-wiki-api-test.sh; \
+		./scripts/sync-wiki-git.sh; \
 	fi
 
 docs-wiki-local: ## 🔍 Preview wiki sync locally (dry run)
 	@printf "$(BLUE)📋 Wiki sync preview (dry run)...$(RESET)\n"
+	@printf "$(YELLOW)Target Repository: https://github.com/lsendel/root-zamaz/wiki$(RESET)\n"
 	@printf "$(YELLOW)Files that would be synced to wiki:$(RESET)\n"
 	@find docs -name "*.md" -type f | head -20 | while read file; do \
 		printf "  $(GREEN)✓$(RESET) $$file\n"; \
 	done
+	@printf "\n$(BLUE)📍 Wiki Pages that would be created/updated:$(RESET)\n"
+	@printf "  $(BLUE)Home$(RESET) (from docs/index.md or README.md)\n"
+	@printf "  $(BLUE)Database-Schema$(RESET) (from docs/schema/README.md)\n"
+	@printf "  $(BLUE)Auth-Domain$(RESET) (from docs/schema/auth-domain.md)\n"
+	@printf "  $(BLUE)Security-Domain$(RESET) (from docs/schema/security-domain.md)\n"
+	@printf "  $(BLUE)Zero-Trust-Domain$(RESET) (from docs/schema/zero-trust-domain.md)\n"
+	@printf "  $(BLUE)Compliance-Domain$(RESET) (from docs/schema/compliance-domain.md)\n"
+	@printf "  $(BLUE)API-Documentation$(RESET) (from docs/api/README.md)\n"
+	@printf "  $(BLUE)Development-Guide$(RESET) (from docs/development/README.md)\n"
+	@printf "  $(BLUE)Table-of-Contents$(RESET) (auto-generated navigation)\n"
+	@printf "\n$(RED)⚠️  IMPORTANT: Only affects https://github.com/lsendel/root-zamaz/wiki$(RESET)\n"
 	@printf "$(BLUE)💡 Sync options:$(RESET)\n"
 	@printf "  $(BLUE)make docs-wiki-sync$(RESET)     # SSH-based sync (requires deploy key)\n"
 	@printf "  $(BLUE)make docs-wiki-sync-api$(RESET) # API-based sync (requires GITHUB_TOKEN)\n"

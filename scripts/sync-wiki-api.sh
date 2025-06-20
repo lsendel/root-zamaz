@@ -13,7 +13,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-REPO_OWNER="${REPO_OWNER:-zamaz}"
+REPO_OWNER="${REPO_OWNER:-lsendel}"
 REPO_NAME="${REPO_NAME:-root-zamaz}"
 GITHUB_TOKEN="${GITHUB_TOKEN:-}"
 DOCS_DIR="docs"
@@ -184,8 +184,10 @@ done
 # Create a table of contents page
 echo -e "${YELLOW}📋 Creating Table of Contents...${NC}"
 
-# Create TOC content with proper escaping
+# Create TOC content
 current_date=$(date -u +'%Y-%m-%d %H:%M:%S UTC')
+
+# Build TOC content line by line
 toc_content="# Zamaz Zero Trust Platform Wiki
 
 Welcome to the Zamaz Zero Trust Platform documentation wiki. This wiki is automatically synchronized from our main documentation.
@@ -216,7 +218,7 @@ Welcome to the Zamaz Zero Trust Platform documentation wiki. This wiki is automa
 
 ---
 
-📍 Live Documentation: https://zamaz.github.io/root-zamaz  
+📍 Live Documentation: https://lsendel.github.io/root-zamaz  
 🔄 Last Updated: $current_date  
 📝 Source: Automatically synced from main repository"
 
