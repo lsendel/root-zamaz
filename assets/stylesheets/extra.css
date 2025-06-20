@@ -1,0 +1,118 @@
+/* Custom styles for Zamaz documentation */
+
+/* Brand colors */
+:root {
+  --zamaz-primary: #2094f3;
+  --zamaz-secondary: #1976d2;
+  --zamaz-accent: #00bcd4;
+  --zamaz-success: #4caf50;
+  --zamaz-warning: #ff9800;
+  --zamaz-error: #f44336;
+}
+
+/* Logo styling */
+.md-header__title {
+  font-weight: 600;
+}
+
+/* Custom card grid */
+.grid.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.grid.cards > * {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.grid.cards > *:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Code block enhancements */
+.highlight pre {
+  border-radius: 0.5rem;
+  border: 1px solid var(--md-default-fg-color--lightest);
+}
+
+/* Mermaid diagram styling */
+.mermaid {
+  text-align: center;
+  margin: 2rem 0;
+}
+
+/* Table improvements */
+.md-typeset table:not([class]) {
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.md-typeset table:not([class]) th {
+  background-color: var(--md-default-fg-color--lightest);
+  font-weight: 600;
+}
+
+/* Navigation improvements */
+.md-nav__title {
+  font-weight: 600;
+}
+
+/* Admonition customizations */
+.md-typeset .admonition.tip {
+  border-color: var(--zamaz-success);
+}
+
+.md-typeset .admonition.tip > .admonition-title {
+  background-color: rgba(76, 175, 80, 0.1);
+  border-color: var(--zamaz-success);
+}
+
+/* Button enhancements */
+.md-button {
+  border-radius: 0.5rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.md-button:hover {
+  transform: translateY(-1px);
+}
+
+/* Footer customizations */
+.md-footer {
+  background-color: var(--md-footer-bg-color);
+}
+
+/* Search improvements */
+.md-search__result {
+  border-radius: 0.5rem;
+}
+
+/* Tab styling */
+.md-typeset .tabbed-set {
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+/* Social links */
+.md-social__link svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+/* Version badge */
+.md-version {
+  background-color: var(--zamaz-primary);
+  color: white;
+  border-radius: 1rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.25rem 0.5rem;
+}
