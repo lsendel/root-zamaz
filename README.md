@@ -26,6 +26,7 @@ make test-all
 ```
 
 ## Documentation
+- [Database Change Management](docs/database/bytebase.md)
 
 - [Development Guide](docs/development/README.md)
 - [Architecture](docs/architecture/README.md)

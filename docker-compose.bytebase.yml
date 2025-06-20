@@ -1,0 +1,12 @@
+version: '3.8'
+services:
+  bytebase:
+    image: bytebase/bytebase:2.2.0
+    container_name: bytebase
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      - BB_SERVER_ADDRESS=0.0.0.0
+    volumes:
+      - ./bytebase/data:/var/opt/bytebase

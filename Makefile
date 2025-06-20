@@ -24,6 +24,7 @@ DB_PORT ?= 5432
 DB_NAME ?= mvp_db
 DB_USER ?= mvp_user
 DB_PASSWORD ?= mvp_password
+DB_SSLMODE ?= disable
 NATS_URL ?= nats://localhost:4222
 REDIS_URL ?= redis://localhost:6379
 COMPOSE_FILE ?= docker-compose.yml
@@ -71,7 +72,8 @@ BOLD := \033[1m
 	db-analyze db-monitor db-health db-tune db-perf-test \
 	cache cache-clean cache-warmup \
 	db db-migrate db-reset db-backup db-restore \
-        docs docs-generate docs-serve docs-deploy docs-schema \
+  docs docs-generate docs-serve docs-deploy docs-schema \
+	docs docs-generate docs-serve docs-deploy install-tbls \
 	monitor monitor-setup monitor-status monitor-logs \
 	gitops-setup gitops-validate gitops-sync gitops-rollback \
 	gitops-test gitops-deploy gitops-monitor gitops-backup \
@@ -1731,9 +1733,27 @@ db-restore: ## Restore database from backup (set BACKUP_FILE)
 # =============================================================================
 # DOCUMENTATION
 # =============================================================================
-docs: docs-generate ## 📚 Generate and serve documentation
+docs: docs-generate docs-schema ## 📚 Generate and serve documentation
 
-docs-generate: ## Generate API documentation
+install-tbls: ## Install tbls CLI for schema documentation
+	@printf "$(BLUE)🔧 Checking for tbls CLI...$(RESET)\n"
+	@if command -v tbls >/dev/null 2>&1; then \
+		printf "$(GREEN)✅ tbls is already installed: $$(command -v tbls)$(RESET)\n"; \
+	elif [ -f "$$HOME/go/bin/tbls" ]; then \
+		printf "$(GREEN)✅ tbls is installed in $$HOME/go/bin/tbls.$(RESET)\n"; \
+	else \
+		printf "$(YELLOW)⚠️  tbls not found, installing to $$HOME/go/bin...$(RESET)\n"; \
+		go install github.com/k1LoW/tbls@latest; \
+		if [ -f "$$HOME/go/bin/tbls" ]; then \
+			printf "$(GREEN)✅ tbls installed successfully in $$HOME/go/bin/tbls.$(RESET)\n"; \
+		else \
+			printf "$(RED)❌ Failed to install tbls.$(RESET)\n"; \
+			printf "$(YELLOW)💡 Please ensure Go is installed and $$HOME/go/bin is in your PATH.$(RESET)\n"; \
+			exit 1; \
+		fi; \
+	fi
+
+docs-generate: install-tbls ## Generate API documentation
 	@printf "$(BLUE)📚 Generating documentation...$(RESET)\n"
 	@if command -v swag >/dev/null 2>&1; then \
 		swag init -g cmd/server/main.go -o docs/swagger; \
@@ -1741,6 +1761,20 @@ docs-generate: ## Generate API documentation
 		printf "$(YELLOW)⚠️  Swagger not installed$(RESET)\n"; \
 	fi
 	@printf "$(GREEN)✅ Documentation generated$(RESET)\n"
+
+docs-schema: install-tbls ## 💾 Generate database schema documentation using tbls
+	@printf "$(BLUE)💾 Generating database schema documentation...$(RESET)\n"
+	@printf "$(BLUE)   Output will be in ./docs/schema/ $(RESET)\n"
+	@export TBLS_DSN="postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=$(DB_SSLMODE)"; \
+	if command -v tbls >/dev/null 2>&1; then \
+		tbls doc -c docs/schema/.tbls.yml; \
+	elif [ -f "$$HOME/go/bin/tbls" ]; then \
+		$$HOME/go/bin/tbls doc -c docs/schema/.tbls.yml; \
+	else \
+		printf "$(RED)❌ tbls command not found. Please ensure it is installed and in your PATH.$(RESET)\n"; \
+		exit 1; \
+	fi
+	@printf "$(GREEN)✅ Database schema documentation generated.$(RESET)\n"
 
 docs-serve: ## Serve documentation locally
 	@printf "$(BLUE)📚 Serving documentation...$(RESET)\n"
