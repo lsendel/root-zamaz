@@ -1,0 +1,176 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: zamaz-frontend-ingress
+  namespace: zamaz
+  labels:
+    app: zamaz-frontend
+  annotations:
+    # Istio Gateway integration
+    kubernetes.io/ingress.class: "istio"
+    
+    # SSL and security
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    
+    # CORS headers for frontend
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-methods: "GET, POST, PUT, DELETE, OPTIONS"
+    nginx.ingress.kubernetes.io/cors-allow-headers: "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range,Authorization,X-Correlation-ID,X-Service-Discovery"
+    nginx.ingress.kubernetes.io/cors-expose-headers: "Content-Length,Content-Range,X-Request-ID,X-Response-Time"
+    
+    # Load balancing and timeouts
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "5"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-next-upstream: "error timeout invalid_header http_500 http_502 http_503 http_504"
+    
+    # Rate limiting
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    
+    # Service discovery annotations
+    service.discovery/frontend: "true"
+    service.discovery/api-backend: "zamaz-api-service.zamaz.svc.cluster.local"
+spec:
+  tls:
+  - hosts:
+    - zamaz.local
+    - app.zamaz.io
+    secretName: zamaz-frontend-tls
+  rules:
+  - host: zamaz.local
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: zamaz-frontend-service
+            port:
+              number: 80
+  - host: app.zamaz.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: zamaz-frontend-service
+            port:
+              number: 80
+---
+# Istio Gateway for advanced traffic management
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: zamaz-frontend-gateway
+  namespace: zamaz
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - zamaz.local
+    - app.zamaz.io
+    tls:
+      httpsRedirect: true
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: zamaz-frontend-tls
+    hosts:
+    - zamaz.local
+    - app.zamaz.io
+---
+# Istio VirtualService for frontend routing
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: zamaz-frontend-vs
+  namespace: zamaz
+spec:
+  hosts:
+  - zamaz.local
+  - app.zamaz.io
+  gateways:
+  - zamaz-frontend-gateway
+  http:
+  # API routes with service discovery
+  - match:
+    - uri:
+        prefix: /api/
+    route:
+    - destination:
+        host: zamaz-api-service.zamaz.svc.cluster.local
+        port:
+          number: 8080
+    fault:
+      delay:
+        percentage:
+          value: 0.1
+        fixedDelay: 100ms
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+      retryOn: 5xx,reset,connect-failure,refused-stream
+    timeout: 30s
+    headers:
+      request:
+        add:
+          x-frontend-version: "v1"
+          x-service-discovery: "istio"
+  # Frontend static assets
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: zamaz-frontend-service.zamaz.svc.cluster.local
+        port:
+          number: 80
+    headers:
+      response:
+        add:
+          x-served-by: "kubernetes"
+          cache-control: "public, max-age=31536000"
+---
+# DestinationRule for frontend service
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: zamaz-frontend-dr
+  namespace: zamaz
+spec:
+  host: zamaz-frontend-service.zamaz.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:
+      simple: ROUND_ROBIN
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        http1MaxPendingRequests: 50
+        http2MaxRequests: 100
+        maxRequestsPerConnection: 10
+        maxRetries: 3
+        connectTimeout: 5s
+    circuitBreaker:
+      consecutiveGatewayErrors: 5
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+      minHealthPercent: 30
+  subsets:
+  - name: v1
+    labels:
+      version: v1

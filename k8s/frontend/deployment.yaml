@@ -1,0 +1,141 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zamaz-frontend
+  namespace: zamaz
+  labels:
+    app: zamaz-frontend
+    version: v1
+    component: frontend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: zamaz-frontend
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: zamaz-frontend
+        version: v1
+        component: frontend
+      annotations:
+        # Service discovery annotations
+        service.discovery/enabled: "true"
+        service.discovery/provider: "kubernetes"
+        service.discovery/api-service: "zamaz-api-service"
+        service.discovery/api-namespace: "zamaz"
+    spec:
+      serviceAccountName: zamaz-frontend
+      containers:
+      - name: frontend
+        image: zamaz/frontend:latest
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 80
+          protocol: TCP
+        env:
+        # Service discovery environment variables
+        - name: VITE_K8S_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: VITE_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: VITE_API_SERVICE_NAME
+          value: "zamaz-api-service"
+        - name: VITE_KUBERNETES_SERVICE_HOST
+          value: "kubernetes.default.svc.cluster.local"
+        - name: VITE_CONSUL_ENABLED
+          value: "true"
+        - name: VITE_CONSUL_HOST
+          value: "consul.consul.svc.cluster.local"
+        # Dynamic endpoint discovery
+        - name: VITE_HEADLESS_SERVICE
+          value: "zamaz-api-headless"
+        - name: VITE_SERVICE_DISCOVERY_ENABLED
+          value: "true"
+        # API configuration
+        - name: VITE_API_BASE_URL
+          value: "/api"
+        - name: VITE_API_TIMEOUT
+          value: "15000"
+        # Feature flags
+        - name: VITE_ENABLE_CIRCUIT_BREAKER
+          value: "true"
+        - name: VITE_ENABLE_RETRY_LOGIC
+          value: "true"
+        - name: VITE_ENABLE_HEALTH_CHECKS
+          value: "true"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        livenessProbe:
+          httpGet:
+            path: /
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        volumeMounts:
+        - name: config
+          mountPath: /usr/share/nginx/html/config
+          readOnly: true
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d
+          readOnly: true
+      volumes:
+      - name: config
+        configMap:
+          name: zamaz-frontend-config
+      - name: nginx-config
+        configMap:
+          name: zamaz-frontend-nginx
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: zamaz-frontend
+  namespace: zamaz
+  labels:
+    app: zamaz-frontend
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: zamaz-frontend
+  namespace: zamaz
+rules:
+# Allow frontend to discover services and endpoints
+- apiGroups: [""]
+  resources: ["services", "endpoints"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: zamaz-frontend
+  namespace: zamaz
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: zamaz-frontend
+subjects:
+- kind: ServiceAccount
+  name: zamaz-frontend
+  namespace: zamaz

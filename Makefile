@@ -1907,6 +1907,37 @@ istio-uninstall: ## 🗑️ Uninstall Istio service mesh
 	@./scripts/istio-setup.sh uninstall
 	@printf "$(GREEN)✅ Istio uninstalled$(RESET)\n"
 
+# =============================================================================
+# KUBERNETES FRONTEND SERVICE DISCOVERY COMMANDS
+# =============================================================================
+k8s-frontend-deploy: ## 🎯 Deploy frontend with Kubernetes service discovery
+	@printf "$(BLUE)🎯 Deploying frontend with Kubernetes service discovery...$(RESET)\n"
+	@kubectl apply -f k8s/frontend/
+	@printf "$(GREEN)✅ Frontend deployed with service discovery$(RESET)\n"
+
+k8s-frontend-status: ## 📊 Check frontend deployment status
+	@printf "$(BLUE)📊 Checking frontend deployment status...$(RESET)\n"
+	@kubectl get pods,services,ingress -n zamaz -l app=zamaz-frontend
+	@printf "$(GREEN)✅ Frontend status checked$(RESET)\n"
+
+k8s-frontend-logs: ## 📝 Show frontend logs
+	@printf "$(BLUE)📝 Showing frontend logs...$(RESET)\n"
+	@kubectl logs -n zamaz -l app=zamaz-frontend --tail=50 -f
+
+k8s-test-discovery: ## 🔍 Test service discovery functionality
+	@printf "$(BLUE)🔍 Testing service discovery functionality...$(RESET)\n"
+	@kubectl exec -n zamaz deployment/zamaz-frontend -- wget -qO- http://localhost/ready 2>/dev/null || echo "Frontend not ready"
+	@kubectl exec -n zamaz deployment/zamaz-frontend -- nslookup zamaz-api-service.zamaz.svc.cluster.local 2>/dev/null || echo "DNS resolution failed"
+	@printf "$(GREEN)✅ Service discovery test completed$(RESET)\n"
+
+k8s-frontend-build: ## 🏗️ Build frontend Docker image for Kubernetes
+	@printf "$(BLUE)🏗️ Building frontend Docker image...$(RESET)\n"
+	@cd frontend && docker build -f Dockerfile.production -t zamaz/frontend:latest .
+	@printf "$(GREEN)✅ Frontend Docker image built$(RESET)\n"
+
+k8s-frontend-complete: k8s-frontend-build k8s-frontend-deploy k8s-frontend-status ## 🚀 Complete frontend deployment pipeline
+	@printf "$(GREEN)🚀 Frontend deployment pipeline completed$(RESET)\n"
+
 istio-verify: ## ✅ Verify Istio installation and configuration
 	@printf "$(BLUE)✅ Verifying Istio installation...$(RESET)\n"
 	@chmod +x scripts/istio-setup.sh

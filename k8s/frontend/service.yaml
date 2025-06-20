@@ -1,0 +1,172 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: zamaz-frontend-service
+  namespace: zamaz
+  labels:
+    app: zamaz-frontend
+    component: frontend
+  annotations:
+    # Istio annotations for service mesh integration
+    service.istio.io/canonical-name: zamaz-frontend
+    service.istio.io/canonical-revision: v1
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 80
+    targetPort: http
+    protocol: TCP
+  selector:
+    app: zamaz-frontend
+    version: v1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zamaz-frontend-config
+  namespace: zamaz
+data:
+  config.js: |
+    // Dynamic configuration for frontend service discovery
+    window.APP_CONFIG = {
+      API_BASE_URL: '/api',
+      SERVICE_DISCOVERY: {
+        ENABLED: true,
+        PROVIDER: 'kubernetes',
+        NAMESPACE: 'zamaz',
+        API_SERVICE: 'zamaz-api-service',
+        HEALTH_CHECK_INTERVAL: 30000,
+        FALLBACK_ENABLED: true
+      },
+      FEATURES: {
+        CIRCUIT_BREAKER: true,
+        RETRY_LOGIC: true,
+        HEALTH_CHECKS: true,
+        LOAD_BALANCING: 'round-robin'
+      },
+      TIMEOUTS: {
+        API_TIMEOUT: 15000,
+        HEALTH_CHECK_TIMEOUT: 5000,
+        CONNECTION_TIMEOUT: 10000
+      }
+    };
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zamaz-frontend-nginx
+  namespace: zamaz
+data:
+  default.conf: |
+    server {
+        listen 80;
+        server_name localhost;
+        
+        # Gzip compression
+        gzip on;
+        gzip_vary on;
+        gzip_min_length 1024;
+        gzip_proxied any;
+        gzip_comp_level 6;
+        gzip_types
+            text/plain
+            text/css
+            text/xml
+            text/javascript
+            application/json
+            application/javascript
+            application/xml+rss
+            application/atom+xml
+            image/svg+xml;
+        
+        # Security headers
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-XSS-Protection "1; mode=block" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https: ws: wss:;" always;
+        
+        # Root location for React app
+        location / {
+            root /usr/share/nginx/html;
+            index index.html index.htm;
+            try_files $uri $uri/ /index.html;
+            
+            # Cache static assets
+            location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+                expires 1y;
+                add_header Cache-Control "public, immutable";
+            }
+        }
+        
+        # API proxy for service discovery
+        location /api/ {
+            # Dynamic upstream resolution using Kubernetes DNS
+            set $api_upstream http://zamaz-api-service.zamaz.svc.cluster.local:8080;
+            
+            # Try headless service first, then regular service
+            location ~ ^/api/(.*)$ {
+                # Health check for API service
+                access_by_lua_block {
+                    local http = require "resty.http"
+                    local httpc = http.new()
+                    httpc:set_timeout(5000)
+                    
+                    -- Try headless service first
+                    local res, err = httpc:request_uri("http://zamaz-api-headless.zamaz.svc.cluster.local:8080/health")
+                    if res and res.status == 200 then
+                        ngx.var.api_upstream = "http://zamaz-api-headless.zamaz.svc.cluster.local:8080"
+                    else
+                        -- Fallback to regular service
+                        ngx.var.api_upstream = "http://zamaz-api-service.zamaz.svc.cluster.local:8080"
+                    end
+                }
+                
+                proxy_pass $api_upstream/$1$is_args$args;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
+                proxy_set_header X-Request-ID $request_id;
+                
+                # Circuit breaker simulation with error responses
+                proxy_connect_timeout 5s;
+                proxy_send_timeout 10s;
+                proxy_read_timeout 30s;
+                
+                # Retry configuration
+                proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+                proxy_next_upstream_tries 3;
+                proxy_next_upstream_timeout 10s;
+            }
+        }
+        
+        # Health check endpoint
+        location /health {
+            access_log off;
+            return 200 "healthy\n";
+            add_header Content-Type text/plain;
+        }
+        
+        # Readiness probe endpoint
+        location /ready {
+            access_log off;
+            
+            # Check if API is accessible
+            content_by_lua_block {
+                local http = require "resty.http"
+                local httpc = http.new()
+                httpc:set_timeout(3000)
+                
+                local res, err = httpc:request_uri("http://zamaz-api-service.zamaz.svc.cluster.local:8080/health")
+                if res and res.status == 200 then
+                    ngx.status = 200
+                    ngx.say("ready")
+                else
+                    ngx.status = 503
+                    ngx.say("api not ready")
+                end
+            }
+        }
+    }
