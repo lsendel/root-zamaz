@@ -1,0 +1,27 @@
+# DSN will be provided via TBLS_DSN environment variable
+# To add table/column comments or descriptions, you can create additional YAML files
+# in this directory (e.g., schema.yml) and reference them here.
+# For example:
+# docPath: "docs/schema"
+# format: {} # Optional: further output formatting options
+
+# Specifies the directory where .md files are generated.
+# This path is relative to the directory where tbls is executed.
+# If tbls is run from the repo root, this will output to docs/schema/
+out: "docs/schema"
+
+# ER Diagram (optional: requires PlantUML and Graphviz installed and in PATH)
+# To enable, uncomment the following lines and ensure dependencies are met.
+# er:
+#   format: "plantuml" # or "png", "svg", "jpg"
+#   output: "er.puml"
+#   # distance: 1
+#   # comments: true
+
+# Optional: Specify which tables to include or exclude
+# tables:
+#   include:
+#     - "public.users" # Example: only include the users table in the public schema
+#   exclude:
+#     - "schema_migrations" # Example: exclude the migrations table
+#     - "*_test" # Example: exclude tables ending with _test

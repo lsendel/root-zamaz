@@ -542,6 +542,31 @@ idx_audit_logs_timestamp    -- Audit queries
 idx_rate_limits_key         -- Rate limit checks
 ```
 
+### Schema Documentation
+
+To help understand the database structure, this project uses `tbls` to generate schema documentation. This documentation provides details about tables, columns, types, and relationships.
+
+**Generating the Documentation:**
+
+1.  **Ensure Environment Variables are Set:** The documentation generation relies on database connection details. Make sure your `.env` file is configured with the correct values for `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, and `DB_NAME` (see `.env.example`). `DB_SSLMODE` will default to `disable` if not set.
+2.  **Run the Makefile Target:**
+    ```bash
+    make docs-schema
+    ```
+    Alternatively, you can run `make docs` which includes schema documentation along with other documentation generation steps.
+
+This command will use `tbls` to connect to the database, inspect its schema, and output Markdown files into the `docs/schema/` directory. The main documentation file will be `docs/schema/README.md` (or `docs/schema/<DB_NAME>.md`).
+
+**ER Diagram (Optional):**
+
+`tbls` can also generate an Entity Relationship (ER) diagram. The configuration for this is in `docs/schema/.tbls.yml` (commented out by default). To enable it:
+    1. Uncomment the `er` section in `docs/schema/.tbls.yml`.
+    2. Ensure you have PlantUML (for `.puml` output) and Graphviz (for formats like `.png`, `.svg`) installed and available in your system's PATH.
+
+**Keeping Documentation Updated:**
+
+The generated documentation in `docs/schema/` should be committed to version control. For recommendations on how to automatically update this documentation as part of your CI/CD pipeline, refer to the CI integration recommendations provided when this feature was added, or check the project's CI configuration files.
+
 ## Monitoring & Observability
 
 ### Metrics
