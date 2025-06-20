@@ -1,0 +1,235 @@
+# Destination Rules for traffic policies and load balancing
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: zamaz-api-destination
+  namespace: zamaz
+spec:
+  host: zamaz-api-service
+  trafficPolicy:
+    # Load balancing algorithm
+    loadBalancer:
+      simple: LEAST_CONN
+    # Connection pool settings
+    connectionPool:
+      tcp:
+        maxConnections: 100
+        connectTimeout: 30s
+        keepAlive:
+          time: 7200s
+          interval: 75s
+      http:
+        http1MaxPendingRequests: 50
+        http2MaxRequests: 100
+        maxRequestsPerConnection: 10
+        maxRetries: 3
+        connectTimeout: 30s
+        h2UpgradePolicy: UPGRADE
+        useClientProtocol: true
+    # Circuit breaker
+    outlierDetection:
+      consecutiveGatewayErrors: 5
+      consecutive5xxErrors: 5
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+      minHealthPercent: 50
+      splitExternalLocalOriginErrors: false
+  # Subsets for canary deployments
+  subsets:
+  - name: stable
+    labels:
+      version: stable
+    trafficPolicy:
+      connectionPool:
+        tcp:
+          maxConnections: 80
+        http:
+          http1MaxPendingRequests: 40
+  - name: canary
+    labels:
+      version: canary
+    trafficPolicy:
+      connectionPool:
+        tcp:
+          maxConnections: 20
+        http:
+          http1MaxPendingRequests: 10
+
+---
+# Frontend Destination Rule
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: zamaz-frontend-destination
+  namespace: zamaz
+spec:
+  host: zamaz-frontend-service
+  trafficPolicy:
+    loadBalancer:
+      simple: ROUND_ROBIN
+    connectionPool:
+      tcp:
+        maxConnections: 50
+        connectTimeout: 10s
+      http:
+        http1MaxPendingRequests: 30
+        http2MaxRequests: 50
+        maxRequestsPerConnection: 5
+        maxRetries: 3
+        connectTimeout: 10s
+    # Frontend-specific circuit breaker
+    outlierDetection:
+      consecutiveGatewayErrors: 3
+      consecutive5xxErrors: 3
+      interval: 30s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 30
+
+---
+# External services destination rules
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: external-postgres
+  namespace: zamaz
+spec:
+  host: postgres.external.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:
+      simple: ROUND_ROBIN
+    connectionPool:
+      tcp:
+        maxConnections: 20
+        connectTimeout: 5s
+        keepAlive:
+          time: 3600s
+          interval: 60s
+    # Database-specific outlier detection
+    outlierDetection:
+      consecutiveGatewayErrors: 3
+      interval: 30s
+      baseEjectionTime: 60s
+      maxEjectionPercent: 25
+      minHealthPercent: 75
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: external-redis
+  namespace: zamaz
+spec:
+  host: redis.external.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:
+      simple: ROUND_ROBIN
+    connectionPool:
+      tcp:
+        maxConnections: 10
+        connectTimeout: 3s
+        keepAlive:
+          time: 1800s
+          interval: 30s
+    # Redis-specific settings
+    outlierDetection:
+      consecutiveGatewayErrors: 2
+      interval: 15s
+      baseEjectionTime: 30s
+      maxEjectionPercent: 50
+
+---
+# Istio system services destination rules
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: istio-system-services
+  namespace: istio-system
+spec:
+  host: "*.istio-system.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+    connectionPool:
+      tcp:
+        maxConnections: 50
+        connectTimeout: 10s
+      http:
+        http2MaxRequests: 100
+        maxRequestsPerConnection: 10
+
+---
+# Global mTLS policy for all services in the mesh
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: zamaz-mesh-mtls
+  namespace: zamaz
+spec:
+  host: "*.zamaz.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+  exportTo:
+  - "."  # Export only to current namespace
+
+---
+# Cross-namespace mTLS (if needed)
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: cross-namespace-mtls
+  namespace: zamaz
+spec:
+  host: "*.svc.cluster.local"
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+  exportTo:
+  - "*"  # Export to all namespaces
+
+---
+# External HTTPS services (originate TLS)
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: external-https-services
+  namespace: zamaz
+spec:
+  host: "*.googleapis.com"
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+      sni: "*.googleapis.com"
+    connectionPool:
+      tcp:
+        maxConnections: 10
+        connectTimeout: 30s
+      http:
+        http2MaxRequests: 50
+        maxRequestsPerConnection: 5
+    outlierDetection:
+      consecutiveGatewayErrors: 5
+      interval: 60s
+      baseEjectionTime: 60s
+
+---
+# SPIRE Server destination rule (if SPIRE is deployed)
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: spire-server
+  namespace: spire
+spec:
+  host: spire-server.spire.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+      sni: spire-server.spire.svc.cluster.local
+    connectionPool:
+      tcp:
+        maxConnections: 5
+        connectTimeout: 10s
+      http:
+        http2MaxRequests: 20
+        maxRequestsPerConnection: 5

@@ -74,6 +74,7 @@ BOLD := \033[1m
 	db db-migrate db-reset db-backup db-restore \
 	bytebase-setup bytebase-start bytebase-stop bytebase-status bytebase-migrate \
 	consul-setup consul-start consul-stop consul-status consul-services \
+	istio-setup istio-install istio-uninstall istio-verify istio-dashboards \
   docs docs-generate docs-serve docs-deploy docs-schema \
 	docs docs-generate docs-serve docs-deploy install-tbls \
 	monitor monitor-setup monitor-status monitor-logs \
@@ -1885,6 +1886,36 @@ consul-services: ## 📋 List all registered services in Consul
 	else \
 		printf "$(RED)❌ Consul is not running$(RESET)\n"; \
 	fi
+
+# =============================================================================
+# ISTIO SERVICE MESH COMMANDS
+# =============================================================================
+istio-setup: ## 🕸️ Setup and configure Istio service mesh
+	@printf "$(BLUE)🕸️ Setting up Istio service mesh...$(RESET)\n"
+	@chmod +x scripts/istio-setup.sh
+	@./scripts/istio-setup.sh install
+	@printf "$(GREEN)✅ Istio service mesh setup completed$(RESET)\n"
+
+istio-install: ## 🚀 Install Istio with custom configuration
+	@printf "$(BLUE)🚀 Installing Istio service mesh...$(RESET)\n"
+	@chmod +x scripts/istio-setup.sh
+	@./scripts/istio-setup.sh install
+
+istio-uninstall: ## 🗑️ Uninstall Istio service mesh
+	@printf "$(BLUE)🗑️ Uninstalling Istio service mesh...$(RESET)\n"
+	@chmod +x scripts/istio-setup.sh
+	@./scripts/istio-setup.sh uninstall
+	@printf "$(GREEN)✅ Istio uninstalled$(RESET)\n"
+
+istio-verify: ## ✅ Verify Istio installation and configuration
+	@printf "$(BLUE)✅ Verifying Istio installation...$(RESET)\n"
+	@chmod +x scripts/istio-setup.sh
+	@./scripts/istio-setup.sh verify
+
+istio-dashboards: ## 📊 Show Istio dashboard access information
+	@printf "$(BLUE)📊 Istio Dashboards Information:$(RESET)\n"
+	@chmod +x scripts/istio-setup.sh
+	@./scripts/istio-setup.sh dashboards
 
 # =============================================================================
 # DATABASE OPTIMIZATION COMMANDS

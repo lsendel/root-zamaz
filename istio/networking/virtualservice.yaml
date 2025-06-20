@@ -1,0 +1,272 @@
+# Main VirtualService for frontend traffic
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: zamaz-frontend
+  namespace: zamaz
+spec:
+  hosts:
+  - "zamaz.local"
+  - "*.zamaz.local"
+  - "localhost"  # For development
+  gateways:
+  - zamaz-gateway
+  - zamaz-dev-gateway
+  http:
+  # Health check endpoint
+  - match:
+    - uri:
+        exact: /health
+    route:
+    - destination:
+        host: zamaz-frontend-service
+        port:
+          number: 3000
+    timeout: 5s
+    retries:
+      attempts: 3
+      perTryTimeout: 2s
+      retryOn: gateway-error,connect-failure,refused-stream
+
+  # Static assets (with caching)
+  - match:
+    - uri:
+        prefix: /static/
+    - uri:
+        prefix: /assets/
+    - uri:
+        regex: ".*\\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$"
+    route:
+    - destination:
+        host: zamaz-frontend-service
+        port:
+          number: 3000
+    headers:
+      response:
+        add:
+          Cache-Control: "public, max-age=31536000"
+          Expires: "Thu, 31 Dec 2025 23:59:59 GMT"
+
+  # Default route to frontend
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: zamaz-frontend-service
+        port:
+          number: 3000
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+      retryOn: gateway-error,connect-failure,refused-stream
+
+---
+# API VirtualService with advanced routing
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: zamaz-api
+  namespace: zamaz
+spec:
+  hosts:
+  - "api.zamaz.local"
+  - "auth.zamaz.local"
+  - "localhost"  # For development
+  gateways:
+  - zamaz-gateway
+  - zamaz-dev-gateway
+  http:
+  # Health and metrics endpoints (no retry)
+  - match:
+    - uri:
+        prefix: /health
+    - uri:
+        prefix: /metrics
+    - uri:
+        prefix: /api/health
+    route:
+    - destination:
+        host: zamaz-api-service
+        port:
+          number: 8080
+    timeout: 5s
+    # No retries for health checks to avoid false positives
+
+  # Authentication endpoints (no retry for login attempts)
+  - match:
+    - uri:
+        prefix: /api/auth/
+    route:
+    - destination:
+        host: zamaz-api-service
+        port:
+          number: 8080
+    timeout: 30s
+    # No retries for auth to prevent account lockouts
+    headers:
+      request:
+        add:
+          X-Request-Source: "istio-gateway"
+
+  # Admin API (with rate limiting)
+  - match:
+    - uri:
+        prefix: /api/admin/
+    route:
+    - destination:
+        host: zamaz-api-service
+        port:
+          number: 8080
+    timeout: 60s
+    retries:
+      attempts: 2
+      perTryTimeout: 30s
+      retryOn: gateway-error,connect-failure,refused-stream
+    headers:
+      request:
+        add:
+          X-Admin-Request: "true"
+          X-Request-Source: "istio-gateway"
+
+  # User API endpoints
+  - match:
+    - uri:
+        prefix: /api/user/
+    - uri:
+        prefix: /api/profile/
+    route:
+    - destination:
+        host: zamaz-api-service
+        port:
+          number: 8080
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+      retryOn: gateway-error,connect-failure,refused-stream
+
+  # General API endpoints
+  - match:
+    - uri:
+        prefix: /api/
+    route:
+    - destination:
+        host: zamaz-api-service
+        port:
+          number: 8080
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+      retryOn: gateway-error,connect-failure,refused-stream
+    headers:
+      request:
+        add:
+          X-Request-Source: "istio-gateway"
+
+---
+# Canary deployment VirtualService (for blue-green deployments)
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: zamaz-api-canary
+  namespace: zamaz
+  labels:
+    deployment-strategy: canary
+spec:
+  hosts:
+  - zamaz-api-service
+  http:
+  # Route based on headers for canary testing
+  - match:
+    - headers:
+        canary:
+          exact: "true"
+    - headers:
+        x-canary-user:
+          regex: ".*"
+    route:
+    - destination:
+        host: zamaz-api-service
+        subset: canary
+      weight: 100
+  
+  # Percentage-based canary routing (5% to canary)
+  - match:
+    - uri:
+        prefix: /api/
+    route:
+    - destination:
+        host: zamaz-api-service
+        subset: stable
+      weight: 95
+    - destination:
+        host: zamaz-api-service
+        subset: canary
+      weight: 5
+
+---
+# Internal service communication VirtualService
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: zamaz-internal
+  namespace: zamaz
+spec:
+  hosts:
+  - zamaz-api-service.zamaz.svc.cluster.local
+  - zamaz-frontend-service.zamaz.svc.cluster.local
+  gateways:
+  - mesh  # Internal mesh traffic
+  http:
+  # Service-to-service communication with circuit breaker
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: zamaz-api-service
+        port:
+          number: 8080
+    timeout: 15s
+    retries:
+      attempts: 3
+      perTryTimeout: 5s
+      retryOn: 5xx,reset,connect-failure,refused-stream
+    fault:
+      # Circuit breaker simulation for testing
+      abort:
+        percentage:
+          value: 0.001  # 0.001% error injection for testing
+        httpStatus: 503
+
+---
+# Egress VirtualService for external dependencies
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: zamaz-external-apis
+  namespace: zamaz
+spec:
+  hosts:
+  - api.github.com
+  - registry-1.docker.io
+  gateways:
+  - zamaz-egress-gateway
+  - mesh
+  http:
+  - match:
+    - uri:
+        prefix: /
+    route:
+    - destination:
+        host: api.github.com
+        port:
+          number: 443
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+      retryOn: gateway-error,connect-failure,refused-stream

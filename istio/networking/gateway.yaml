@@ -1,0 +1,123 @@
+# Main Ingress Gateway for external traffic
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: zamaz-gateway
+  namespace: zamaz
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  # HTTP server (redirects to HTTPS)
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "zamaz.local"
+    - "*.zamaz.local"
+    - "api.zamaz.local"
+    - "auth.zamaz.local"
+    tls:
+      httpsRedirect: true
+  
+  # HTTPS server
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    tls:
+      mode: SIMPLE
+      credentialName: zamaz-tls-secret
+    hosts:
+    - "zamaz.local"
+    - "*.zamaz.local"
+    - "api.zamaz.local"
+    - "auth.zamaz.local"
+
+  # Additional port for service mesh traffic
+  - port:
+      number: 15443
+      name: tls-passthrough
+      protocol: TLS
+    tls:
+      mode: PASSTHROUGH
+    hosts:
+    - "*.zamaz.cluster.local"
+
+---
+# Development Gateway (HTTP only for local development)
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: zamaz-dev-gateway
+  namespace: zamaz
+  labels:
+    environment: development
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http-dev
+      protocol: HTTP
+    hosts:
+    - "localhost"
+    - "127.0.0.1"
+    - "*.localhost"
+    - "dev.zamaz.local"
+
+---
+# Internal Gateway for east-west traffic (cross-cluster if needed)
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: zamaz-internal-gateway
+  namespace: zamaz
+spec:
+  selector:
+    istio: eastwestgateway  # If east-west gateway is deployed
+  servers:
+  - port:
+      number: 15443
+      name: tls
+      protocol: TLS
+    tls:
+      mode: ISTIO_MUTUAL
+    hosts:
+    - "*.local"
+    - "*.zamaz.cluster.local"
+
+---
+# Egress Gateway for external services
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: zamaz-egress-gateway
+  namespace: zamaz
+spec:
+  selector:
+    istio: egressgateway
+  servers:
+  # External HTTPS services
+  - port:
+      number: 443
+      name: https-external
+      protocol: HTTPS
+    hosts:
+    - "api.github.com"
+    - "registry-1.docker.io"
+    - "*.googleapis.com"
+    - "*.amazonaws.com"
+    tls:
+      mode: PASSTHROUGH
+  
+  # External HTTP services (should be minimal)
+  - port:
+      number: 80
+      name: http-external
+      protocol: HTTP
+    hosts:
+    - "metadata.google.internal"  # GCP metadata service
+    - "169.254.169.254"           # AWS metadata service

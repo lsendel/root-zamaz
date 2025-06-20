@@ -1,0 +1,273 @@
+# Service entries for external dependencies
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: external-postgres
+  namespace: zamaz
+spec:
+  hosts:
+  - postgres.external.local
+  ports:
+  - number: 5432
+    name: postgres
+    protocol: TCP
+  location: MESH_EXTERNAL
+  resolution: DNS
+  endpoints:
+  - address: host.docker.internal  # For local development
+    ports:
+      postgres: 5432
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: external-redis
+  namespace: zamaz
+spec:
+  hosts:
+  - redis.external.local
+  ports:
+  - number: 6379
+    name: redis
+    protocol: TCP
+  location: MESH_EXTERNAL
+  resolution: DNS
+  endpoints:
+  - address: host.docker.internal  # For local development
+    ports:
+      redis: 6379
+
+---
+# External APIs
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: github-api
+  namespace: zamaz
+spec:
+  hosts:
+  - api.github.com
+  ports:
+  - number: 443
+    name: https
+    protocol: HTTPS
+  location: MESH_EXTERNAL
+  resolution: DNS
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: docker-registry
+  namespace: zamaz
+spec:
+  hosts:
+  - registry-1.docker.io
+  - index.docker.io
+  - auth.docker.io
+  ports:
+  - number: 443
+    name: https
+    protocol: HTTPS
+  location: MESH_EXTERNAL
+  resolution: DNS
+
+---
+# Google APIs (for GCP services)
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: google-apis
+  namespace: zamaz
+spec:
+  hosts:
+  - "*.googleapis.com"
+  - "*.google.com"
+  ports:
+  - number: 443
+    name: https
+    protocol: HTTPS
+  location: MESH_EXTERNAL
+  resolution: DNS
+
+---
+# AWS services (if using AWS)
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: aws-services
+  namespace: zamaz
+spec:
+  hosts:
+  - "*.amazonaws.com"
+  - "*.aws.amazon.com"
+  ports:
+  - number: 443
+    name: https
+    protocol: HTTPS
+  location: MESH_EXTERNAL
+  resolution: DNS
+
+---
+# Observability services
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: jaeger-external
+  namespace: zamaz
+spec:
+  hosts:
+  - jaeger.monitoring.local
+  ports:
+  - number: 14268
+    name: jaeger-http
+    protocol: HTTP
+  - number: 14250
+    name: jaeger-grpc
+    protocol: GRPC
+  location: MESH_EXTERNAL
+  resolution: DNS
+  endpoints:
+  - address: host.docker.internal
+    ports:
+      jaeger-http: 14268
+      jaeger-grpc: 14250
+
+---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: prometheus-external
+  namespace: zamaz
+spec:
+  hosts:
+  - prometheus.monitoring.local
+  ports:
+  - number: 9090
+    name: prometheus-http
+    protocol: HTTP
+  location: MESH_EXTERNAL
+  resolution: DNS
+  endpoints:
+  - address: host.docker.internal
+    ports:
+      prometheus-http: 9090
+
+---
+# SPIRE Server (if external)
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: spire-server-external
+  namespace: zamaz
+spec:
+  hosts:
+  - spire-server.spire.external.local
+  ports:
+  - number: 8443
+    name: spire-api
+    protocol: HTTPS
+  - number: 8081
+    name: spire-registration
+    protocol: HTTP
+  location: MESH_EXTERNAL
+  resolution: DNS
+
+---
+# DNS services
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: external-dns
+  namespace: zamaz
+spec:
+  hosts:
+  - dns.google
+  - "8.8.8.8"
+  - "8.8.4.4"
+  - "1.1.1.1"
+  - "1.0.0.1"
+  ports:
+  - number: 53
+    name: dns-udp
+    protocol: UDP
+  - number: 53
+    name: dns-tcp
+    protocol: TCP
+  - number: 853
+    name: dns-tls
+    protocol: TLS
+  location: MESH_EXTERNAL
+  resolution: STATIC
+  endpoints:
+  - address: "8.8.8.8"
+  - address: "8.8.4.4"
+  - address: "1.1.1.1"
+  - address: "1.0.0.1"
+
+---
+# NTP services
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: ntp-services
+  namespace: zamaz
+spec:
+  hosts:
+  - pool.ntp.org
+  - time.google.com
+  - time.cloudflare.com
+  ports:
+  - number: 123
+    name: ntp
+    protocol: UDP
+  location: MESH_EXTERNAL
+  resolution: DNS
+
+---
+# Certificate authorities
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: certificate-authorities
+  namespace: zamaz
+spec:
+  hosts:
+  - ocsp.digicert.com
+  - crl.digicert.com
+  - ocsp.globalsign.com
+  - crl.globalsign.com
+  - letsencrypt.org
+  - "*.letsencrypt.org"
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  - number: 443
+    name: https
+    protocol: HTTPS
+  location: MESH_EXTERNAL
+  resolution: DNS
+
+---
+# Package repositories
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: package-repositories
+  namespace: zamaz
+spec:
+  hosts:
+  - registry.npmjs.org
+  - pypi.org
+  - files.pythonhosted.org
+  - golang.org
+  - proxy.golang.org
+  - sum.golang.org
+  ports:
+  - number: 443
+    name: https
+    protocol: HTTPS
+  location: MESH_EXTERNAL
+  resolution: DNS

@@ -1,0 +1,244 @@
+# Telemetry configuration for observability
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: zamaz-metrics
+  namespace: zamaz
+spec:
+  # Custom metrics for business logic
+  metrics:
+  - providers:
+    - name: prometheus
+  - overrides:
+    - match:
+        metric: ALL_METRICS
+      tagOverrides:
+        # Add custom labels
+        source_app:
+          value: "%{source_app}"
+        destination_app:
+          value: "%{destination_app}"
+        request_protocol:
+          value: "%{request_protocol}"
+        response_code:
+          value: "%{response_code}"
+        # Business metrics
+        user_id:
+          value: "%{request_headers['x-user-id']}"
+        tenant_id:
+          value: "%{request_headers['x-tenant-id']}"
+        api_version:
+          value: "%{request_headers['x-api-version']}"
+        
+  # Custom metrics for authentication events
+  - providers:
+    - name: prometheus
+    overrides:
+    - match:
+        metric: requests_total
+        mode: CLIENT
+      disabled: false
+      tagOverrides:
+        auth_result:
+          value: "%{response_headers['x-auth-result']}"
+        auth_method:
+          value: "%{request_headers['x-auth-method']}"
+
+---
+# Distributed tracing configuration
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: zamaz-tracing
+  namespace: zamaz
+spec:
+  tracing:
+  - providers:
+    - name: jaeger
+  # Sampling configuration
+  - customTags:
+      http.url:
+        header:
+          name: ":path"
+      http.method:
+        header:
+          name: ":method"
+      user.id:
+        header:
+          name: "x-user-id"
+      user.role:
+        header:
+          name: "x-user-role"
+      correlation.id:
+        header:
+          name: "x-correlation-id"
+      request.id:
+        header:
+          name: "x-request-id"
+
+---
+# Access logging configuration
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: zamaz-access-logs
+  namespace: zamaz
+spec:
+  accessLogging:
+  - providers:
+    - name: otel
+    - name: stackdriver  # For GCP environments
+  # Custom access log format
+  - format: |
+      {
+        "timestamp": "%START_TIME%",
+        "method": "%REQ(:METHOD)%",
+        "path": "%REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%",
+        "protocol": "%PROTOCOL%",
+        "response_code": "%RESPONSE_CODE%",
+        "response_flags": "%RESPONSE_FLAGS%",
+        "bytes_received": "%BYTES_RECEIVED%",
+        "bytes_sent": "%BYTES_SENT%",
+        "duration": "%DURATION%",
+        "upstream_service_time": "%RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%",
+        "x_forwarded_for": "%REQ(X-FORWARDED-FOR)%",
+        "user_agent": "%REQ(USER-AGENT)%",
+        "request_id": "%REQ(X-REQUEST-ID)%",
+        "correlation_id": "%REQ(X-CORRELATION-ID)%",
+        "authority": "%REQ(:AUTHORITY)%",
+        "upstream_host": "%UPSTREAM_HOST%",
+        "source_app": "%{source_app}%",
+        "destination_app": "%{destination_app}%",
+        "user_id": "%REQ(X-USER-ID)%",
+        "tenant_id": "%REQ(X-TENANT-ID)%"
+      }
+
+---
+# Error rate and latency monitoring
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: zamaz-error-monitoring
+  namespace: zamaz
+spec:
+  metrics:
+  - providers:
+    - name: prometheus
+  - overrides:
+    - match:
+        metric: requests_total
+      tagOverrides:
+        error_type:
+          value: |
+            has(response.code) && response.code >= 400 && response.code < 500 ? "client_error" :
+            has(response.code) && response.code >= 500 ? "server_error" : "success"
+        latency_bucket:
+          value: |
+            response.duration > 5000 ? "very_slow" :
+            response.duration > 1000 ? "slow" :
+            response.duration > 100 ? "medium" : "fast"
+
+---
+# Business metrics for authentication and authorization
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: zamaz-auth-metrics
+  namespace: zamaz
+spec:
+  metrics:
+  - providers:
+    - name: prometheus
+  - overrides:
+    - match:
+        metric: requests_total
+        mode: CLIENT
+      tagOverrides:
+        endpoint_type:
+          value: |
+            has(request.url_path) && (request.url_path | startsWith("/api/auth/")) ? "auth" :
+            has(request.url_path) && (request.url_path | startsWith("/api/admin/")) ? "admin" :
+            has(request.url_path) && (request.url_path | startsWith("/api/user/")) ? "user" :
+            has(request.url_path) && (request.url_path | startsWith("/health")) ? "health" : "other"
+
+---
+# Performance monitoring telemetry
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: zamaz-performance
+  namespace: zamaz
+spec:
+  metrics:
+  - providers:
+    - name: prometheus
+  - overrides:
+    - match:
+        metric: tcp_opened_total
+      disabled: false
+    - match:
+        metric: tcp_closed_total
+      disabled: false
+    - match:
+        metric: request_duration_milliseconds
+      disabled: false
+      tagOverrides:
+        percentile:
+          value: "p99"
+
+---
+# Global telemetry configuration for the mesh
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: zamaz-global-config
+  namespace: istio-system
+spec:
+  # Default sampling rate for tracing (1% in production)
+  tracing:
+  - randomSamplingPercentage: 1.0
+  
+  # Global access logging (can be overridden per namespace)
+  accessLogging:
+  - providers:
+    - name: otel
+  
+  # Global metrics collection
+  metrics:
+  - providers:
+    - name: prometheus
+  - overrides:
+    - match:
+        metric: ALL_METRICS
+      tagOverrides:
+        cluster_name:
+          value: "zamaz-cluster"
+        environment:
+          value: "%{environment}"
+        mesh_id:
+          value: "zamaz-mesh"
+
+---
+# Development environment telemetry (higher sampling)
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: zamaz-dev-telemetry
+  namespace: zamaz
+  labels:
+    environment: development
+spec:
+  # Higher sampling rate for development
+  tracing:
+  - randomSamplingPercentage: 10.0
+  
+  # Detailed access logging for debugging
+  accessLogging:
+  - providers:
+    - name: otel
+  - format: |
+      [%START_TIME%] "%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% %PROTOCOL%"
+      %RESPONSE_CODE% %RESPONSE_FLAGS% %BYTES_RECEIVED% %BYTES_SENT%
+      %DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% "%REQ(X-FORWARDED-FOR)%"
+      "%REQ(USER-AGENT)%" "%REQ(X-REQUEST-ID)%" "%REQ(:AUTHORITY)%" "%UPSTREAM_HOST%"
+      source=%{source_app} dest=%{destination_app} user=%REQ(X-USER-ID)%

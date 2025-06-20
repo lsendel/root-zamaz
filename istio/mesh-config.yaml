@@ -1,0 +1,205 @@
+# Istio Service Mesh Configuration for MVP Zero Trust Auth
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: zamaz-mesh
+  namespace: istio-system
+spec:
+  values:
+    global:
+      meshID: zamaz-mesh
+      multiCluster:
+        clusterName: zamaz-cluster
+      network: network1
+      # Trust domain for SPIRE integration
+      trustDomain: zamaz.cluster.local
+      # Enable strict mTLS
+      defaultPodDisruptionBudget:
+        enabled: true
+      # Proxy configuration
+      proxy:
+        # Enable tracing
+        tracer: "jaeger"
+        # Resources for sidecars
+        resources:
+          requests:
+            cpu: 10m
+            memory: 40Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+        # Security context
+        runAsUser: 1337
+        runAsGroup: 1337
+        # Logging level
+        logLevel: warning
+        # Lifecycle configuration
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /bin/sleep
+              - "15"
+        # Hold application start until proxy is ready
+        holdApplicationUntilProxyStarts: true
+      # Pilot configuration
+      pilot:
+        # Enable workload entry auto registration
+        env:
+          EXTERNAL_ISTIOD: false
+          ENABLE_WORKLOAD_ENTRY_AUTOREGISTRATION: true
+          VERIFY_CERTIFICATE_AT_CLIENT: true
+          ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY: true
+          PILOT_ENABLE_WORKLOAD_ENTRY_AUTOREGISTRATION: true
+          PILOT_ENABLE_STATUS: true
+      # Telemetry v2 configuration
+      telemetryV2:
+        enabled: true
+        prometheus:
+          configOverride:
+            inbound_metric_labels:
+              source_app: "source.labels['app'] | 'unknown'"
+              source_version: "source.labels['version'] | 'unknown'"
+            outbound_metric_labels:
+              destination_app: "destination.labels['app'] | 'unknown'"
+              destination_version: "destination.labels['version'] | 'unknown'"
+    # CNI configuration
+    cni:
+      enabled: true
+      chained: true
+      cniBinDir: /opt/cni/bin
+      cniConfDir: /etc/cni/net.d
+      # Exclude namespaces from injection
+      excludeNamespaces:
+        - istio-system
+        - kube-system
+        - local-path-storage
+  components:
+    # Pilot (Istiod) configuration
+    pilot:
+      k8s:
+        replicaCount: 2
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        hpaSpec:
+          minReplicas: 2
+          maxReplicas: 5
+          metrics:
+          - type: Resource
+            resource:
+              name: cpu
+              targetAverageUtilization: 80
+        podDisruptionBudget:
+          minAvailable: 1
+        env:
+          # SPIRE integration
+          - name: ENABLE_WORKLOAD_ENTRY_AUTOREGISTRATION
+            value: "true"
+          - name: PILOT_ENABLE_WORKLOAD_ENTRY_AUTOREGISTRATION  
+            value: "true"
+          # Cross cluster configuration
+          - name: PILOT_ENABLE_CROSS_CLUSTER_WORKLOAD_ENTRY
+            value: "true"
+          # Status reporting
+          - name: PILOT_ENABLE_STATUS
+            value: "true"
+          # Security
+          - name: VERIFY_CERTIFICATE_AT_CLIENT
+            value: "true"
+          # Performance tuning
+          - name: PILOT_PUSH_THROTTLE
+            value: "100"
+          - name: PILOT_MAX_REQUESTS_PER_SECOND
+            value: "25"
+    # Ingress Gateway configuration
+    ingressGateways:
+    - name: istio-ingressgateway
+      enabled: true
+      k8s:
+        replicaCount: 2
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 1000m
+            memory: 1024Mi
+        service:
+          type: LoadBalancer
+          ports:
+          - port: 15021
+            targetPort: 15021
+            name: status-port
+            protocol: TCP
+          - port: 80
+            targetPort: 8080
+            name: http2
+            protocol: TCP
+          - port: 443
+            targetPort: 8443
+            name: https
+            protocol: TCP
+          - port: 15443
+            targetPort: 15443
+            name: tls
+            protocol: TCP
+        hpaSpec:
+          minReplicas: 2
+          maxReplicas: 5
+          metrics:
+          - type: Resource
+            resource:
+              name: cpu
+              targetAverageUtilization: 80
+        podDisruptionBudget:
+          minAvailable: 1
+        # Security context
+        securityContext:
+          runAsUser: 1337
+          runAsGroup: 1337
+          runAsNonRoot: true
+          fsGroup: 1337
+    # Egress Gateway configuration  
+    egressGateways:
+    - name: istio-egressgateway
+      enabled: true
+      k8s:
+        replicaCount: 1
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        service:
+          type: ClusterIP
+          ports:
+          - port: 80
+            name: http2
+            protocol: TCP
+          - port: 443
+            name: https
+            protocol: TCP
+        # Security context
+        securityContext:
+          runAsUser: 1337
+          runAsGroup: 1337
+          runAsNonRoot: true
+          fsGroup: 1337
+    # CNI component
+    cni:
+      enabled: true
+      k8s:
+        resources:
+          requests:
+            cpu: 10m
+            memory: 100Mi
+          limits:
+            cpu: 100m
+            memory: 200Mi

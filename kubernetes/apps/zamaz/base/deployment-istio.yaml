@@ -1,0 +1,337 @@
+# Enhanced deployment with Istio service mesh annotations and configurations
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zamaz-api-deployment
+  namespace: zamaz
+  labels:
+    app.kubernetes.io/name: zamaz
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: zamaz-platform
+    app.kubernetes.io/managed-by: kustomize
+    version: stable
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zamaz
+      app.kubernetes.io/component: api
+      version: stable
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: zamaz
+        app.kubernetes.io/component: api
+        app.kubernetes.io/part-of: zamaz-platform
+        app.kubernetes.io/version: "1.0.0"
+        version: stable
+      annotations:
+        # Prometheus metrics
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+        
+        # SPIRE integration
+        spire.io/inject: "true"
+        
+        # Istio sidecar configuration
+        sidecar.istio.io/inject: "true"
+        sidecar.istio.io/rewriteAppHTTPProbers: "true"
+        
+        # Traffic policy annotations
+        traffic.sidecar.istio.io/includeInboundPorts: "8080,9090"
+        traffic.sidecar.istio.io/excludeOutboundIPRanges: "169.254.169.254/32"
+        
+        # Istio proxy configuration
+        sidecar.istio.io/proxyCPU: "10m"
+        sidecar.istio.io/proxyMemory: "64Mi"
+        sidecar.istio.io/proxyCPULimit: "100m"
+        sidecar.istio.io/proxyMemoryLimit: "128Mi"
+        
+        # Custom proxy configuration
+        sidecar.istio.io/userVolumeMount: '[{"name":"spire-agent-socket", "mountPath":"/spire", "readonly":true}]'
+        
+        # Hold application start until proxy is ready
+        sidecar.istio.io/holdApplicationUntilProxyStarts: "true"
+        
+        # Lifecycle configuration
+        sidecar.istio.io/preStopCommand: '["/bin/sleep", "15"]'
+        
+        # Telemetry configuration
+        sidecar.istio.io/logLevel: "warning"
+        sidecar.istio.io/componentLogLevel: "misc:error"
+    spec:
+      serviceAccountName: zamaz-api-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: api
+        image: zamaz-api:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        - name: metrics
+          containerPort: 9090
+          protocol: TCP
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: SERVICE_MESH_ENABLED
+          value: "true"
+        - name: ISTIO_PILOT_ENABLE_WORKLOAD_ENTRY_AUTOREGISTRATION
+          value: "true"
+        - name: SERVICE_DISCOVERY_PROVIDER
+          value: "kubernetes"
+        envFrom:
+        - configMapRef:
+            name: zamaz-api-config
+        - secretRef:
+            name: zamaz-api-secrets
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+          successThreshold: 1
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+          successThreshold: 1
+        startupProbe:
+          httpGet:
+            path: /health/startup
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 10
+          successThreshold: 1
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 65534
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: spire-agent-socket
+          mountPath: /spire
+          readOnly: true
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: spire-agent-socket
+        hostPath:
+          path: /run/spire/agent
+          type: Directory
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: zamaz
+                  app.kubernetes.io/component: api
+              topologyKey: kubernetes.io/hostname
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: zamaz
+            app.kubernetes.io/component: api
+
+---
+# Frontend deployment with Istio configuration
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zamaz-frontend-deployment
+  namespace: zamaz
+  labels:
+    app.kubernetes.io/name: zamaz
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: zamaz-platform
+    app.kubernetes.io/managed-by: kustomize
+    version: stable
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zamaz
+      app.kubernetes.io/component: frontend
+      version: stable
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: zamaz
+        app.kubernetes.io/component: frontend
+        app.kubernetes.io/part-of: zamaz-platform
+        app.kubernetes.io/version: "1.0.0"
+        version: stable
+      annotations:
+        # Istio sidecar configuration
+        sidecar.istio.io/inject: "true"
+        sidecar.istio.io/rewriteAppHTTPProbers: "true"
+        
+        # Traffic policy for frontend
+        traffic.sidecar.istio.io/includeInboundPorts: "3000"
+        traffic.sidecar.istio.io/excludeOutboundIPRanges: "169.254.169.254/32"
+        
+        # Lighter proxy configuration for frontend
+        sidecar.istio.io/proxyCPU: "5m"
+        sidecar.istio.io/proxyMemory: "32Mi"
+        sidecar.istio.io/proxyCPULimit: "50m"
+        sidecar.istio.io/proxyMemoryLimit: "64Mi"
+        
+        # Hold application start until proxy is ready
+        sidecar.istio.io/holdApplicationUntilProxyStarts: "true"
+        
+        # Telemetry configuration
+        sidecar.istio.io/logLevel: "warning"
+    spec:
+      serviceAccountName: zamaz-frontend-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: frontend
+        image: zamaz-frontend:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 3000
+          protocol: TCP
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: SERVICE_MESH_ENABLED
+          value: "true"
+        - name: API_ENDPOINT
+          value: "http://zamaz-api-service.zamaz.svc.cluster.local:8080"
+        envFrom:
+        - configMapRef:
+            name: zamaz-frontend-config
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 65534
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+        - name: nginx-cache
+          mountPath: /var/cache/nginx
+        - name: nginx-run
+          mountPath: /var/run
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      - name: nginx-cache
+        emptyDir: {}
+      - name: nginx-run
+        emptyDir: {}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: zamaz
+                  app.kubernetes.io/component: frontend
+              topologyKey: kubernetes.io/hostname
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: zamaz
+            app.kubernetes.io/component: frontend

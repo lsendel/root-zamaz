@@ -1,0 +1,238 @@
+# Authorization Policies for Zero Trust Architecture
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: deny-all-default
+  namespace: zamaz
+spec:
+  # Deny all traffic by default (Zero Trust principle)
+  # This policy will be overridden by more specific allow policies
+  action: DENY
+  rules:
+  - {}
+
+---
+# Allow ingress gateway to access frontend
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-ingress-to-frontend
+  namespace: zamaz
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zamaz
+      app.kubernetes.io/component: frontend
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/istio-system/sa/istio-ingressgateway-service-account"]
+    to:
+    - operation:
+        methods: ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"]
+        paths: ["/*"]
+
+---
+# Allow frontend to access API
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-frontend-to-api
+  namespace: zamaz
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zamaz
+      app.kubernetes.io/component: api
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/zamaz/sa/zamaz-frontend-sa"]
+    to:
+    - operation:
+        methods: ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"]
+        paths: ["/api/*"]
+
+---
+# Allow API to access database (external)
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-api-to-database
+  namespace: zamaz
+spec:
+  selector:
+    matchLabels:
+      app: postgres
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/zamaz/sa/zamaz-api-sa"]
+    to:
+    - operation:
+        ports: ["5432"]
+
+---
+# Allow API to access Redis (external)
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-api-to-redis
+  namespace: zamaz
+spec:
+  selector:
+    matchLabels:
+      app: redis
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/zamaz/sa/zamaz-api-sa"]
+    to:
+    - operation:
+        ports: ["6379"]
+
+---
+# Allow health check probes from kubelet
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-health-checks
+  namespace: zamaz
+spec:
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        # Allow requests from kubelet (no principal for kubelet probes)
+        notPrincipals: ["*"]
+    to:
+    - operation:
+        methods: ["GET"]
+        paths: ["/health", "/health/live", "/health/ready", "/health/startup"]
+
+---
+# Allow metrics collection from Prometheus
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-prometheus-metrics
+  namespace: zamaz
+spec:
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        namespaces: ["istio-system", "monitoring"]
+    to:
+    - operation:
+        methods: ["GET"]
+        paths: ["/metrics", "/stats/prometheus"]
+
+---
+# Allow SPIRE agent communication
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-spire-agent
+  namespace: zamaz
+spec:
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/spire/sa/spire-agent"]
+    to:
+    - operation:
+        methods: ["GET", "POST"]
+        paths: ["/spire/*"]
+
+---
+# Allow cross-namespace service discovery (if needed)
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-service-discovery
+  namespace: zamaz
+spec:
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/zamaz/sa/*"]
+    to:
+    - operation:
+        methods: ["GET"]
+        paths: ["/api/v1/services/*", "/api/discovery/*"]
+
+---
+# Admin access control (requires JWT token)
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: admin-access-control
+  namespace: zamaz
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zamaz
+      app.kubernetes.io/component: api
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        requestPrincipals: ["*"]  # Requires valid JWT
+    to:
+    - operation:
+        methods: ["GET", "POST", "PUT", "DELETE"]
+        paths: ["/api/admin/*"]
+    when:
+    - key: request.auth.claims[role]
+      values: ["admin", "super-admin"]
+
+---
+# User access control
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: user-access-control
+  namespace: zamaz
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zamaz
+      app.kubernetes.io/component: api
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+        requestPrincipals: ["*"]  # Requires valid JWT
+    to:
+    - operation:
+        methods: ["GET", "POST", "PUT"]
+        paths: ["/api/user/*", "/api/profile/*"]
+    when:
+    - key: request.auth.claims[role]
+      values: ["user", "admin", "super-admin"]
+
+---
+# Public endpoints (no authentication required)
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: allow-public-endpoints
+  namespace: zamaz
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zamaz
+      app.kubernetes.io/component: api
+  action: ALLOW
+  rules:
+  - to:
+    - operation:
+        methods: ["GET", "POST"]
+        paths: ["/api/auth/login", "/api/auth/register", "/api/health", "/api/version"]

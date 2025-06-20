@@ -1,0 +1,68 @@
+# Request Authentication for JWT validation
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: jwt-validation
+  namespace: zamaz
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zamaz
+      app.kubernetes.io/component: api
+  jwtRules:
+  - issuer: "https://auth.zamaz.cluster.local"
+    jwksUri: "https://auth.zamaz.cluster.local/.well-known/jwks.json"
+    # Use custom claim for roles
+    fromHeaders:
+    - name: "Authorization"
+      prefix: "Bearer "
+    fromParams:
+    - "token"
+    # JWT validation settings
+    audiences:
+    - "zamaz-api"
+    - "zamaz-platform"
+    # Claim mappings
+    outputPayloadToHeader: "x-jwt-payload"
+    forwardOriginalToken: true
+
+---
+# Alternative JWT provider for development/testing
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: jwt-dev-validation
+  namespace: zamaz
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zamaz
+      environment: development
+  jwtRules:
+  - issuer: "https://dev-auth.zamaz.local"
+    jwksUri: "https://dev-auth.zamaz.local/.well-known/jwks.json"
+    fromHeaders:
+    - name: "Authorization"
+      prefix: "Bearer "
+    audiences:
+    - "zamaz-api-dev"
+    - "zamaz-platform-dev"
+
+---
+# Service-to-service JWT validation using SPIRE
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: spire-jwt-validation
+  namespace: zamaz
+spec:
+  # Apply to all services for service-to-service communication
+  jwtRules:
+  - issuer: "https://spire-server.spire.svc.cluster.local"
+    jwksUri: "https://spire-server.spire.svc.cluster.local:8443/keys"
+    fromHeaders:
+    - name: "X-SPIRE-JWT"
+    audiences:
+    - "spire://zamaz.cluster.local"
+    # Trust domain validation
+    forwardOriginalToken: false

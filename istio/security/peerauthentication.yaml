@@ -1,0 +1,53 @@
+# Peer Authentication - Enable strict mTLS across the mesh
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: istio-system
+spec:
+  # Apply to all workloads in the mesh
+  mtls:
+    mode: STRICT
+
+---
+# Namespace-specific peer authentication for zamaz namespace
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: zamaz-strict-mtls
+  namespace: zamaz
+spec:
+  # Enforce strict mTLS for all services in zamaz namespace
+  mtls:
+    mode: STRICT
+
+---
+# Allow permissive mode for external services that need it
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: external-permissive
+  namespace: zamaz
+spec:
+  selector:
+    matchLabels:
+      app: external-service
+  mtls:
+    mode: PERMISSIVE
+
+---
+# Special configuration for health check endpoints
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: health-check-policy
+  namespace: zamaz
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: zamaz
+  # Allow specific ports to bypass mTLS for health checks
+  portLevelMtls:
+    # Health check port can be accessed without mTLS
+    8080:
+      mode: PERMISSIVE

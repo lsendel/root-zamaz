@@ -1,0 +1,299 @@
+# EnvoyFilter for custom request/response headers
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: zamaz-headers-filter
+  namespace: zamaz
+spec:
+  workloadSelector:
+    labels:
+      app.kubernetes.io/name: zamaz
+  configPatches:
+  # Add security headers to all responses
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      listener:
+        filterChain:
+          filter:
+            name: "envoy.filters.network.http_connection_manager"
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.filters.http.local_response
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.http.local_response.v3.LocalResponse
+          body_format:
+            json_format:
+              error: "%{REQUEST_HEADERS:x-request-id}"
+              timestamp: "%{START_TIME}"
+              path: "%{REQUEST_HEADERS::path}"
+
+  # Add custom headers to responses
+  - applyTo: HTTP_ROUTE
+    match:
+      context: SIDECAR_INBOUND
+    patch:
+      operation: MERGE
+      value:
+        response_headers_to_add:
+        - header:
+            key: "X-Content-Type-Options"
+            value: "nosniff"
+        - header:
+            key: "X-Frame-Options"
+            value: "DENY"
+        - header:
+            key: "X-XSS-Protection"
+            value: "1; mode=block"
+        - header:
+            key: "Strict-Transport-Security"
+            value: "max-age=31536000; includeSubDomains"
+        - header:
+            key: "Referrer-Policy"
+            value: "strict-origin-when-cross-origin"
+        - header:
+            key: "X-Request-ID"
+            value: "%{REQUEST_HEADERS:x-request-id}"
+        - header:
+            key: "X-Correlation-ID"
+            value: "%{REQUEST_HEADERS:x-correlation-id}"
+
+---
+# Rate limiting EnvoyFilter
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: zamaz-rate-limit
+  namespace: zamaz
+spec:
+  workloadSelector:
+    labels:
+      app.kubernetes.io/component: api
+  configPatches:
+  # Local rate limiting
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      listener:
+        filterChain:
+          filter:
+            name: "envoy.filters.network.http_connection_manager"
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.filters.http.local_ratelimit
+        typed_config:
+          "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+          type_url: type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+          value:
+            stat_prefix: local_rate_limiter
+            token_bucket:
+              max_tokens: 100
+              tokens_per_fill: 100
+              fill_interval: 60s
+            filter_enabled:
+              runtime_key: local_rate_limit_enabled
+              default_value:
+                numerator: 100
+                denominator: HUNDRED
+            filter_enforced:
+              runtime_key: local_rate_limit_enforced
+              default_value:
+                numerator: 100
+                denominator: HUNDRED
+            response_headers_to_add:
+            - append: false
+              header:
+                key: x-local-rate-limit
+                value: 'true'
+            local_rate_limit_per_downstream_connection: false
+
+---
+# JWT validation EnvoyFilter
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: zamaz-jwt-filter
+  namespace: zamaz
+spec:
+  workloadSelector:
+    labels:
+      app.kubernetes.io/component: api
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      listener:
+        filterChain:
+          filter:
+            name: "envoy.filters.network.http_connection_manager"
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.filters.http.jwt_authn
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.http.jwt_authn.v3.JwtAuthentication
+          providers:
+            zamaz_jwt:
+              issuer: "https://auth.zamaz.cluster.local"
+              audiences:
+              - "zamaz-api"
+              - "zamaz-platform"
+              remote_jwks:
+                http_uri:
+                  uri: "https://auth.zamaz.cluster.local/.well-known/jwks.json"
+                  cluster: auth_jwks_cluster
+                  timeout: 5s
+                cache_duration: 300s
+              from_headers:
+              - name: "Authorization"
+                value_prefix: "Bearer "
+              from_params:
+              - "token"
+              forward: true
+              payload_in_metadata: "jwt_payload"
+          rules:
+          - match:
+              prefix: "/api/auth/login"
+            bypass: true
+          - match:
+              prefix: "/api/auth/register"
+            bypass: true
+          - match:
+              prefix: "/health"
+            bypass: true
+          - match:
+              prefix: "/metrics"
+            bypass: true
+          - match:
+              prefix: "/api/"
+            requires:
+              provider_name: "zamaz_jwt"
+
+---
+# CORS EnvoyFilter
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: zamaz-cors-filter
+  namespace: zamaz
+spec:
+  workloadSelector:
+    labels:
+      app.kubernetes.io/component: api
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      listener:
+        filterChain:
+          filter:
+            name: "envoy.filters.network.http_connection_manager"
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.filters.http.cors
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.http.cors.v3.Cors
+
+  - applyTo: HTTP_ROUTE
+    match:
+      context: SIDECAR_INBOUND
+    patch:
+      operation: MERGE
+      value:
+        cors:
+          allow_origin_string_match:
+          - exact: "https://zamaz.local"
+          - exact: "https://app.zamaz.local"
+          - exact: "http://localhost:3000"  # Development
+          - exact: "http://127.0.0.1:3000"  # Development
+          allow_methods: "GET, POST, PUT, DELETE, OPTIONS"
+          allow_headers: "Content-Type, Authorization, X-Requested-With, X-User-ID, X-Tenant-ID, X-Correlation-ID"
+          expose_headers: "X-Request-ID, X-Correlation-ID, X-Rate-Limit-Remaining"
+          max_age: "86400"
+          allow_credentials: true
+
+---
+# Request logging EnvoyFilter
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: zamaz-request-logging
+  namespace: zamaz
+spec:
+  configPatches:
+  - applyTo: HTTP_FILTER
+    match:
+      context: SIDECAR_INBOUND
+      listener:
+        filterChain:
+          filter:
+            name: "envoy.filters.network.http_connection_manager"
+    patch:
+      operation: INSERT_BEFORE
+      value:
+        name: envoy.filters.http.wasm
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+          config:
+            root_id: request_logger
+            vm_config:
+              vm_id: request_logger
+              runtime: envoy.wasm.runtime.v8
+              code:
+                local:
+                  inline_string: |
+                    class RequestLogger {
+                      onRequestHeaders() {
+                        const path = this.getRequestHeader(":path");
+                        const method = this.getRequestHeader(":method");
+                        const userAgent = this.getRequestHeader("user-agent");
+                        const requestId = this.getRequestHeader("x-request-id");
+                        
+                        console.log(`[REQUEST] ${method} ${path} - UA: ${userAgent} - ID: ${requestId}`);
+                        return FilterHeadersStatus.Continue;
+                      }
+                      
+                      onResponseHeaders() {
+                        const status = this.getResponseHeader(":status");
+                        const requestId = this.getRequestHeader("x-request-id");
+                        
+                        console.log(`[RESPONSE] Status: ${status} - ID: ${requestId}`);
+                        return FilterHeadersStatus.Continue;
+                      }
+                    }
+
+---
+# Circuit breaker EnvoyFilter for external services
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: zamaz-circuit-breaker
+  namespace: zamaz
+spec:
+  workloadSelector:
+    labels:
+      app.kubernetes.io/component: api
+  configPatches:
+  - applyTo: CLUSTER
+    match:
+      context: SIDECAR_OUTBOUND
+    patch:
+      operation: MERGE
+      value:
+        outlier_detection:
+          consecutive_5xx: 5
+          consecutive_gateway_failure: 5
+          interval: 30s
+          base_ejection_time: 30s
+          max_ejection_percent: 50
+          min_health_percent: 50
+        circuit_breakers:
+          thresholds:
+          - priority: DEFAULT
+            max_connections: 100
+            max_pending_requests: 50
+            max_requests: 100
+            max_retries: 3
