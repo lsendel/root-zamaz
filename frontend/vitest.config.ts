@@ -9,6 +9,12 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./tests/setup.ts'],
     css: true,
+    exclude: [
+      '**/tests/e2e/**',
+      '**/tests/integration/**',
+      '**/tests/api/**',
+      '**/node_modules/**'
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html', 'lcov'],

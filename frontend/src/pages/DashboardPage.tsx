@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuthStore } from '../stores/auth-store'
 import { useLogout } from '../hooks/api/use-auth'
 import { deviceAPI, healthAPI } from '../services/api'
@@ -80,6 +81,9 @@ export default function DashboardPage() {
         <nav className="nav">
           <div className="user-menu" data-testid="user-menu">
             <span>Welcome, {user?.first_name || user?.username}</span>
+            <Link to="/profile" className="profile-link">
+              👤 Profile
+            </Link>
             {isAdmin && (
               <button onClick={() => setShowAdminPanel(true)} className="admin-btn">
                 Admin Panel

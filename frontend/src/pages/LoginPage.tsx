@@ -35,7 +35,7 @@ export default function LoginPage() {
     e.preventDefault()
 
     try {
-      await loginMutation.mutateAsync({ email, password })
+      await loginMutation.mutateAsync({ username: email, password })
       navigate('/dashboard')
     } catch (error) {
       // Error is handled by the mutation
@@ -102,7 +102,7 @@ export default function LoginPage() {
           </button>
           
           <div style={{ marginTop: '1rem', fontSize: '0.875rem', color: '#888' }}>
-            Demo credentials: admin@example.com / password
+            Demo credentials: admin@mvp.local / password
           </div>
         </form>
       </main>

@@ -54,7 +54,7 @@ BOLD := \033[1m
 .PHONY: help info clean-all \
 	dev-setup dev-validate dev-up dev-down dev-frontend dev-all dev-logs dev-status \
 	deps deps-go deps-frontend deps-validate deps-update deps-audit \
-	test test-go test-frontend test-integration test-e2e test-load test-all test-watch test-debug \
+	test test-go test-frontend test-integration test-e2e test-e2e-setup test-e2e-check-services test-e2e-ui test-e2e-headed test-e2e-debug test-e2e-full test-e2e-report test-e2e-clean test-load test-all test-watch test-debug \
 	coverage coverage-go coverage-frontend coverage-report coverage-validate \
 	lint lint-go lint-frontend lint-docker lint-all lint-fix \
 	security security-scan security-audit security-install security-update \
@@ -297,15 +297,105 @@ test-integration: ## 🔧 Run integration tests with infrastructure
 	@unset DOCKER_DEFAULT_PLATFORM && docker-compose -f docker-compose.test.yml down
 	@printf "$(GREEN)✅ Integration tests completed$(RESET)\n"
 
-test-e2e: deps-frontend ## 🎭 Run end-to-end tests with Playwright
-	@printf "$(BLUE)🎭 Running E2E tests...$(RESET)\n"
+# =============================================================================
+# E2E TESTING - End-to-End Testing with Playwright
+# =============================================================================
+# Prerequisites: Services must be running (use test-e2e-full for automated setup)
+# Manual setup: make dev-up && make dev-frontend (in separate terminal)
+# Full automated: make test-e2e-full
+
+test-e2e-setup: deps-frontend ## 🎭 Setup Playwright browsers for E2E tests
+	@printf "$(BLUE)🎭 Setting up Playwright for E2E testing...$(RESET)\n"
 	@if [ ! -d "$(FRONTEND_DIR)/node_modules/@playwright" ]; then \
 		printf "$(BLUE)📦 Installing Playwright browsers...$(RESET)\n"; \
 		cd $(FRONTEND_DIR) && npx playwright install --with-deps || \
 			(printf "$(RED)❌ Playwright install failed$(RESET)\n" && exit 1); \
+	else \
+		printf "$(GREEN)✅ Playwright already installed$(RESET)\n"; \
 	fi
+
+test-e2e-check-services: ## 🔍 Check if required services are running for E2E tests
+	@printf "$(BLUE)🔍 Checking required services for E2E tests...$(RESET)\n"
+	@printf "$(BLUE)  Required services:$(RESET)\n"
+	@printf "    - Backend API (http://localhost:8080/health)\n"
+	@printf "    - Frontend Dev Server (http://localhost:5173)\n"
+	@printf "    - Database, Redis, NATS (via docker-compose)\n\n"
+	@if curl -s http://localhost:8080/health > /dev/null 2>&1; then \
+		printf "$(GREEN)✅ Backend API is running$(RESET)\n"; \
+	else \
+		printf "$(RED)❌ Backend API not running$(RESET)\n"; \
+		printf "$(YELLOW)💡 Start with: make dev-up$(RESET)\n"; \
+		exit 1; \
+	fi
+	@if curl -s http://localhost:5173 > /dev/null 2>&1; then \
+		printf "$(GREEN)✅ Frontend dev server is running$(RESET)\n"; \
+	else \
+		printf "$(RED)❌ Frontend dev server not running$(RESET)\n"; \
+		printf "$(YELLOW)💡 Start with: make dev-frontend (in separate terminal)$(RESET)\n"; \
+		exit 1; \
+	fi
+	@printf "$(GREEN)✅ All required services are running$(RESET)\n"
+
+test-e2e: test-e2e-setup test-e2e-check-services ## 🎭 Run E2E tests (requires services to be running)
+	@printf "$(BLUE)🎭 Running E2E tests...$(RESET)\n"
+	@printf "$(YELLOW)📋 Test Configuration:$(RESET)\n"
+	@printf "  Frontend URL: http://localhost:5173\n"
+	@printf "  Backend API:  http://localhost:8080\n"
+	@printf "  Browser:      Chromium (headless)\n"
+	@printf "  Parallel:     Yes\n\n"
 	@cd $(FRONTEND_DIR) && npm run test:e2e || (printf "$(RED)❌ E2E tests failed$(RESET)\n" && exit 1)
 	@printf "$(GREEN)✅ E2E tests completed$(RESET)\n"
+
+test-e2e-ui: test-e2e-setup test-e2e-check-services ## 🎭 Run E2E tests with Playwright UI (interactive)
+	@printf "$(BLUE)🎭 Running E2E tests with Playwright UI...$(RESET)\n"
+	@printf "$(YELLOW)🖥️  Opening Playwright UI for interactive testing$(RESET)\n"
+	@cd $(FRONTEND_DIR) && npm run test:e2e:ui
+
+test-e2e-headed: test-e2e-setup test-e2e-check-services ## 🎭 Run E2E tests in headed mode (visible browser)
+	@printf "$(BLUE)🎭 Running E2E tests in headed mode...$(RESET)\n"
+	@cd $(FRONTEND_DIR) && npm run test:e2e:headed || (printf "$(RED)❌ E2E tests failed$(RESET)\n" && exit 1)
+	@printf "$(GREEN)✅ E2E tests completed$(RESET)\n"
+
+test-e2e-debug: test-e2e-setup test-e2e-check-services ## 🎭 Run E2E tests in debug mode
+	@printf "$(BLUE)🎭 Running E2E tests in debug mode...$(RESET)\n"
+	@printf "$(YELLOW)🐛 Debug mode: Tests will pause for debugging$(RESET)\n"
+	@cd $(FRONTEND_DIR) && npm run test:e2e:debug
+
+test-e2e-full: ## 🎭 Run complete E2E test suite with automatic service management
+	@printf "$(BOLD)$(BLUE)🎭 Running complete E2E test suite with service management...$(RESET)\n"
+	@printf "$(BLUE)📋 This will:$(RESET)\n"
+	@printf "  1. Start backend services (database, API, etc.)\n"
+	@printf "  2. Build and start frontend\n"
+	@printf "  3. Run all E2E tests\n"
+	@printf "  4. Clean up services\n\n"
+	@printf "$(BLUE)🏗️  Step 1/4: Starting backend services...$(RESET)\n"
+	@$(MAKE) dev-up
+	@printf "$(BLUE)🔨 Step 2/4: Building frontend...$(RESET)\n"
+	@cd $(FRONTEND_DIR) && npm run build
+	@printf "$(BLUE)🌐 Step 3/4: Starting frontend preview server...$(RESET)\n"
+	@cd $(FRONTEND_DIR) && npm run serve &
+	@sleep 5
+	@printf "$(BLUE)🎭 Step 4/4: Running E2E tests...$(RESET)\n"
+	@BASE_URL=http://localhost:4173 $(MAKE) test-e2e-setup
+	@cd $(FRONTEND_DIR) && BASE_URL=http://localhost:4173 npm run test:e2e || \
+		(printf "$(RED)❌ E2E tests failed$(RESET)\n" && $(MAKE) dev-down && pkill -f "vite preview" && exit 1)
+	@printf "$(BLUE)🧹 Cleaning up services...$(RESET)\n"
+	@$(MAKE) dev-down
+	@pkill -f "vite preview" || true
+	@printf "$(GREEN)✅ Complete E2E test suite finished$(RESET)\n"
+
+test-e2e-report: ## 📊 View E2E test report (after running tests)
+	@printf "$(BLUE)📊 Opening E2E test report...$(RESET)\n"
+	@if [ -f "$(FRONTEND_DIR)/playwright-report/index.html" ]; then \
+		cd $(FRONTEND_DIR) && npx playwright show-report; \
+	else \
+		printf "$(YELLOW)⚠️  No test report found. Run E2E tests first.$(RESET)\n"; \
+	fi
+
+test-e2e-clean: ## 🧹 Clean E2E test artifacts and reports
+	@printf "$(BLUE)🧹 Cleaning E2E test artifacts...$(RESET)\n"
+	@rm -rf $(FRONTEND_DIR)/test-results $(FRONTEND_DIR)/playwright-report
+	@printf "$(GREEN)✅ E2E test artifacts cleaned$(RESET)\n"
 
 test-load: ## ⚡ Run load tests with k6
 	@printf "$(BLUE)⚡ Running load tests...$(RESET)\n"

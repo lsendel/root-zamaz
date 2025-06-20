@@ -17,13 +17,15 @@ export interface User {
 }
 
 export interface LoginCredentials {
-  email: string
+  username: string
   password: string
+  device_id?: string
 }
 
 export interface LoginRequest {
-  email: string
+  username: string
   password: string
+  device_id?: string
 }
 
 export interface LoginResponse {

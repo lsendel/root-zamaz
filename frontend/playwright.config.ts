@@ -21,7 +21,7 @@ export default defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: process.env.BASE_URL || 'http://localhost:5175',
+    baseURL: process.env.BASE_URL || 'http://localhost:5173',
     
     /* API URL for backend tests */
     extraHTTPHeaders: {
@@ -81,7 +81,7 @@ export default defineConfig({
   webServer: [
     {
       command: 'npm run dev',
-      url: 'http://localhost:5175',
+      url: 'http://localhost:5173',
       reuseExistingServer: !process.env.CI,
       timeout: 120 * 1000,
     },

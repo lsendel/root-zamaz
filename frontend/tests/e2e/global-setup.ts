@@ -47,7 +47,7 @@ async function globalSetup(config: FullConfig) {
   try {
     const loginResponse = await page.request.post(`${apiUrl}/api/auth/login`, {
       data: {
-        username: 'admin',
+        username: 'admin@mvp.local',
         password: 'password'
       }
     });

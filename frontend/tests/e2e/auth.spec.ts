@@ -3,12 +3,13 @@ import { test, expect } from '@playwright/test';
 // Test data
 const testUsers = {
   admin: {
-    username: 'admin',
-    password: 'password',
-    email: 'admin@localhost'
+    email: 'admin@mvp.local',
+    username: 'admin@mvp.local',
+    password: 'password'
   },
   invalid: {
-    username: 'invalid',
+    email: 'invalid@example.com',
+    username: 'invalid@example.com',
     password: 'wrongpass'
   }
 };
@@ -30,7 +31,7 @@ test.describe('Authentication E2E Tests', () => {
     await expect(page).toHaveTitle(/login/i);
     
     // Check form elements are present
-    await expect(page.locator('input[name="username"]')).toBeVisible();
+    await expect(page.locator('input[name="email"]')).toBeVisible();
     await expect(page.locator('input[name="password"]')).toBeVisible();
     await expect(page.locator('button[type="submit"]')).toBeVisible();
     
@@ -46,15 +47,15 @@ test.describe('Authentication E2E Tests', () => {
     
     // Check for HTML5 validation or custom error messages
     // The form should not submit if fields are required
-    const usernameInput = page.locator('input[name="username"]');
+    const emailInput = page.locator('input[name="email"]');
     const passwordInput = page.locator('input[name="password"]');
     
     // Check if the browser shows validation messages (HTML5 required attribute)
-    const usernameValidity = await usernameInput.evaluate((el: HTMLInputElement) => el.validity.valueMissing);
+    const emailValidity = await emailInput.evaluate((el: HTMLInputElement) => el.validity.valueMissing);
     const passwordValidity = await passwordInput.evaluate((el: HTMLInputElement) => el.validity.valueMissing);
     
     // At least one field should show validation error
-    expect(usernameValidity || passwordValidity).toBeTruthy();
+    expect(emailValidity || passwordValidity).toBeTruthy();
     
     // URL should still be on login page (form didn't submit)
     expect(page.url()).toContain('/login');
@@ -67,7 +68,7 @@ test.describe('Authentication E2E Tests', () => {
     await page.goto('/login');
     
     // Fill form with invalid credentials
-    await page.fill('input[name="username"]', testUsers.invalid.username);
+    await page.fill('input[name="email"]', testUsers.invalid.email);
     await page.fill('input[name="password"]', testUsers.invalid.password);
     
     // Take screenshot before submit
@@ -126,7 +127,7 @@ test.describe('Authentication E2E Tests', () => {
     });
     
     // Fill login form
-    await page.fill('input[name="username"]', testUsers.admin.username);
+    await page.fill('input[name="email"]', testUsers.admin.email);
     await page.fill('input[name="password"]', testUsers.admin.password);
     
     // Take screenshot before login
@@ -169,14 +170,17 @@ test.describe('Authentication E2E Tests', () => {
     await page.screenshot({ path: 'test-results/admin-login-success.png' });
     
     // Check localStorage for token (corrected key)
-    const token = await page.evaluate(() => localStorage.getItem('authToken'));
+    const token = await page.evaluate(() => {
+      const authStorage = localStorage.getItem('auth-storage');
+      return authStorage ? JSON.parse(authStorage).state.token : null;
+    });
     expect(token).toBeTruthy();
   });
 
   test('should maintain session across page refresh', async ({ page }) => {
     // Login first
     await page.goto('/login');
-    await page.fill('input[name="username"]', testUsers.admin.username);
+    await page.fill('input[name="email"]', testUsers.admin.email);
     await page.fill('input[name="password"]', testUsers.admin.password);
     await Promise.all([
       page.waitForNavigation(),
@@ -203,7 +207,7 @@ test.describe('Authentication E2E Tests', () => {
   test('should logout successfully', async ({ page }) => {
     // Login first
     await page.goto('/login');
-    await page.fill('input[name="username"]', testUsers.admin.username);
+    await page.fill('input[name="email"]', testUsers.admin.email);
     await page.fill('input[name="password"]', testUsers.admin.password);
     await Promise.all([
       page.waitForNavigation(),
@@ -245,7 +249,10 @@ test.describe('Authentication E2E Tests', () => {
       expect(page.url()).toContain('/login');
       
       // Token should be removed
-      const token = await page.evaluate(() => localStorage.getItem('token'));
+      const token = await page.evaluate(() => {
+        const authStorage = localStorage.getItem('auth-storage');
+        return authStorage ? JSON.parse(authStorage).state.token : null;
+      });
       expect(token).toBeFalsy();
       
       // Take screenshot after logout
@@ -262,7 +269,7 @@ test.describe('Authentication E2E Tests', () => {
     await page.context().setOffline(true);
     
     // Try to login
-    await page.fill('input[name="username"]', testUsers.admin.username);
+    await page.fill('input[name="email"]', testUsers.admin.email);
     await page.fill('input[name="password"]', testUsers.admin.password);
     await page.click('button[type="submit"]');
     
@@ -297,8 +304,8 @@ test.describe('Authentication E2E Tests', () => {
     
     const xssPayload = '<script>window.xssTriggered = true;</script>';
     
-    // Try XSS in username field
-    await page.fill('input[name="username"]', xssPayload);
+    // Try XSS in email field
+    await page.fill('input[name="email"]', xssPayload);
     await page.fill('input[name="password"]', 'password');
     
     // Submit form

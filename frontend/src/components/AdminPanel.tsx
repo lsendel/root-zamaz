@@ -24,6 +24,17 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
   const [newRole, setNewRole] = useState({ name: '', description: '' })
   const [editingRole, setEditingRole] = useState<Role | null>(null)
 
+  // User editing state
+  const [editingUser, setEditingUser] = useState<UserWithRoles | null>(null)
+  const [userEditForm, setUserEditForm] = useState({
+    username: '',
+    email: '',
+    first_name: '',
+    last_name: '',
+    is_active: true,
+    is_admin: false
+  })
+
   useEffect(() => {
     if (!isAdmin) return
 
@@ -108,7 +119,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
     if (!editingRole) return
 
     try {
-      const updatedRole = await adminAPI.updateRole(editingRole.id, {
+      const updatedRole = await adminAPI.updateRole(Number(editingRole.id), {
         name: editingRole.name,
         description: editingRole.description,
         is_active: editingRole.is_active
@@ -152,6 +163,64 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
       // Filtering will be handled by the useEffect
     } catch (err: any) {
       setError(err.message || 'Failed to remove role from user')
+    }
+  }
+
+  const handleEditUser = (user: UserWithRoles) => {
+    setEditingUser(user)
+    setUserEditForm({
+      username: user.username,
+      email: user.email,
+      first_name: user.first_name || '',
+      last_name: user.last_name || '',
+      is_active: user.is_active,
+      is_admin: user.is_admin
+    })
+  }
+
+  const handleUpdateUser = async () => {
+    if (!editingUser) return
+
+    try {
+      await adminAPI.updateUser(editingUser.id, userEditForm)
+      // Reload users to show updated information
+      const updatedUsers = await adminAPI.getUsers()
+      setUsers(updatedUsers)
+      setEditingUser(null)
+      setUserEditForm({
+        username: '',
+        email: '',
+        first_name: '',
+        last_name: '',
+        is_active: true,
+        is_admin: false
+      })
+    } catch (err: any) {
+      setError(err.message || 'Failed to update user')
+    }
+  }
+
+  const handleToggleUserStatus = async (userId: number, currentStatus: boolean) => {
+    try {
+      await adminAPI.updateUser(userId, { is_active: !currentStatus })
+      // Reload users to show updated status
+      const updatedUsers = await adminAPI.getUsers()
+      setUsers(updatedUsers)
+    } catch (err: any) {
+      setError(err.message || 'Failed to toggle user status')
+    }
+  }
+
+  const handleToggleAdminStatus = async (userId: number, currentStatus: boolean) => {
+    if (!confirm(`Are you sure you want to ${currentStatus ? 'remove admin privileges from' : 'grant admin privileges to'} this user?`)) return
+
+    try {
+      await adminAPI.updateUser(userId, { is_admin: !currentStatus })
+      // Reload users to show updated admin status
+      const updatedUsers = await adminAPI.getUsers()
+      setUsers(updatedUsers)
+    } catch (err: any) {
+      setError(err.message || 'Failed to toggle admin status')
     }
   }
 
@@ -462,30 +531,21 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                       <div className="action-buttons">
                         <button 
                           className="edit-user"
-                          onClick={() => {
-                            // TODO: Implement user editing modal
-                            alert(`Edit user: ${user.username}`)
-                          }}
+                          onClick={() => handleEditUser(user)}
                           title="Edit user details"
                         >
                           📝 Edit User
                         </button>
                         <button 
                           className={`toggle-status ${user.is_active ? 'deactivate' : 'activate'}`}
-                          onClick={() => {
-                            // TODO: Implement user status toggle
-                            alert(`${user.is_active ? 'Deactivate' : 'Activate'} user: ${user.username}`)
-                          }}
+                          onClick={() => handleToggleUserStatus(user.id, user.is_active)}
                           title={`${user.is_active ? 'Deactivate' : 'Activate'} this user`}
                         >
                           {user.is_active ? '🚫 Deactivate' : '✅ Activate'}
                         </button>
                         <button 
                           className={`toggle-admin ${user.is_admin ? 'remove-admin' : 'make-admin'}`}
-                          onClick={() => {
-                            // TODO: Implement admin status toggle
-                            alert(`${user.is_admin ? 'Remove admin' : 'Make admin'}: ${user.username}`)
-                          }}
+                          onClick={() => handleToggleAdminStatus(user.id, user.is_admin)}
                           title={`${user.is_admin ? 'Remove admin privileges' : 'Grant admin privileges'}`}
                         >
                           {user.is_admin ? '👤 Remove Admin' : '👑 Make Admin'}
@@ -499,6 +559,99 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
           </div>
         )}
       </div>
+
+      {/* User Edit Modal */}
+      {editingUser && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h3>Edit User: {editingUser.username}</h3>
+              <button 
+                onClick={() => setEditingUser(null)}
+                className="close-btn"
+              >
+                ×
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label htmlFor="edit-username">Username</label>
+                <input
+                  id="edit-username"
+                  type="text"
+                  value={userEditForm.username}
+                  onChange={(e) => setUserEditForm({...userEditForm, username: e.target.value})}
+                  placeholder="Username"
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="edit-email">Email</label>
+                <input
+                  id="edit-email"
+                  type="email"
+                  value={userEditForm.email}
+                  onChange={(e) => setUserEditForm({...userEditForm, email: e.target.value})}
+                  placeholder="Email"
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="edit-first-name">First Name</label>
+                <input
+                  id="edit-first-name"
+                  type="text"
+                  value={userEditForm.first_name}
+                  onChange={(e) => setUserEditForm({...userEditForm, first_name: e.target.value})}
+                  placeholder="First Name"
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="edit-last-name">Last Name</label>
+                <input
+                  id="edit-last-name"
+                  type="text"
+                  value={userEditForm.last_name}
+                  onChange={(e) => setUserEditForm({...userEditForm, last_name: e.target.value})}
+                  placeholder="Last Name"
+                />
+              </div>
+              <div className="form-group">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={userEditForm.is_active}
+                    onChange={(e) => setUserEditForm({...userEditForm, is_active: e.target.checked})}
+                  />
+                  Active User
+                </label>
+              </div>
+              <div className="form-group">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={userEditForm.is_admin}
+                    onChange={(e) => setUserEditForm({...userEditForm, is_admin: e.target.checked})}
+                  />
+                  Administrator
+                </label>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button 
+                onClick={() => setEditingUser(null)}
+                className="cancel-btn"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleUpdateUser}
+                className="save-btn"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

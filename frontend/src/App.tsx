@@ -9,6 +9,7 @@ import './App.css'
 // Lazy load pages for code splitting
 const LoginPage = lazy(() => import('./pages/LoginPage'))
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+const ProfilePage = lazy(() => import('./pages/ProfilePage'))
 
 // Loading component
 const PageLoader: React.FC = () => (
@@ -32,6 +33,14 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <DashboardPage />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/profile" 
+                  element={
+                    <ProtectedRoute>
+                      <ProfilePage />
                     </ProtectedRoute>
                   } 
                 />

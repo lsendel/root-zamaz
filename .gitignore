@@ -18,11 +18,16 @@ logs/*
 !logs/.gitkeep
 
 # Test results
-test-results/*
-!test-results/.gitkeep
+test-results/
+**/test-results/
 coverage.out
 coverage.html
 *.test
+playwright-report/
+**/playwright-report/
+test-results.xml
+junit.xml
+*-report.html
 
 # Environment
 .env
