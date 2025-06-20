@@ -173,14 +173,14 @@ func (m *Migrator) runMigration(migration Migration) error {
 
 	// Split SQL into individual statements
 	statements := splitSQL(migration.UpSQL)
-	
+
 	// Execute each statement separately
 	for i, stmt := range statements {
 		stmt = strings.TrimSpace(stmt)
 		if stmt == "" || strings.HasPrefix(stmt, "--") {
 			continue // Skip empty lines and comments
 		}
-		
+
 		if err := tx.Exec(stmt).Error; err != nil {
 			tx.Rollback()
 			return errors.Wrap(err, errors.CodeInternal, fmt.Sprintf("Failed to execute migration %s statement %d: %s", migration.ID, i+1, stmt))
@@ -282,21 +282,21 @@ func splitSQL(sql string) []string {
 	var current strings.Builder
 	inQuotes := false
 	inComment := false
-	
+
 	lines := strings.Split(sql, "\n")
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		
+
 		// Skip empty lines
 		if line == "" {
 			continue
 		}
-		
+
 		// Skip comment lines
 		if strings.HasPrefix(line, "--") {
 			continue
 		}
-		
+
 		// Check for SQL statements that end with semicolon
 		if strings.HasSuffix(line, ";") && !inQuotes && !inComment {
 			current.WriteString(line[:len(line)-1]) // Remove the semicolon
@@ -312,7 +312,7 @@ func splitSQL(sql string) []string {
 			current.WriteString(line)
 		}
 	}
-	
+
 	// Add any remaining statement
 	if current.Len() > 0 {
 		stmt := strings.TrimSpace(current.String())
@@ -320,7 +320,7 @@ func splitSQL(sql string) []string {
 			statements = append(statements, stmt)
 		}
 	}
-	
+
 	return statements
 }
 

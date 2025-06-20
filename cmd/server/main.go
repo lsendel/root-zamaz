@@ -376,10 +376,18 @@ func (s *Server) setupRoutes() {
 	docspkg.SetupSwagger(s.app)
 
 	// Frontend routes (serve static files)
+	// IMPORTANT: These must come AFTER API routes to avoid intercepting API calls
 	s.app.Static("/", "./frontend/dist")
 
-	// Catch-all for SPA routing
+	// Catch-all for SPA routing - but exclude API routes
 	s.app.Get("/*", func(c *fiber.Ctx) error {
+		// Don't serve index.html for API routes
+		if len(c.Path()) >= 4 && c.Path()[:4] == "/api" {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error":   "Not Found",
+				"message": "API endpoint not found",
+			})
+		}
 		return c.SendFile("./frontend/dist/index.html")
 	})
 }

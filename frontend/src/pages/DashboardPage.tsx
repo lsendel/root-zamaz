@@ -1,21 +1,17 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { useAuthStore } from '../stores/auth-store'
-import { useLogout } from '../hooks/api/use-auth'
+import { useAuth } from '../hooks/useAuth'
 import { deviceAPI, healthAPI } from '../services/api'
 import { DeviceAttestation } from '../types/auth'
 import AdminPanel from '../components/AdminPanel'
 
 export default function DashboardPage() {
-  const user = useAuthStore(state => state.user)
-  const logoutMutation = useLogout()
+  const { user, isAdmin, logout } = useAuth()
   
   const [devices, setDevices] = useState<DeviceAttestation[]>([])
   const [systemHealth, setSystemHealth] = useState<{ status: string; services: Record<string, string> } | null>(null)
   const [loading, setLoading] = useState(true)
   const [showAdminPanel, setShowAdminPanel] = useState(false)
-  
-  const isAdmin = user?.is_admin || false
 
   useEffect(() => {
     const loadDashboardData = async () => {
@@ -48,7 +44,7 @@ export default function DashboardPage() {
   }, [])
 
   const handleLogout = async () => {
-    await logoutMutation.mutateAsync()
+    await logout()
   }
 
   const getTrustLevelClass = (level: number) => {

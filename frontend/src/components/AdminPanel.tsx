@@ -10,9 +10,8 @@ interface AdminPanelProps {
 export default function AdminPanel({ onClose }: AdminPanelProps) {
   const { user, isAdmin, isLoading } = useAuth()
   
-  // Temporarily bypass admin check for testing - the menu already verifies admin access
-  // TODO: Fix authentication state consistency between menu and modal
-  const shouldShowAdminPanel = true // user?.is_admin || isAdmin
+  // Use consistent authentication state from useAuth hook
+  const shouldShowAdminPanel = user?.is_admin || isAdmin
   
   // Debug logging
   console.log('AdminPanel render:', { 
@@ -60,11 +59,20 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
         ) || []
         setUserPermissions(currentUserPermissions)
 
-        // Load all admin data
+        // Load all admin data with proper error handling
         const [rolesData, permissionsData, usersData] = await Promise.all([
-          adminAPI.getRoles().catch(() => []),
-          adminAPI.getPermissions().catch(() => []),
-          adminAPI.getUsers().catch(() => [])
+          adminAPI.getRoles().catch((err) => {
+            console.error('Failed to load roles:', err)
+            return []
+          }),
+          adminAPI.getPermissions().catch((err) => {
+            console.error('Failed to load permissions:', err)
+            return []
+          }),
+          adminAPI.getUsers().catch((err) => {
+            console.error('Failed to load users:', err)
+            return []
+          })
         ])
 
         setRoles(rolesData)
@@ -117,11 +125,14 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
     if (!newRole.name.trim()) return
 
     try {
+      setError(null)
       const createdRole = await adminAPI.createRole(newRole)
       setRoles([...roles, createdRole])
       setNewRole({ name: '', description: '' })
     } catch (err: any) {
-      setError(err.message || 'Failed to create role')
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to create role'
+      console.error('Create role error:', err)
+      setError(errorMessage)
     }
   }
 
@@ -130,6 +141,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
     if (!editingRole) return
 
     try {
+      setError(null)
       const updatedRole = await adminAPI.updateRole(Number(editingRole.id), {
         name: editingRole.name,
         description: editingRole.description,
@@ -138,7 +150,9 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
       setRoles(roles.map(r => r.id === updatedRole.id ? updatedRole : r))
       setEditingRole(null)
     } catch (err: any) {
-      setError(err.message || 'Failed to update role')
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to update role'
+      console.error('Update role error:', err)
+      setError(errorMessage)
     }
   }
 
@@ -146,34 +160,43 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
     if (!confirm('Are you sure you want to delete this role?')) return
 
     try {
+      setError(null)
       await adminAPI.deleteRole(roleId)
       setRoles(roles.filter(r => r.id !== roleId))
     } catch (err: any) {
-      setError(err.message || 'Failed to delete role')
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to delete role'
+      console.error('Delete role error:', err)
+      setError(errorMessage)
     }
   }
 
   const handleAssignRoleToUser = async (userId: number, roleId: number) => {
     try {
+      setError(null)
       await adminAPI.assignRoleToUser(userId, roleId)
       // Reload users to show updated roles
       const updatedUsers = await adminAPI.getUsers()
       setUsers(updatedUsers)
       // Filtering will be handled by the useEffect
     } catch (err: any) {
-      setError(err.message || 'Failed to assign role to user')
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to assign role to user'
+      console.error('Assign role error:', err)
+      setError(errorMessage)
     }
   }
 
   const handleRemoveRoleFromUser = async (userId: number, roleId: number) => {
     try {
+      setError(null)
       await adminAPI.removeRoleFromUser(userId, roleId)
       // Reload users to show updated roles
       const updatedUsers = await adminAPI.getUsers()
       setUsers(updatedUsers)
       // Filtering will be handled by the useEffect
     } catch (err: any) {
-      setError(err.message || 'Failed to remove role from user')
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to remove role from user'
+      console.error('Remove role error:', err)
+      setError(errorMessage)
     }
   }
 
@@ -193,6 +216,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
     if (!editingUser) return
 
     try {
+      setError(null)
       await adminAPI.updateUser(editingUser.id, userEditForm)
       // Reload users to show updated information
       const updatedUsers = await adminAPI.getUsers()
@@ -207,18 +231,23 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
         is_admin: false
       })
     } catch (err: any) {
-      setError(err.message || 'Failed to update user')
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to update user'
+      console.error('Update user error:', err)
+      setError(errorMessage)
     }
   }
 
   const handleToggleUserStatus = async (userId: number, currentStatus: boolean) => {
     try {
+      setError(null)
       await adminAPI.updateUser(userId, { is_active: !currentStatus })
       // Reload users to show updated status
       const updatedUsers = await adminAPI.getUsers()
       setUsers(updatedUsers)
     } catch (err: any) {
-      setError(err.message || 'Failed to toggle user status')
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to toggle user status'
+      console.error('Toggle user status error:', err)
+      setError(errorMessage)
     }
   }
 
@@ -226,12 +255,15 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
     if (!confirm(`Are you sure you want to ${currentStatus ? 'remove admin privileges from' : 'grant admin privileges to'} this user?`)) return
 
     try {
+      setError(null)
       await adminAPI.updateUser(userId, { is_admin: !currentStatus })
       // Reload users to show updated admin status
       const updatedUsers = await adminAPI.getUsers()
       setUsers(updatedUsers)
     } catch (err: any) {
-      setError(err.message || 'Failed to toggle admin status')
+      const errorMessage = err.response?.data?.message || err.message || 'Failed to toggle admin status'
+      console.error('Toggle admin status error:', err)
+      setError(errorMessage)
     }
   }
 
@@ -271,9 +303,33 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
       </div>
 
       {error && (
-        <div className="error-message">
-          {error}
-          <button onClick={() => setError(null)}>×</button>
+        <div className="error-message" style={{ 
+          background: '#ff4444', 
+          color: 'white', 
+          padding: '1rem', 
+          margin: '1rem 0', 
+          borderRadius: '4px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <div>
+            <strong>Error:</strong> {error}
+          </div>
+          <button 
+            onClick={() => setError(null)}
+            style={{ 
+              background: 'transparent', 
+              border: 'none', 
+              color: 'white', 
+              fontSize: '1.2rem',
+              cursor: 'pointer',
+              padding: '0 0.5rem'
+            }}
+            title="Dismiss error"
+          >
+            ×
+          </button>
         </div>
       )}
 
