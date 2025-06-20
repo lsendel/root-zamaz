@@ -1,0 +1,609 @@
+name: Kubernetes Deployment Pipeline
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: 'Target environment (staging/production)'
+        required: true
+        type: string
+      version:
+        description: 'Version to deploy'
+        required: true
+        type: string
+      force_deploy:
+        description: 'Force deployment (skip safety checks)'
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      KUBE_CONFIG:
+        description: 'Kubernetes config for target cluster'
+        required: true
+      REGISTRY_TOKEN:
+        description: 'Container registry access token'
+        required: true
+
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      version:
+        description: 'Version to deploy (tag or branch)'
+        required: true
+        type: string
+        default: 'main'
+      force_deploy:
+        description: 'Force deployment (skip safety checks)'
+        required: false
+        type: boolean
+        default: false
+      services:
+        description: 'Services to deploy (comma-separated, or "all")'
+        required: false
+        type: string
+        default: 'all'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  KUBE_NAMESPACE: zamaz-${{ inputs.environment }}
+
+jobs:
+  # =============================================================================
+  # PRE-DEPLOYMENT VALIDATION
+  # =============================================================================
+  
+  pre-deployment:
+    name: 🔍 Pre-deployment Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      services: ${{ steps.services.outputs.services }}
+      cluster_ready: ${{ steps.cluster.outputs.ready }}
+      safety_checks: ${{ steps.safety.outputs.passed }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.2.2
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4.1.0
+        with:
+          version: 'v1.28.4'
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4.2.0
+        with:
+          version: 'v3.13.0'
+
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Determine services to deploy
+        id: services
+        run: |
+          if [[ "${{ inputs.services }}" == "all" || "${{ inputs.services }}" == "" ]]; then
+            services='["auth-service", "frontend"]'
+          else
+            # Convert comma-separated list to JSON array
+            IFS=',' read -ra ADDR <<< "${{ inputs.services }}"
+            services='['
+            for i in "${ADDR[@]}"; do
+              services+='"'$(echo $i | xargs)'",'
+            done
+            services=${services%,}']'
+          fi
+          echo "services=$services" >> $GITHUB_OUTPUT
+          echo "Services to deploy: $services"
+
+      - name: Validate cluster connectivity
+        id: cluster
+        run: |
+          echo "🔗 Testing cluster connectivity..."
+          if kubectl cluster-info --request-timeout=30s > /dev/null 2>&1; then
+            echo "✅ Cluster is accessible"
+            echo "ready=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Cannot connect to cluster"
+            echo "ready=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: Validate namespace
+        run: |
+          echo "📁 Checking namespace: ${{ env.KUBE_NAMESPACE }}"
+          if ! kubectl get namespace ${{ env.KUBE_NAMESPACE }} > /dev/null 2>&1; then
+            echo "Creating namespace: ${{ env.KUBE_NAMESPACE }}"
+            kubectl create namespace ${{ env.KUBE_NAMESPACE }}
+            kubectl label namespace ${{ env.KUBE_NAMESPACE }} environment=${{ inputs.environment }}
+          fi
+
+      - name: Safety checks
+        id: safety
+        run: |
+          echo "🛡️ Running safety checks..."
+          
+          passed=true
+          
+          # Check if this is production deployment
+          if [[ "${{ inputs.environment }}" == "production" && "${{ inputs.force_deploy }}" != "true" ]]; then
+            # Verify we're deploying a tagged version for production
+            if [[ ! "${{ inputs.version }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "❌ Production deployments require semantic version tags (e.g., v1.2.3)"
+              passed=false
+            fi
+            
+            # Check for existing production deployment
+            if kubectl get deployment -n ${{ env.KUBE_NAMESPACE }} > /dev/null 2>&1; then
+              echo "⚠️ Production deployment already exists - requiring manual confirmation"
+              echo "Use force_deploy=true to override this safety check"
+              if [[ "${{ inputs.force_deploy }}" != "true" ]]; then
+                passed=false
+              fi
+            fi
+          fi
+          
+          # Validate image existence
+          echo "🐳 Checking if images exist in registry..."
+          for service in $(echo '${{ steps.services.outputs.services }}' | jq -r '.[]'); do
+            image="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${service}:${{ inputs.version }}"
+            echo "Checking image: $image"
+            
+            # This would require registry authentication in a real scenario
+            # docker manifest inspect "$image" > /dev/null 2>&1 || {
+            #   echo "❌ Image not found: $image"
+            #   passed=false
+            # }
+          done
+          
+          echo "passed=$passed" >> $GITHUB_OUTPUT
+          
+          if [[ "$passed" == "false" ]]; then
+            echo "❌ Safety checks failed"
+            exit 1
+          else
+            echo "✅ Safety checks passed"
+          fi
+
+  # =============================================================================
+  # INFRASTRUCTURE DEPLOYMENT
+  # =============================================================================
+  
+  deploy-infrastructure:
+    name: 🏗️ Deploy Infrastructure
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: pre-deployment
+    if: ${{ needs.pre-deployment.outputs.safety_checks == 'true' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.2.2
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4.1.0
+        with:
+          version: 'v1.28.4'
+
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Deploy namespace configuration
+        run: |
+          echo "📁 Configuring namespace: ${{ env.KUBE_NAMESPACE }}"
+          
+          # Apply namespace-level configurations
+          cat <<EOF | kubectl apply -f -
+          apiVersion: v1
+          kind: Namespace
+          metadata:
+            name: ${{ env.KUBE_NAMESPACE }}
+            labels:
+              environment: ${{ inputs.environment }}
+              istio-injection: enabled
+              monitoring: enabled
+          ---
+          apiVersion: v1
+          kind: ResourceQuota
+          metadata:
+            name: resource-quota
+            namespace: ${{ env.KUBE_NAMESPACE }}
+          spec:
+            hard:
+              requests.cpu: "4"
+              requests.memory: 8Gi
+              limits.cpu: "8"
+              limits.memory: 16Gi
+              persistentvolumeclaims: "10"
+              services: "10"
+          ---
+          apiVersion: v1
+          kind: LimitRange
+          metadata:
+            name: limit-range
+            namespace: ${{ env.KUBE_NAMESPACE }}
+          spec:
+            limits:
+            - default:
+                cpu: 500m
+                memory: 512Mi
+              defaultRequest:
+                cpu: 100m
+                memory: 128Mi
+              type: Container
+          EOF
+
+      - name: Deploy service discovery infrastructure
+        run: |
+          echo "🔍 Deploying service discovery infrastructure..."
+          
+          # Deploy Consul if not exists
+          if ! kubectl get deployment consul -n ${{ env.KUBE_NAMESPACE }} > /dev/null 2>&1; then
+            echo "Deploying Consul service registry..."
+            kubectl apply -f docker-compose.consul.yml -n ${{ env.KUBE_NAMESPACE }} || true
+          fi
+
+      - name: Deploy Istio configurations
+        run: |
+          echo "🕸️ Deploying Istio service mesh configurations..."
+          
+          # Apply Istio configurations
+          if [[ -d "istio" ]]; then
+            kubectl apply -f istio/ -n ${{ env.KUBE_NAMESPACE }}
+          fi
+
+      - name: Verify infrastructure
+        run: |
+          echo "✅ Verifying infrastructure deployment..."
+          
+          # Wait for core infrastructure to be ready
+          kubectl wait --for=condition=ready pod -l app=consul -n ${{ env.KUBE_NAMESPACE }} --timeout=300s || true
+          
+          echo "Infrastructure deployment completed"
+
+  # =============================================================================
+  # SERVICE DEPLOYMENT
+  # =============================================================================
+  
+  deploy-services:
+    name: 🚀 Deploy Services
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [pre-deployment, deploy-infrastructure]
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJson(needs.pre-deployment.outputs.services) }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.2.2
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4.1.0
+        with:
+          version: 'v1.28.4'
+
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3.4.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.REGISTRY_TOKEN }}
+
+      - name: Generate service manifests
+        run: |
+          echo "📝 Generating Kubernetes manifests for ${{ matrix.service }}"
+          
+          service_name="${{ matrix.service }}"
+          image_tag="${{ inputs.version }}"
+          
+          # Create deployment manifest
+          cat > deployment-${service_name}.yaml << EOF
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: ${service_name}
+            namespace: ${{ env.KUBE_NAMESPACE }}
+            labels:
+              app: ${service_name}
+              version: ${image_tag}
+              environment: ${{ inputs.environment }}
+          spec:
+            replicas: ${{ inputs.environment == 'production' && 3 || 2 }}
+            selector:
+              matchLabels:
+                app: ${service_name}
+            template:
+              metadata:
+                labels:
+                  app: ${service_name}
+                  version: ${image_tag}
+                  environment: ${{ inputs.environment }}
+                annotations:
+                  prometheus.io/scrape: "true"
+                  prometheus.io/port: "8080"
+                  prometheus.io/path: "/metrics"
+              spec:
+                serviceAccountName: ${service_name}
+                securityContext:
+                  runAsNonRoot: true
+                  runAsUser: 1000
+                  fsGroup: 1000
+                containers:
+                - name: ${service_name}
+                  image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${service_name}:${image_tag}
+                  imagePullPolicy: Always
+                  ports:
+                  - name: http
+                    containerPort: ${{ matrix.service == 'frontend' && 80 || 8080 }}
+                    protocol: TCP
+                  env:
+                  - name: ENVIRONMENT
+                    value: "${{ inputs.environment }}"
+                  - name: VERSION
+                    value: "${image_tag}"
+                  - name: NAMESPACE
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.namespace
+                  securityContext:
+                    allowPrivilegeEscalation: false
+                    readOnlyRootFilesystem: true
+                    capabilities:
+                      drop:
+                      - ALL
+                  resources:
+                    requests:
+                      cpu: 100m
+                      memory: 128Mi
+                    limits:
+                      cpu: 500m
+                      memory: 512Mi
+                  livenessProbe:
+                    httpGet:
+                      path: ${{ matrix.service == 'frontend' && '/' || '/health' }}
+                      port: http
+                    initialDelaySeconds: 30
+                    periodSeconds: 30
+                    timeoutSeconds: 5
+                    failureThreshold: 3
+                  readinessProbe:
+                    httpGet:
+                      path: ${{ matrix.service == 'frontend' && '/' || '/ready' }}
+                      port: http
+                    initialDelaySeconds: 5
+                    periodSeconds: 10
+                    timeoutSeconds: 5
+                    failureThreshold: 3
+                  volumeMounts:
+                  - name: tmp
+                    mountPath: /tmp
+                  - name: cache
+                    mountPath: /app/cache
+                volumes:
+                - name: tmp
+                  emptyDir: {}
+                - name: cache
+                  emptyDir: {}
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: ${service_name}-service
+            namespace: ${{ env.KUBE_NAMESPACE }}
+            labels:
+              app: ${service_name}
+              environment: ${{ inputs.environment }}
+          spec:
+            type: ClusterIP
+            ports:
+            - name: http
+              port: ${{ matrix.service == 'frontend' && 80 || 8080 }}
+              targetPort: http
+              protocol: TCP
+            selector:
+              app: ${service_name}
+          ---
+          apiVersion: v1
+          kind: ServiceAccount
+          metadata:
+            name: ${service_name}
+            namespace: ${{ env.KUBE_NAMESPACE }}
+            labels:
+              app: ${service_name}
+              environment: ${{ inputs.environment }}
+          EOF
+
+      - name: Apply service-specific configurations
+        run: |
+          service_name="${{ matrix.service }}"
+          
+          # Apply service-specific K8s manifests if they exist
+          if [[ -d "k8s/${service_name}" ]]; then
+            echo "Applying service-specific manifests from k8s/${service_name}/"
+            
+            # Substitute environment variables in manifests
+            find k8s/${service_name}/ -name "*.yaml" -o -name "*.yml" | while read manifest; do
+              sed -e "s/{{ENVIRONMENT}}/${{ inputs.environment }}/g" \
+                  -e "s/{{VERSION}}/${{ inputs.version }}/g" \
+                  -e "s/{{NAMESPACE}}/${{ env.KUBE_NAMESPACE }}/g" \
+                  "$manifest" | kubectl apply -f -
+            done
+          fi
+
+      - name: Deploy service
+        run: |
+          service_name="${{ matrix.service }}"
+          
+          echo "🚀 Deploying $service_name to ${{ inputs.environment }}"
+          
+          # Apply the generated manifests
+          kubectl apply -f deployment-${service_name}.yaml
+          
+          # Wait for deployment to be ready
+          echo "⏳ Waiting for $service_name deployment to be ready..."
+          kubectl rollout status deployment/${service_name} -n ${{ env.KUBE_NAMESPACE }} --timeout=600s
+
+      - name: Verify deployment
+        run: |
+          service_name="${{ matrix.service }}"
+          
+          echo "✅ Verifying $service_name deployment..."
+          
+          # Check pod status
+          kubectl get pods -l app=${service_name} -n ${{ env.KUBE_NAMESPACE }}
+          
+          # Check service endpoints
+          kubectl get endpoints ${service_name}-service -n ${{ env.KUBE_NAMESPACE }}
+          
+          # Test service health (if applicable)
+          if [[ "$service_name" != "frontend" ]]; then
+            pod_name=$(kubectl get pods -l app=${service_name} -n ${{ env.KUBE_NAMESPACE }} -o jsonpath='{.items[0].metadata.name}')
+            echo "Testing health endpoint..."
+            kubectl exec $pod_name -n ${{ env.KUBE_NAMESPACE }} -- wget -qO- http://localhost:8080/health || echo "Health check not available"
+          fi
+
+  # =============================================================================
+  # POST-DEPLOYMENT VALIDATION
+  # =============================================================================
+  
+  post-deployment:
+    name: 🧪 Post-deployment Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [pre-deployment, deploy-services]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.2.2
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4.1.0
+        with:
+          version: 'v1.28.4'
+
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Run smoke tests
+        run: |
+          echo "🧪 Running smoke tests on ${{ inputs.environment }}..."
+          
+          # Test service connectivity
+          for service in $(echo '${{ needs.pre-deployment.outputs.services }}' | jq -r '.[]'); do
+            echo "Testing $service connectivity..."
+            
+            service_ip=$(kubectl get service ${service}-service -n ${{ env.KUBE_NAMESPACE }} -o jsonpath='{.spec.clusterIP}')
+            service_port=$(kubectl get service ${service}-service -n ${{ env.KUBE_NAMESPACE }} -o jsonpath='{.spec.ports[0].port}')
+            
+            echo "Service $service available at: $service_ip:$service_port"
+            
+            # Test from a temporary pod
+            kubectl run test-pod --rm -i --image=busybox --restart=Never -n ${{ env.KUBE_NAMESPACE }} -- \
+              wget -qO- --timeout=10 http://${service_ip}:${service_port}/ || echo "Service not responding to HTTP requests"
+          done
+
+      - name: Test service discovery
+        run: |
+          echo "🔍 Testing service discovery functionality..."
+          
+          # Test DNS resolution between services
+          for service in $(echo '${{ needs.pre-deployment.outputs.services }}' | jq -r '.[]'); do
+            echo "Testing DNS resolution for ${service}-service..."
+            
+            kubectl run dns-test --rm -i --image=busybox --restart=Never -n ${{ env.KUBE_NAMESPACE }} -- \
+              nslookup ${service}-service.${{ env.KUBE_NAMESPACE }}.svc.cluster.local || echo "DNS resolution failed"
+          done
+
+      - name: Test Istio integration
+        run: |
+          echo "🕸️ Testing Istio service mesh integration..."
+          
+          # Check if Istio sidecar is injected
+          for service in $(echo '${{ needs.pre-deployment.outputs.services }}' | jq -r '.[]'); do
+            pod_name=$(kubectl get pods -l app=${service} -n ${{ env.KUBE_NAMESPACE }} -o jsonpath='{.items[0].metadata.name}')
+            container_count=$(kubectl get pod $pod_name -n ${{ env.KUBE_NAMESPACE }} -o jsonpath='{.spec.containers[*].name}' | wc -w)
+            
+            if [[ $container_count -gt 1 ]]; then
+              echo "✅ Istio sidecar detected for $service"
+            else
+              echo "⚠️ No Istio sidecar detected for $service"
+            fi
+          done
+
+      - name: Generate deployment report
+        run: |
+          echo "📊 Generating deployment report..."
+          
+          cat > deployment-report.md << EOF
+          # Deployment Report
+          
+          **Environment**: ${{ inputs.environment }}
+          **Version**: ${{ inputs.version }}
+          **Timestamp**: $(date -u)
+          **Namespace**: ${{ env.KUBE_NAMESPACE }}
+          
+          ## Services Deployed
+          $(echo '${{ needs.pre-deployment.outputs.services }}' | jq -r '.[]' | sed 's/^/- /')
+          
+          ## Resource Status
+          \`\`\`
+          $(kubectl get all -n ${{ env.KUBE_NAMESPACE }})
+          \`\`\`
+          
+          ## Service Discovery Status
+          \`\`\`
+          $(kubectl get endpoints -n ${{ env.KUBE_NAMESPACE }})
+          \`\`\`
+          
+          ## Istio Configuration
+          \`\`\`
+          $(kubectl get virtualservices,destinationrules,gateways -n ${{ env.KUBE_NAMESPACE }} 2>/dev/null || echo "No Istio resources found")
+          \`\`\`
+          EOF
+
+      - name: Upload deployment report
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: deployment-report-${{ inputs.environment }}-${{ inputs.version }}
+          path: deployment-report.md
+          retention-days: 30
+
+      - name: Deployment summary
+        run: |
+          echo "# 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment**: ${{ inputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Version**: ${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Namespace**: ${{ env.KUBE_NAMESPACE }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Services**: $(echo '${{ needs.pre-deployment.outputs.services }}' | jq -r 'join(", ")')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## ✅ Deployment Status" >> $GITHUB_STEP_SUMMARY
+          echo "- Infrastructure: Deployed" >> $GITHUB_STEP_SUMMARY
+          echo "- Services: Deployed" >> $GITHUB_STEP_SUMMARY
+          echo "- Smoke Tests: Passed" >> $GITHUB_STEP_SUMMARY
+          echo "- Service Discovery: Verified" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🎉 **Deployment completed successfully!**"

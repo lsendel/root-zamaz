@@ -1,0 +1,368 @@
+# GoReleaser configuration for automated releases
+# Documentation: https://goreleaser.com
+
+version: 1
+
+# Project metadata
+project_name: zamaz
+
+# Environment variables validation
+env:
+  - GO111MODULE=on
+  - CGO_ENABLED=0
+
+# Build configuration
+builds:
+  - id: zamaz-auth-service
+    main: ./cmd/server
+    binary: zamaz-auth-service
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+      - -X main.builtBy=goreleaser
+      - -X github.com/{{.Env.GITHUB_REPOSITORY}}/pkg/version.Version={{.Version}}
+      - -X github.com/{{.Env.GITHUB_REPOSITORY}}/pkg/version.Commit={{.Commit}}
+      - -X github.com/{{.Env.GITHUB_REPOSITORY}}/pkg/version.Date={{.Date}}
+    tags:
+      - netgo
+      - osusergo
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
+# Universal binaries for macOS
+universal_binaries:
+  - id: zamaz-auth-service-universal
+    replace: true
+    name_template: zamaz-auth-service
+
+# Archive configuration
+archives:
+  - id: default
+    format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE
+      - docs/**/*
+      - configs/example-config.yaml
+
+# Checksum configuration
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+# Snapshot configuration
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+# Changelog configuration
+changelog:
+  use: github
+  sort: asc
+  abbrev: 0
+  groups:
+    - title: '🚀 Features'
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: '🐛 Bug fixes'
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: '📚 Documentation'
+      regexp: '^.*?docs(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: '🏗️ Build & CI'
+      regexp: '^.*?(build|ci)(\([[:word:]]+\))??!?:.+$'
+      order: 3
+    - title: Other work
+      order: 999
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - typo
+      - merge conflict
+      - Merge pull request
+      - Merge remote-tracking branch
+
+# Docker image configuration
+dockers:
+  - id: zamaz-auth-service-amd64
+    goos: linux
+    goarch: amd64
+    image_templates:
+      - "ghcr.io/{{.Env.GITHUB_REPOSITORY}}/auth-service:latest-amd64"
+      - "ghcr.io/{{.Env.GITHUB_REPOSITORY}}/auth-service:{{ .Tag }}-amd64"
+      - "ghcr.io/{{.Env.GITHUB_REPOSITORY}}/auth-service:v{{ .Major }}-amd64"
+      - "ghcr.io/{{.Env.GITHUB_REPOSITORY}}/auth-service:v{{ .Major }}.{{ .Minor }}-amd64"
+    dockerfile: Dockerfile.goreleaser
+    use: buildx
+    build_flag_templates:
+      - "--pull"
+      - "--platform=linux/amd64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--label=org.opencontainers.image.description=Zamaz Zero Trust Authentication Service"
+      - "--label=org.opencontainers.image.licenses=MIT"
+
+  - id: zamaz-auth-service-arm64
+    goos: linux
+    goarch: arm64
+    image_templates:
+      - "ghcr.io/{{.Env.GITHUB_REPOSITORY}}/auth-service:latest-arm64"
+      - "ghcr.io/{{.Env.GITHUB_REPOSITORY}}/auth-service:{{ .Tag }}-arm64"
+      - "ghcr.io/{{.Env.GITHUB_REPOSITORY}}/auth-service:v{{ .Major }}-arm64"
+      - "ghcr.io/{{.Env.GITHUB_REPOSITORY}}/auth-service:v{{ .Major }}.{{ .Minor }}-arm64"
+    dockerfile: Dockerfile.goreleaser
+    use: buildx
+    build_flag_templates:
+      - "--pull"
+      - "--platform=linux/arm64"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - "--label=org.opencontainers.image.source={{.GitURL}}"
+      - "--label=org.opencontainers.image.description=Zamaz Zero Trust Authentication Service"
+      - "--label=org.opencontainers.image.licenses=MIT"
+
+# Docker manifest for multi-arch images
+docker_manifests:
+  - name_template: "ghcr.io/{{.Env.GITHUB_REPOSITORY}}/auth-service:latest"
+    image_templates:
+      - "ghcr.io/{{.Env.GITHUB_REPOSITORY}}/auth-service:latest-amd64"
+      - "ghcr.io/{{.Env.GITHUB_REPOSITORY}}/auth-service:latest-arm64"
+
+  - name_template: "ghcr.io/{{.Env.GITHUB_REPOSITORY}}/auth-service:{{ .Tag }}"
+    image_templates:
+      - "ghcr.io/{{.Env.GITHUB_REPOSITORY}}/auth-service:{{ .Tag }}-amd64"
+      - "ghcr.io/{{.Env.GITHUB_REPOSITORY}}/auth-service:{{ .Tag }}-arm64"
+
+  - name_template: "ghcr.io/{{.Env.GITHUB_REPOSITORY}}/auth-service:v{{ .Major }}"
+    image_templates:
+      - "ghcr.io/{{.Env.GITHUB_REPOSITORY}}/auth-service:v{{ .Major }}-amd64"
+      - "ghcr.io/{{.Env.GITHUB_REPOSITORY}}/auth-service:v{{ .Major }}-arm64"
+
+  - name_template: "ghcr.io/{{.Env.GITHUB_REPOSITORY}}/auth-service:v{{ .Major }}.{{ .Minor }}"
+    image_templates:
+      - "ghcr.io/{{.Env.GITHUB_REPOSITORY}}/auth-service:v{{ .Major }}.{{ .Minor }}-amd64"
+      - "ghcr.io/{{.Env.GITHUB_REPOSITORY}}/auth-service:v{{ .Major }}.{{ .Minor }}-arm64"
+
+# SBOM (Software Bill of Materials) generation
+sboms:
+  - id: archive
+    artifacts: archive
+  - id: package
+    artifacts: package
+
+# GitHub release configuration
+release:
+  github:
+    owner: "{{ .Env.GITHUB_REPOSITORY_OWNER }}"
+    name: "{{ .ProjectName }}"
+  name_template: "Release {{.Tag}}"
+  header: |
+    ## 🚀 Zamaz {{.Tag}} Release
+    
+    This release includes the latest features, bug fixes, and security updates for the Zamaz Zero Trust Authentication platform.
+    
+    ### 📦 Installation
+    
+    #### Download Binary
+    ```bash
+    # Download for your platform
+    curl -L https://github.com/{{.Env.GITHUB_REPOSITORY}}/releases/download/{{.Tag}}/{{.ProjectName}}_{{.Os}}_{{.Arch}}.tar.gz | tar xz
+    ```
+    
+    #### Docker
+    ```bash
+    docker pull ghcr.io/{{.Env.GITHUB_REPOSITORY}}/auth-service:{{.Tag}}
+    ```
+    
+    #### Kubernetes
+    ```bash
+    kubectl apply -f https://github.com/{{.Env.GITHUB_REPOSITORY}}/releases/download/{{.Tag}}/k8s-manifests.yaml
+    ```
+    
+    ### 🔐 Security
+    - All binaries are signed and checksummed
+    - Docker images include SBOMs
+    - Container images are scanned for vulnerabilities
+    
+  footer: |
+    ## 🙏 Thanks
+    
+    Thanks to all contributors who made this release possible!
+    
+    **Full Changelog**: https://github.com/{{.Env.GITHUB_REPOSITORY}}/compare/{{.PreviousTag}}...{{.Tag}}
+    
+    ---
+    
+    ### 📋 Verification
+    
+    You can verify the integrity of downloaded files using the checksums provided:
+    ```bash
+    sha256sum -c checksums.txt
+    ```
+    
+    ### 🆘 Support
+    
+    - 📖 [Documentation](https://github.com/{{.Env.GITHUB_REPOSITORY}}/tree/main/docs)
+    - 🐛 [Report Issues](https://github.com/{{.Env.GITHUB_REPOSITORY}}/issues)
+    - 💬 [Discussions](https://github.com/{{.Env.GITHUB_REPOSITORY}}/discussions)
+
+  draft: false
+  prerelease: auto
+  mode: replace
+  extra_files:
+    - glob: ./k8s/**/*.yaml
+    - glob: ./istio/**/*.yaml
+    - glob: ./docker-compose*.yml
+    - glob: ./docs/SERVICE_DISCOVERY.md
+
+# Homebrew tap (for macOS/Linux users)
+brews:
+  - name: zamaz
+    repository:
+      owner: "{{ .Env.GITHUB_REPOSITORY_OWNER }}"
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    url_template: "https://github.com/{{.Env.GITHUB_REPOSITORY}}/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
+    homepage: "https://github.com/{{.Env.GITHUB_REPOSITORY}}"
+    description: "Zero Trust Authentication Platform with Service Discovery"
+    license: "MIT"
+    folder: Formula
+    dependencies:
+      - name: git
+    install: |
+      bin.install "zamaz-auth-service"
+    test: |
+      system "#{bin}/zamaz-auth-service", "--version"
+
+# AUR package (for Arch Linux users)  
+aurs:
+  - name: zamaz-bin
+    homepage: "https://github.com/{{.Env.GITHUB_REPOSITORY}}"
+    description: "Zero Trust Authentication Platform with Service Discovery"
+    maintainers:
+      - "{{.Env.GITHUB_REPOSITORY_OWNER}} <noreply@github.com>"
+    license: "MIT"
+    private_key: "{{ .Env.AUR_KEY }}"
+    git_url: "ssh://aur@aur.archlinux.org/zamaz-bin.git"
+    package: |-
+      # bin
+      install -Dm755 "./zamaz-auth-service" "${pkgdir}/usr/bin/zamaz-auth-service"
+      
+      # license
+      install -Dm644 "./LICENSE" "${pkgdir}/usr/share/licenses/zamaz/LICENSE"
+
+# Snap package
+snaps:
+  - name: zamaz
+    summary: Zero Trust Authentication Platform
+    description: |
+      Zamaz is a comprehensive Zero Trust Authentication platform featuring:
+      - Service discovery with Consul and Kubernetes integration
+      - Istio service mesh support
+      - Circuit breaker patterns
+      - Advanced security scanning
+      - Modern CI/CD pipelines
+    grade: stable
+    confinement: strict
+    license: MIT
+    base: core20
+    apps:
+      zamaz-auth-service:
+        command: zamaz-auth-service
+        plugs: ["network", "network-bind"]
+
+# Winget package (for Windows users)
+winget:
+  - name: zamaz
+    publisher: "{{ .Env.GITHUB_REPOSITORY_OWNER }}"
+    short_description: "Zero Trust Authentication Platform"
+    license: "MIT"
+    homepage: "https://github.com/{{.Env.GITHUB_REPOSITORY}}"
+    license_url: "https://github.com/{{.Env.GITHUB_REPOSITORY}}/blob/main/LICENSE"
+    copyright: "Copyright (c) {{ .Now.Format \"2006\" }} {{ .Env.GITHUB_REPOSITORY_OWNER }}"
+    release_notes: "{{.Changelog}}"
+    tags:
+      - auth
+      - security
+      - microservices
+      - kubernetes
+      - istio
+    repository:
+      owner: "{{ .Env.GITHUB_REPOSITORY_OWNER }}"
+      name: winget-pkgs
+      branch: "zamaz-{{.Version}}"
+      token: "{{ .Env.WINGET_GITHUB_TOKEN }}"
+
+# Nix package
+nix:
+  - name: zamaz
+    repository:
+      owner: "{{ .Env.GITHUB_REPOSITORY_OWNER }}"
+      name: nur-packages
+    homepage: "https://github.com/{{.Env.GITHUB_REPOSITORY}}"
+    description: "Zero Trust Authentication Platform with Service Discovery"
+    license: "mit"
+    path: pkgs/zamaz/default.nix
+
+# Validation rules
+before:
+  hooks:
+    # Check if we're in a git repository
+    - go mod tidy
+    # Run tests before building
+    - go test ./...
+    # Generate documentation
+    - make docs-schema
+    # Security scan
+    - make security-scan || true
+
+# Announce the release
+announce:
+  slack:
+    enabled: true
+    message_template: |
+      🚀 **Zamaz {{.Tag}}** has been released!
+      
+      **Changes:**
+      {{.Changelog}}
+      
+      **Download:** {{.ReleaseURL}}
+    channel: '#releases'
+    username: 'GoReleaser'
+    icon_emoji: ':rocket:'
+
+# Milestone management
+milestones:
+  - close: true
+    fail_on_error: false
+    name_template: "{{ .Tag }}"

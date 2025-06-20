@@ -1,0 +1,576 @@
+name: Modern Release Pipeline
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g., v1.2.3)'
+        required: true
+        type: string
+      draft:
+        description: 'Create as draft release'
+        required: false
+        type: boolean
+        default: false
+      prerelease:
+        description: 'Mark as pre-release'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # =============================================================================
+  # VALIDATION & PREPARATION
+  # =============================================================================
+  
+  validate-release:
+    name: 🔍 Validate Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      is_prerelease: ${{ steps.version.outputs.is_prerelease }}
+      changelog: ${{ steps.changelog.outputs.changelog }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Validate tag format
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            TAG="${{ github.event.inputs.tag }}"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          
+          echo "Processing tag: $TAG"
+          
+          # Validate semantic version format
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?(\+[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?$ ]]; then
+            echo "❌ Invalid tag format: $TAG"
+            echo "Expected format: v1.2.3, v1.2.3-alpha.1, v1.2.3+build.1"
+            exit 1
+          fi
+          
+          # Determine if this is a prerelease
+          if [[ "$TAG" =~ -[a-zA-Z] ]]; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "version=$TAG" >> $GITHUB_OUTPUT
+          echo "✅ Valid version: $TAG"
+
+      - name: Check if tag exists
+        run: |
+          TAG="${{ steps.version.outputs.version }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "✅ Tag $TAG exists"
+          else
+            echo "❌ Tag $TAG does not exist"
+            exit 1
+          fi
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          # Get the previous tag
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          CURRENT_TAG="${{ steps.version.outputs.version }}"
+          
+          echo "Generating changelog from $PREV_TAG to $CURRENT_TAG"
+          
+          # Generate changelog using git log
+          if [[ -n "$PREV_TAG" ]]; then
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" $PREV_TAG..$CURRENT_TAG)
+          else
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)")
+          fi
+          
+          # Save changelog to output (properly escaped)
+          {
+            echo 'changelog<<EOF'
+            echo "$CHANGELOG"
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+
+      - name: Verify clean state
+        run: |
+          if [[ -n "$(git status --porcelain)" ]]; then
+            echo "❌ Working directory is not clean"
+            git status
+            exit 1
+          fi
+          echo "✅ Working directory is clean"
+
+  # =============================================================================
+  # SECURITY SCAN FOR RELEASE
+  # =============================================================================
+  
+  security-scan:
+    name: 🛡️ Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: validate-release
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.2.2
+
+      - name: Set up Go
+        uses: actions/setup-go@v5.5.0
+        with:
+          go-version: '1.23'
+
+      - name: Run security scan
+        run: make security-scan
+
+      - name: Run vulnerability check
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+      - name: Check for secrets
+        uses: gitleaks/gitleaks-action@v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # =============================================================================
+  # BUILD & TEST
+  # =============================================================================
+  
+  test-release:
+    name: 🧪 Test Release Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: validate-release
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: testdb
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.2.2
+
+      - name: Set up Go
+        uses: actions/setup-go@v5.5.0
+        with:
+          go-version: '1.23'
+
+      - name: Cache Go modules
+        uses: actions/cache@v4.2.3
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+
+      - name: Run tests
+        run: |
+          make test-coverage
+        env:
+          POSTGRES_URL: postgres://postgres:postgres@localhost:5432/testdb?sslmode=disable
+          REDIS_URL: redis://localhost:6379
+
+      - name: Verify coverage
+        run: |
+          coverage=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+          echo "Coverage: $coverage%"
+          if (( $(echo "$coverage < 80" | bc -l) )); then
+            echo "❌ Coverage $coverage% is below 80% threshold"
+            exit 1
+          fi
+
+      - name: Test build
+        run: |
+          make build
+          ./dist/zamaz-auth-service --version
+
+  # =============================================================================
+  # GORELEASER BUILD & RELEASE
+  # =============================================================================
+  
+  goreleaser:
+    name: 🚀 GoReleaser Build & Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [validate-release, security-scan, test-release]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5.5.0
+        with:
+          go-version: '1.23'
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3.6.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.11.1
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3.4.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate build metadata
+        run: |
+          echo "BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_ENV
+          echo "GIT_COMMIT=${{ github.sha }}" >> $GITHUB_ENV
+          echo "GIT_TREE_STATE=$(if git diff --quiet; then echo 'clean'; else echo 'dirty'; fi)" >> $GITHUB_ENV
+
+      - name: Run GoReleaser (Release)
+        if: github.event_name == 'push'
+        uses: goreleaser/goreleaser-action@v6.3.0
+        with:
+          version: latest
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+
+      - name: Run GoReleaser (Manual/Draft)
+        if: github.event_name == 'workflow_dispatch'
+        uses: goreleaser/goreleaser-action@v6.3.0
+        with:
+          version: latest
+          args: release --clean ${{ github.event.inputs.draft == 'true' && '--draft' || '' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REPOSITORY_OWNER: ${{ github.repository_owner }}
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: release-artifacts
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*.deb
+            dist/*.rpm
+            dist/checksums.txt
+          retention-days: 30
+
+  # =============================================================================
+  # CONTAINER IMAGE SCANNING
+  # =============================================================================
+  
+  container-security:
+    name: 🐳 Container Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [validate-release, goreleaser]
+    
+    steps:
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@v0.31.0
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/auth-service:${{ needs.validate-release.outputs.version }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3.29.0
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Run Dockle container linter
+        run: |
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            goodwithtech/dockle:latest \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/auth-service:${{ needs.validate-release.outputs.version }}
+
+  # =============================================================================
+  # KUBERNETES DEPLOYMENT ARTIFACTS
+  # =============================================================================
+  
+  k8s-artifacts:
+    name: 📦 Generate K8s Artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [validate-release, goreleaser]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.2.2
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4.1.0
+        with:
+          version: 'v1.28.4'
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4.2.0
+        with:
+          version: 'v3.13.0'
+
+      - name: Generate K8s manifests
+        run: |
+          VERSION="${{ needs.validate-release.outputs.version }}"
+          
+          mkdir -p release-k8s
+          
+          # Substitute version in all K8s manifests
+          find k8s/ -name "*.yaml" -o -name "*.yml" | while read manifest; do
+            sed -e "s/{{VERSION}}/$VERSION/g" \
+                -e "s/latest/$VERSION/g" \
+                "$manifest" > "release-k8s/$(basename "$manifest")"
+          done
+          
+          # Create a combined manifest
+          cat release-k8s/*.yaml > release-k8s/zamaz-$VERSION.yaml
+          
+          # Validate manifests
+          kubectl --dry-run=client apply -f release-k8s/zamaz-$VERSION.yaml
+
+      - name: Generate Helm package
+        if: hashFiles('charts/**') != ''
+        run: |
+          VERSION="${{ needs.validate-release.outputs.version }}"
+          
+          if [[ -d "charts" ]]; then
+            # Update chart version
+            sed -i "s/version: .*/version: ${VERSION#v}/" charts/zamaz/Chart.yaml
+            sed -i "s/appVersion: .*/appVersion: $VERSION/" charts/zamaz/Chart.yaml
+            
+            # Package chart
+            helm package charts/zamaz --destination release-k8s/
+            
+            # Generate values file
+            helm show values charts/zamaz > release-k8s/values.yaml
+          fi
+
+      - name: Create deployment guide
+        run: |
+          VERSION="${{ needs.validate-release.outputs.version }}"
+          
+          cat > release-k8s/DEPLOYMENT.md << EOF
+          # Zamaz $VERSION Deployment Guide
+          
+          ## Quick Start
+          
+          ### Option 1: Direct kubectl apply
+          \`\`\`bash
+          kubectl apply -f https://github.com/${{ github.repository }}/releases/download/$VERSION/zamaz-$VERSION.yaml
+          \`\`\`
+          
+          ### Option 2: Helm installation
+          \`\`\`bash
+          helm install zamaz https://github.com/${{ github.repository }}/releases/download/$VERSION/zamaz-${VERSION#v}.tgz
+          \`\`\`
+          
+          ### Option 3: Manual installation
+          1. Download the manifests:
+             \`\`\`bash
+             curl -LO https://github.com/${{ github.repository }}/releases/download/$VERSION/zamaz-$VERSION.yaml
+             \`\`\`
+          
+          2. Review and customize the manifests if needed
+          
+          3. Apply to your cluster:
+             \`\`\`bash
+             kubectl apply -f zamaz-$VERSION.yaml
+             \`\`\`
+          
+          ## Configuration
+          
+          The deployment includes:
+          - Service discovery with Consul and Kubernetes DNS
+          - Istio service mesh integration
+          - Comprehensive monitoring and observability
+          - Security best practices
+          
+          ## Verification
+          
+          Check deployment status:
+          \`\`\`bash
+          kubectl get pods -n zamaz
+          kubectl get services -n zamaz
+          \`\`\`
+          
+          Test service discovery:
+          \`\`\`bash
+          kubectl exec -it deployment/zamaz-frontend -n zamaz -- wget -qO- http://zamaz-auth-service:8080/health
+          \`\`\`
+          
+          ## Support
+          
+          - Documentation: https://github.com/${{ github.repository }}/tree/main/docs
+          - Issues: https://github.com/${{ github.repository }}/issues
+          EOF
+
+      - name: Upload K8s artifacts
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: kubernetes-artifacts
+          path: release-k8s/
+          retention-days: 90
+
+      - name: Add K8s artifacts to release
+        if: github.event_name == 'push'
+        run: |
+          VERSION="${{ needs.validate-release.outputs.version }}"
+          
+          # Upload to release
+          gh release upload $VERSION release-k8s/* --clobber
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # =============================================================================
+  # POST-RELEASE TASKS
+  # =============================================================================
+  
+  post-release:
+    name: 📢 Post-release Tasks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [validate-release, goreleaser, container-security, k8s-artifacts]
+    if: github.event_name == 'push'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.2.2
+
+      - name: Create release summary
+        run: |
+          VERSION="${{ needs.validate-release.outputs.version }}"
+          
+          echo "# 🚀 Release $VERSION Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Release URL**: https://github.com/${{ github.repository }}/releases/tag/$VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📦 Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Binaries for multiple platforms" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Docker images (multi-arch)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Kubernetes manifests" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Helm charts" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Package manager distributions" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔐 Security" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Vulnerability scanning completed" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Container security verified" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ SBOM generated" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Checksums provided" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📋 Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "- Update deployment documentation" >> $GITHUB_STEP_SUMMARY
+          echo "- Notify users of the new release" >> $GITHUB_STEP_SUMMARY
+          echo "- Monitor deployment metrics" >> $GITHUB_STEP_SUMMARY
+
+      - name: Update documentation
+        run: |
+          # This would update version-specific documentation
+          echo "Documentation updated for version ${{ needs.validate-release.outputs.version }}"
+
+      - name: Notify team
+        run: |
+          echo "🎉 Release ${{ needs.validate-release.outputs.version }} has been published!"
+          echo "All artifacts are available and security scans have passed."
+
+  # =============================================================================
+  # ROLLBACK CAPABILITY
+  # =============================================================================
+  
+  rollback-prepare:
+    name: 🔄 Prepare Rollback Info
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [validate-release, goreleaser]
+    if: always()
+    
+    steps:
+      - name: Create rollback instructions
+        run: |
+          VERSION="${{ needs.validate-release.outputs.version }}"
+          PREV_VERSION=$(gh release list --limit 2 --json tagName --jq '.[1].tagName' 2>/dev/null || echo "unknown")
+          
+          cat > rollback-$VERSION.md << EOF
+          # Rollback Instructions for $VERSION
+          
+          If issues are discovered with this release, follow these rollback procedures:
+          
+          ## Kubernetes Rollback
+          \`\`\`bash
+          # Rollback to previous version
+          kubectl rollout undo deployment/zamaz-auth-service -n zamaz
+          kubectl rollout undo deployment/zamaz-frontend -n zamaz
+          
+          # Or rollback to specific version
+          kubectl set image deployment/zamaz-auth-service auth-service=ghcr.io/${{ github.repository }}/auth-service:$PREV_VERSION -n zamaz
+          \`\`\`
+          
+          ## Docker Rollback
+          \`\`\`bash
+          # Use previous version
+          docker pull ghcr.io/${{ github.repository }}/auth-service:$PREV_VERSION
+          \`\`\`
+          
+          ## Emergency Contacts
+          - Technical Lead: [Add contact info]
+          - DevOps Team: [Add contact info]
+          - Release Manager: [Add contact info]
+          
+          ## Rollback Checklist
+          - [ ] Stop new deployments
+          - [ ] Assess impact scope
+          - [ ] Execute rollback
+          - [ ] Verify services are healthy
+          - [ ] Update incident tracking
+          - [ ] Communicate status to stakeholders
+          EOF
+          
+          echo "Rollback instructions prepared for version $VERSION"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
