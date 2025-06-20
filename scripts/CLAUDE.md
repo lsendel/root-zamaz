@@ -48,4 +48,9 @@ make docs-wiki-sync
 - Keep error messages clear and actionable
 - Always provide fallback options
 
+## 🚨 **Critical Rules**
+- **URL Verification**: NEVER suggest URLs without testing them first
+- **Service Verification**: Always check if servers/services are running
+- **Path Verification**: Verify file/directory paths exist before suggesting access
+
 **Remember**: Safety first - always preview wiki changes and limit scope to Documentation subdirectory only.
