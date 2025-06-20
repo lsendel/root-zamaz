@@ -105,10 +105,33 @@ if [ "$dev_files" -gt 0 ]; then
 fi
 
 echo ""
+echo -e "${YELLOW}📋 Wiki structure preview:${NC}"
+echo -e "${BLUE}🏠 Home${NC} - Main landing page with project overview"
+
+if [ -f "$DOCS_DIR/schema/README.md" ]; then
+    echo -e "${BLUE}📊 Database-Schema${NC} - Complete schema with interactive Mermaid diagrams"
+fi
+
+# Show domain files
+for domain_file in "$DOCS_DIR"/schema/*-domain.md; do
+    if [ -f "$domain_file" ]; then
+        basename_file=$(basename "$domain_file" .md)
+        wiki_title=$(echo "$basename_file" | sed 's/-/ /g' | sed 's/\b\w/\U&/g' | sed 's/ /-/g')
+        echo -e "${BLUE}🔐 $wiki_title${NC} - $(head -n1 "$domain_file" 2>/dev/null | sed 's/^# //' || echo 'Domain documentation')"
+    fi
+done
+
+if [ -f "$DOCS_DIR/api/README.md" ]; then
+    echo -e "${BLUE}📡 API-Documentation${NC} - REST API reference and examples"
+fi
+
+echo -e "${BLUE}📋 Table-of-Contents${NC} - Complete navigation hub"
+
+echo ""
 echo -e "${GREEN}🎉 Wiki sync test completed successfully!${NC}"
 echo -e "${BLUE}📍 Wiki would be available at: https://github.com/${REPO_OWNER}/${REPO_NAME}/wiki${NC}"
 echo ""
 echo -e "${YELLOW}💡 To perform actual sync:${NC}"
-echo -e "${YELLOW}   1. Enable wiki in repository settings${NC}"
-echo -e "${YELLOW}   2. Create at least one wiki page manually${NC}"
+echo -e "${YELLOW}   1. Enable wiki in repository settings${NC}"  
+echo -e "${YELLOW}   2. Set GITHUB_TOKEN environment variable${NC}"
 echo -e "${YELLOW}   3. Run: make docs-wiki-sync-api${NC}"

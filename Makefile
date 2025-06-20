@@ -75,7 +75,7 @@ BOLD := \033[1m
 	bytebase-setup bytebase-start bytebase-stop bytebase-status bytebase-migrate \
 	consul-setup consul-start consul-stop consul-status consul-services \
 	istio-setup istio-install istio-uninstall istio-verify istio-dashboards \
-  docs docs-ci docs-deploy-all docs-wiki-sync docs-wiki-sync-api docs-wiki-local docs-generate docs-serve docs-deploy docs-schema \
+  docs docs-ci docs-deploy docs-wiki-sync docs-wiki-sync-api docs-wiki-local docs-generate docs-serve docs-schema \
 	docs-mkdocs-install docs-mkdocs-serve docs-mkdocs-build docs-mkdocs-deploy docs-mkdocs-help \
 	docs-book-build docs-book-serve docs-book-help install-tbls \
 	monitor monitor-setup monitor-status monitor-logs \
@@ -1737,19 +1737,18 @@ docs: docs-generate docs-schema ## 📚 Generate and serve documentation
 docs-ci: ## 🤖 Complete CI documentation pipeline
 	@./scripts/docs-generate.sh
 
-docs-deploy-all: ## 🚀 Deploy to both MkDocs and Wiki
-	@printf "$(BLUE)🌐 Deploying to all documentation platforms...$(RESET)\n"
-	@printf "$(YELLOW)1/3 Generating documentation...$(RESET)\n"
+docs-deploy: ## 📖 Deploy documentation to GitHub Wiki
+	@printf "$(BLUE)📖 Deploying documentation to GitHub Wiki...$(RESET)\n"
+	@printf "$(YELLOW)1/2 Generating documentation...$(RESET)\n"
 	@make docs-ci
-	@printf "$(YELLOW)2/3 Deploying to GitHub Pages (MkDocs)...$(RESET)\n"
-	@make docs-mkdocs-deploy
-	@printf "$(YELLOW)3/3 Syncing to GitHub Wiki...$(RESET)\n"
+	@printf "$(YELLOW)2/2 Syncing to GitHub Wiki...$(RESET)\n"
 	@if [ -n "$$GITHUB_TOKEN" ]; then \
 		./scripts/sync-wiki-api-test.sh; \
 	else \
 		printf "$(YELLOW)⚠️  Skipping wiki sync (no GITHUB_TOKEN)$(RESET)\n"; \
+		printf "$(BLUE)💡 Set GITHUB_TOKEN to deploy: export GITHUB_TOKEN=your_token$(RESET)\n"; \
 	fi
-	@printf "$(GREEN)✅ Documentation deployed to all platforms!$(RESET)\n"
+	@printf "$(GREEN)✅ Documentation ready for GitHub Wiki!$(RESET)\n"
 
 docs-wiki-sync: ## 📚 Sync documentation to GitHub Wiki (SSH)
 	@./scripts/sync-wiki.sh
@@ -1826,8 +1825,6 @@ docs-serve: ## Serve documentation locally
 	@cd docs && python3 -m http.server 8080 2>/dev/null || \
 		python -m SimpleHTTPServer 8080
 
-docs-deploy: docs-generate ## Deploy documentation
-	@printf "$(BLUE)📚 Deploying documentation...$(RESET)\n"
 
 # =============================================================================
 # MKDOCS DOCUMENTATION COMMANDS (2025 Modern Setup)

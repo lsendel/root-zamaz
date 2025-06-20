@@ -1,4 +1,4 @@
-name: Wiki Sync
+name: Documentation Deployment
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
     paths:
       - 'docs/**'
       - 'README.md'
-      - 'scripts/sync-wiki.sh'
+      - 'scripts/sync-wiki*.sh'
       - '.github/workflows/wiki-sync.yml'
   workflow_dispatch:  # Allow manual trigger
 
@@ -14,10 +14,9 @@ permissions:
   contents: read
 
 jobs:
-  sync-wiki:
-    name: Sync Documentation to GitHub Wiki
+  deploy-wiki:
+    name: Deploy Documentation to GitHub Wiki
     runs-on: ubuntu-latest
-    if: github.repository == 'zamaz/root-zamaz'  # Only run on main repo
     
     steps:
     - name: Checkout repository
@@ -50,11 +49,12 @@ jobs:
   notify-success:
     name: Notify Success
     runs-on: ubuntu-latest
-    needs: sync-wiki
+    needs: deploy-wiki
     if: success()
     
     steps:
-    - name: Wiki sync notification
+    - name: Documentation deployment notification
       run: |
-        echo "✅ Wiki sync completed successfully"
-        echo "📍 Wiki available at: https://github.com/${{ github.repository }}/wiki"
+        echo "✅ Documentation deployment completed successfully"
+        echo "📖 Wiki available at: https://github.com/${{ github.repository }}/wiki"
+        echo "🔐 Schema docs: https://github.com/${{ github.repository }}/wiki/Database-Schema"

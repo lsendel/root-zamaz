@@ -27,34 +27,22 @@ make test-all
 
 ## Documentation
 
-### 🌐 **Customer Documentation**
-📚 **[Complete Documentation](https://zamaz.github.io/root-zamaz)** - Professional documentation site
+📖 **[Project Wiki](https://github.com/lsendel/root-zamaz/wiki)** - Complete documentation with interactive diagrams
 
-- 🔐 [Database Schema](https://zamaz.github.io/root-zamaz/schema/) - Domain-driven schema with Mermaid diagrams
-- 🛡️ [Security Architecture](https://zamaz.github.io/root-zamaz/architecture/security/) - Zero Trust implementation
-- 🚀 [Getting Started](https://zamaz.github.io/root-zamaz/getting-started/quick-start/) - Integration guide
-- 📊 [API Documentation](https://zamaz.github.io/root-zamaz/api/) - REST API reference
-
-### 👥 **Team Documentation**
-📖 **[GitHub Wiki](https://github.com/zamaz/root-zamaz/wiki)** - Internal collaboration space
-
-- Quick edits and team discussions
-- Live architecture diagrams
-- Development procedures
-- Incident response playbooks
-
-### 💻 **Local Development**
-🔧 **[Local Docs](http://127.0.0.1:8001)** - Development environment
+### Quick Links
+- 🔐 [Database Schema](https://github.com/lsendel/root-zamaz/wiki/Database-Schema) - Domain-driven schema with Mermaid diagrams
+- 🛡️ [Security Architecture](https://github.com/lsendel/root-zamaz/wiki/Architecture-Security) - Zero Trust implementation  
+- 🚀 [Getting Started](https://github.com/lsendel/root-zamaz/wiki/Development-Setup) - Quick setup guide
+- 📊 [API Documentation](https://github.com/lsendel/root-zamaz/wiki/API-Documentation) - REST API reference
+- 🏗️ [Development Guide](https://github.com/lsendel/root-zamaz/wiki/Development-Guide) - Contributing guidelines
 
 ### Documentation Commands
 ```bash
-# Deploy to all platforms (MkDocs + Wiki)
-make docs-deploy-all
+# Generate and sync to wiki
+make docs-wiki-sync-api
 
-# Individual platform commands
-make docs-ci                # Generate documentation
-make docs-mkdocs-serve      # Serve locally with live reload
-make docs-wiki-sync-api     # Sync to GitHub Wiki
+# Local development
+make docs-mkdocs-serve      # Serve locally with live reload  
 make docs-schema            # Generate schema docs only
 ```
 
