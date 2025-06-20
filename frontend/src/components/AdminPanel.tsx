@@ -231,22 +231,8 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
     }
   }
 
-  // Wait for authentication to complete before checking admin status
-  if (isLoading || !user) {
-    return (
-      <div className="admin-panel">
-        <div className="admin-panel-header">
-          <h2>Loading...</h2>
-          <button onClick={onClose} className="close-btn">×</button>
-        </div>
-        <div className="admin-panel-content">
-          <p>Verifying administrator privileges...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!isAdmin || !user.is_admin) {
+  // Simple admin check - if user exists and has admin flag, allow access
+  if (!user || (!user.is_admin && !isAdmin)) {
     return (
       <div className="admin-panel">
         <div className="admin-panel-header">
