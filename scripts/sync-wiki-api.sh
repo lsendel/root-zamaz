@@ -183,6 +183,9 @@ done
 
 # Create a table of contents page
 echo -e "${YELLOW}📋 Creating Table of Contents...${NC}"
+
+# Create TOC content with proper escaping
+current_date=$(date -u +'%Y-%m-%d %H:%M:%S UTC')
 toc_content="# Zamaz Zero Trust Platform Wiki
 
 Welcome to the Zamaz Zero Trust Platform documentation wiki. This wiki is automatically synchronized from our main documentation.
@@ -213,9 +216,9 @@ Welcome to the Zamaz Zero Trust Platform documentation wiki. This wiki is automa
 
 ---
 
-> 📍 **Live Documentation**: https://zamaz.github.io/root-zamaz  
-> 🔄 **Last Updated**: $(date -u +'%Y-%m-%d %H:%M:%S UTC')  
-> 📝 **Source**: Automatically synced from main repository"
+📍 Live Documentation: https://zamaz.github.io/root-zamaz  
+🔄 Last Updated: $current_date  
+📝 Source: Automatically synced from main repository"
 
 create_wiki_page "Table-of-Contents" "$toc_content" "$SYNC_MESSAGE"
 
