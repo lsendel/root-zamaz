@@ -1,0 +1,16 @@
+# MkDocs and essential plugins for 2025
+mkdocs==1.5.3
+mkdocs-material==9.5.3
+
+# Core plugins
+mkdocs-minify-plugin==0.8.0
+mkdocs-git-revision-date-localized-plugin==1.2.4
+mkdocs-git-committers-plugin-2==2.3.0
+
+# Content enhancement
+mkdocs-glightbox==0.3.7
+mkdocs-mermaid2-plugin==1.1.1
+
+# Additional useful plugins for social cards
+pillow>=10.0.0
+cairosvg>=2.6.0

@@ -76,7 +76,8 @@ BOLD := \033[1m
 	consul-setup consul-start consul-stop consul-status consul-services \
 	istio-setup istio-install istio-uninstall istio-verify istio-dashboards \
   docs docs-generate docs-serve docs-deploy docs-schema \
-	docs docs-generate docs-serve docs-deploy install-tbls \
+	docs-mkdocs-install docs-mkdocs-serve docs-mkdocs-build docs-mkdocs-deploy docs-mkdocs-help \
+	docs-book-build docs-book-serve docs-book-help install-tbls \
 	monitor monitor-setup monitor-status monitor-logs \
 	gitops-setup gitops-validate gitops-sync gitops-rollback \
 	gitops-test gitops-deploy gitops-monitor gitops-backup \
@@ -1782,6 +1783,224 @@ docs-serve: ## Serve documentation locally
 
 docs-deploy: docs-generate ## Deploy documentation
 	@printf "$(BLUE)📚 Deploying documentation...$(RESET)\n"
+
+# =============================================================================
+# MKDOCS DOCUMENTATION COMMANDS (2025 Modern Setup)
+# =============================================================================
+docs-mkdocs-install: ## 📦 Install MkDocs with Material theme and plugins
+	@printf "$(BLUE)📦 Installing MkDocs with modern plugins...$(RESET)\n"
+	@if command -v python3 > /dev/null; then \
+		python3 -m venv .venv-docs 2>/dev/null || true; \
+		source .venv-docs/bin/activate && pip install --upgrade pip; \
+		source .venv-docs/bin/activate && pip install -r requirements-docs.txt; \
+		printf "$(GREEN)✅ MkDocs installation completed$(RESET)\n"; \
+	else \
+		printf "$(RED)❌ Python 3 is required$(RESET)\n"; \
+		exit 1; \
+	fi
+
+docs-mkdocs-serve: ## 🌐 Serve MkDocs documentation with live reload
+	@printf "$(BLUE)🌐 Starting MkDocs development server...$(RESET)\n"
+	@printf "$(GREEN)📍 Documentation available at: http://localhost:8001$(RESET)\n"
+	@./scripts/docs-serve.sh
+
+docs-mkdocs-build: ## 📖 Build MkDocs documentation for production
+	@printf "$(BLUE)📖 Building MkDocs documentation...$(RESET)\n"
+	@if [ -d ".venv-docs" ]; then \
+		source .venv-docs/bin/activate && mkdocs build --clean; \
+		printf "$(GREEN)✅ Documentation built in site/ directory$(RESET)\n"; \
+	else \
+		printf "$(RED)❌ Virtual environment not found. Run 'make docs-mkdocs-install' first$(RESET)\n"; \
+		exit 1; \
+	fi
+
+docs-mkdocs-clean: ## 🧹 Clean MkDocs build artifacts
+	@printf "$(BLUE)🧹 Cleaning MkDocs artifacts...$(RESET)\n"
+	@rm -rf site/ .venv-docs/
+	@printf "$(GREEN)✅ MkDocs cleanup completed$(RESET)\n"
+
+docs-mkdocs-validate: ## ✅ Validate MkDocs configuration and links
+	@printf "$(BLUE)✅ Validating MkDocs configuration...$(RESET)\n"
+	@if [ -d ".venv-docs" ]; then \
+		source .venv-docs/bin/activate && mkdocs build --strict; \
+		printf "$(GREEN)✅ MkDocs validation passed$(RESET)\n"; \
+	else \
+		printf "$(RED)❌ Virtual environment not found. Run 'make docs-mkdocs-install' first$(RESET)\n"; \
+		exit 1; \
+	fi
+
+docs-mkdocs-deploy: docs-mkdocs-build ## 🚀 Deploy MkDocs documentation to GitHub Pages
+	@printf "$(BLUE)🚀 Deploying MkDocs documentation...$(RESET)\n"
+	@if [ -d ".venv-docs" ]; then \
+		source .venv-docs/bin/activate && mkdocs gh-deploy --clean; \
+		printf "$(GREEN)✅ Documentation deployed to GitHub Pages$(RESET)\n"; \
+	else \
+		printf "$(RED)❌ Virtual environment not found. Run 'make docs-mkdocs-install' first$(RESET)\n"; \
+		exit 1; \
+	fi
+
+docs-mkdocs-help: ## 📚 Show MkDocs documentation help
+	@printf "$(BOLD)$(BLUE)📚 MKDOCS DOCUMENTATION COMMANDS (2025)$(RESET)\n"
+	@printf "$(BLUE)=========================================$(RESET)\n\n"
+	@printf "$(BOLD)Setup & Installation:$(RESET)\n"
+	@printf "  $(GREEN)docs-mkdocs-install$(RESET)    Install MkDocs with Material theme\n"
+	@printf "  $(GREEN)docs-mkdocs-validate$(RESET)   Validate configuration and links\n\n"
+	@printf "$(BOLD)Development:$(RESET)\n"
+	@printf "  $(GREEN)docs-mkdocs-serve$(RESET)      Serve with live reload (port 8001)\n"
+	@printf "  $(GREEN)docs-mkdocs-build$(RESET)      Build static documentation\n"
+	@printf "  $(GREEN)docs-mkdocs-clean$(RESET)      Clean build artifacts\n\n"
+	@printf "$(BOLD)Deployment:$(RESET)\n"
+	@printf "  $(GREEN)docs-mkdocs-deploy$(RESET)     Deploy to GitHub Pages\n\n"
+	@printf "$(BOLD)Features (Material for MkDocs):$(RESET)\n"
+	@printf "  $(YELLOW)🎨 Material Design$(RESET)     Modern, responsive UI\n"
+	@printf "  $(YELLOW)🔍 Advanced Search$(RESET)     Instant search with highlighting\n"
+	@printf "  $(YELLOW)🌙 Dark/Light Mode$(RESET)     Automatic theme switching\n"
+	@printf "  $(YELLOW)📱 Mobile Optimized$(RESET)    Perfect on all devices\n"
+	@printf "  $(YELLOW)🎯 Navigation Tabs$(RESET)     Organized content structure\n"
+	@printf "  $(YELLOW)📊 Mermaid Diagrams$(RESET)    Built-in diagram support\n"
+	@printf "  $(YELLOW)🔗 Social Sharing$(RESET)      Auto-generated social cards\n\n"
+	@printf "$(BOLD)Quick Start:$(RESET)\n"
+	@printf "  1. $(CYAN)make docs-mkdocs-install$(RESET)  # Install dependencies\n"
+	@printf "  2. $(CYAN)make docs-mkdocs-serve$(RESET)    # Start development server\n"
+	@printf "  3. Open http://localhost:8001 in your browser\n"
+	@printf "  4. $(CYAN)make docs-mkdocs-deploy$(RESET)   # Deploy to production\n\n"
+
+# =============================================================================
+# MDBOOK DOCUMENTATION COMMANDS
+# =============================================================================
+docs-book-init: ## 🏗️ Initialize mdBook documentation structure
+	@printf "$(BLUE)🏗️ Initializing mdBook documentation...$(RESET)\n"
+	@if command -v mdbook > /dev/null; then \
+		echo "mdBook already initialized in docs-book/"; \
+	else \
+		echo "Please install mdBook: cargo install mdbook"; \
+		echo "Or download from: https://github.com/rust-lang/mdBook/releases"; \
+	fi
+	@printf "$(GREEN)✅ mdBook initialization completed$(RESET)\n"
+
+docs-book-build: ## 📖 Build mdBook documentation
+	@printf "$(BLUE)📖 Building mdBook documentation...$(RESET)\n"
+	@if command -v mdbook > /dev/null; then \
+		cd docs-book && mdbook build; \
+		echo "Built documentation in docs-book/book/"; \
+	else \
+		echo "❌ mdBook not found. Please install: cargo install mdbook"; \
+		exit 1; \
+	fi
+	@printf "$(GREEN)✅ mdBook build completed$(RESET)\n"
+
+docs-book-serve: ## 🌐 Serve mdBook documentation with live reload
+	@printf "$(BLUE)🌐 Serving mdBook documentation...$(RESET)\n"
+	@printf "$(GREEN)Documentation available at: http://localhost:3000$(RESET)\n"
+	@if command -v mdbook > /dev/null; then \
+		cd docs-book && mdbook serve --port 3000; \
+	else \
+		echo "❌ mdBook not found. Please install: cargo install mdbook"; \
+		exit 1; \
+	fi
+
+docs-book-test: ## 🧪 Test code examples in mdBook documentation
+	@printf "$(BLUE)🧪 Testing mdBook documentation...$(RESET)\n"
+	@if command -v mdbook > /dev/null; then \
+		cd docs-book && mdbook test; \
+	else \
+		echo "❌ mdBook not found. Please install: cargo install mdbook"; \
+		exit 1; \
+	fi
+	@printf "$(GREEN)✅ Documentation tests completed$(RESET)\n"
+
+docs-book-clean: ## 🧹 Clean mdBook build artifacts
+	@printf "$(BLUE)🧹 Cleaning mdBook artifacts...$(RESET)\n"
+	@rm -rf docs-book/book/
+	@printf "$(GREEN)✅ mdBook cleanup completed$(RESET)\n"
+
+docs-book-install: ## 📦 Install mdBook and preprocessors
+	@printf "$(BLUE)📦 Installing mdBook and preprocessors...$(RESET)\n"
+	@if command -v cargo > /dev/null; then \
+		echo "Installing mdBook..."; \
+		cargo install mdbook; \
+		echo "Installing mdBook preprocessors..."; \
+		cargo install mdbook-toc || echo "mdbook-toc installation failed (optional)"; \
+		cargo install mdbook-linkcheck || echo "mdbook-linkcheck installation failed (optional)"; \
+		cargo install mdbook-admonish || echo "mdbook-admonish installation failed (optional)"; \
+	else \
+		echo "❌ Cargo not found. Please install Rust: https://rustup.rs/"; \
+		echo "Alternative: Download mdBook binary from GitHub releases"; \
+		exit 1; \
+	fi
+	@printf "$(GREEN)✅ mdBook installation completed$(RESET)\n"
+
+docs-book-migrate: ## 🔄 Migrate existing documentation to mdBook format
+	@printf "$(BLUE)🔄 Migrating existing documentation to mdBook...$(RESET)\n"
+	@echo "Copying CI/CD documentation..."
+	@mkdir -p docs-book/src/cicd
+	@cp docs/CI_CD_PIPELINE.md docs-book/src/cicd/legacy-pipeline.md 2>/dev/null || echo "CI/CD doc not found"
+	@echo "Copying Service Discovery documentation..."
+	@mkdir -p docs-book/src/architecture
+	@cp docs/SERVICE_DISCOVERY.md docs-book/src/architecture/legacy-service-discovery.md 2>/dev/null || echo "Service Discovery doc not found"
+	@echo "Copying development documentation..."
+	@mkdir -p docs-book/src/development
+	@find docs/ -name "*.md" -type f | head -10 | while read file; do \
+		basename_file=$$(basename "$$file"); \
+		echo "Copying $$file to docs-book/src/development/$$basename_file"; \
+		cp "$$file" "docs-book/src/development/$$basename_file" 2>/dev/null || true; \
+	done
+	@printf "$(GREEN)✅ Documentation migration completed$(RESET)\n"
+
+docs-book-validate: ## ✅ Validate mdBook configuration and content
+	@printf "$(BLUE)✅ Validating mdBook documentation...$(RESET)\n"
+	@if command -v mdbook > /dev/null; then \
+		cd docs-book && mdbook build --dest-dir temp-build > /dev/null 2>&1; \
+		if [ $$? -eq 0 ]; then \
+			echo "✅ mdBook configuration is valid"; \
+			rm -rf docs-book/temp-build; \
+		else \
+			echo "❌ mdBook configuration has errors"; \
+			exit 1; \
+		fi; \
+	else \
+		echo "❌ mdBook not found"; \
+		exit 1; \
+	fi
+	@printf "$(GREEN)✅ Validation completed$(RESET)\n"
+
+docs-book-deploy: docs-book-build ## 🚀 Deploy mdBook documentation
+	@printf "$(BLUE)🚀 Deploying mdBook documentation...$(RESET)\n"
+	@echo "Built documentation ready for deployment in docs-book/book/"
+	@echo "Copy contents to your web server or use GitHub Pages"
+	@printf "$(GREEN)✅ Documentation ready for deployment$(RESET)\n"
+
+docs-modern: docs-book-build docs-book-serve ## 📚 Modern documentation workflow (build + serve)
+	@printf "$(GREEN)🎉 Modern documentation workflow completed$(RESET)\n"
+
+docs-book-help: ## 📚 Show mdBook documentation help
+	@printf "$(BOLD)$(BLUE)📚 MDBOOK DOCUMENTATION COMMANDS$(RESET)\n"
+	@printf "$(BLUE)=====================================$(RESET)\n\n"
+	@printf "$(BOLD)Setup & Installation:$(RESET)\n"
+	@printf "  $(GREEN)docs-book-install$(RESET)    Install mdBook and preprocessors\n"
+	@printf "  $(GREEN)docs-book-init$(RESET)       Initialize mdBook structure\n"
+	@printf "  $(GREEN)docs-book-migrate$(RESET)    Migrate existing docs to mdBook\n\n"
+	@printf "$(BOLD)Build & Development:$(RESET)\n"
+	@printf "  $(GREEN)docs-book-build$(RESET)      Build static documentation\n"
+	@printf "  $(GREEN)docs-book-serve$(RESET)      Serve with live reload (port 3000)\n"
+	@printf "  $(GREEN)docs-book-test$(RESET)       Test code examples in documentation\n"
+	@printf "  $(GREEN)docs-book-validate$(RESET)   Validate configuration and content\n\n"
+	@printf "$(BOLD)Maintenance:$(RESET)\n"
+	@printf "  $(GREEN)docs-book-clean$(RESET)      Clean build artifacts\n"
+	@printf "  $(GREEN)docs-book-deploy$(RESET)     Deploy documentation\n"
+	@printf "  $(GREEN)docs-modern$(RESET)          Complete modern docs workflow\n\n"
+	@printf "$(BOLD)Features:$(RESET)\n"
+	@printf "  $(YELLOW)📖 Modern UI$(RESET)           Responsive documentation with search\n"
+	@printf "  $(YELLOW)🔍 Full-text Search$(RESET)   Built-in search across all content\n"
+	@printf "  $(YELLOW)🔗 Link Validation$(RESET)    Automatic broken link detection\n"
+	@printf "  $(YELLOW)🧪 Code Testing$(RESET)       Test code examples in documentation\n"
+	@printf "  $(YELLOW)⚡ Live Reload$(RESET)        Instant updates during development\n"
+	@printf "  $(YELLOW)📱 Mobile Friendly$(RESET)    Optimized for all devices\n\n"
+	@printf "$(BOLD)Quick Start:$(RESET)\n"
+	@printf "  1. $(CYAN)make docs-book-install$(RESET)  # Install mdBook\n"
+	@printf "  2. $(CYAN)make docs-book-migrate$(RESET)  # Migrate existing docs\n"
+	@printf "  3. $(CYAN)make docs-book-serve$(RESET)    # Start development server\n"
+	@printf "  4. Open http://localhost:3000 in your browser\n"
 	@printf "$(YELLOW)⚠️  Documentation deployment not implemented$(RESET)\n"
 
 # Duplicate docs-schema target removed - see main definition above

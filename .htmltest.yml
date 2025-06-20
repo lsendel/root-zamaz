@@ -1,0 +1,19 @@
+# HTMLTest configuration for link checking
+DirectoryPath: "site"
+IgnoreURLs:
+  - "mailto:*"
+  - "http://localhost*"
+  - "https://localhost*"
+  - "127.0.0.1*"
+  - "*.local*"
+  - "example.com"
+  - "*.example.com"
+  - "zamaz.io"  # May not exist yet
+  - "api.zamaz.io"  # May not exist yet
+  - "app.zamaz.io"  # May not exist yet
+IgnoreInternalEmptyHash: true
+IgnoreAltMissing: true
+CheckExternal: false  # Disable external link checking for speed
+LogLevel: 1  # Only log errors
+OutputDir: ".htmltest"
+OutputLog: "htmltest.log"

@@ -1,0 +1,268 @@
+site_name: Zamaz Zero Trust Platform
+site_description: Comprehensive documentation for the Zamaz Zero Trust Authentication Platform with Service Discovery, Istio Service Mesh, and Modern CI/CD
+site_author: Zamaz Development Team
+site_url: https://zamaz.github.io/root-zamaz
+
+# Repository
+repo_name: zamaz/root-zamaz
+repo_url: https://github.com/zamaz/root-zamaz
+edit_uri: edit/main/docs/
+
+# Configuration
+theme:
+  name: material
+  features:
+    # Navigation
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.path
+    - navigation.top
+    - navigation.tracking
+    
+    # Search
+    - search.suggest
+    - search.highlight
+    - search.share
+    
+    # Header
+    - header.autohide
+    
+    # Content
+    - content.code.copy
+    - content.code.select
+    - content.code.annotate
+    - content.tabs.link
+    - content.tooltips
+    - content.action.edit
+    - content.action.view
+    
+    # Table of contents
+    - toc.follow
+    - toc.integrate
+
+  palette:
+    # Palette toggle for automatic mode
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+
+    # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: blue grey
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: blue grey
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
+
+  font:
+    text: Roboto
+    code: Roboto Mono
+
+  logo: assets/images/logo.svg
+  favicon: assets/images/favicon.png
+
+  icon:
+    repo: fontawesome/brands/github
+    edit: material/pencil
+    view: material/eye
+
+# Plugins
+plugins:
+  - search:
+      separator: '[\s\u200b\-_,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+  - minify:
+      minify_html: true
+  - git-revision-date-localized:
+      enable_creation_date: true
+      type: timeago
+  # - git-committers:  # Disabled - requires GitHub API access
+  #     repository: zamaz/root-zamaz
+  #     branch: main
+  - tags:
+      tags_file: reference/tags.md
+  # - social:  # Disabled - requires Cairo library installation
+  #     cards_layout_options:
+  #       color: "#2094f3"
+  - glightbox
+  - mermaid2
+
+# Markdown Extensions
+markdown_extensions:
+  # Python Markdown
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+      title: Page contents
+
+  # Python Markdown Extensions
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.snippets:
+      auto_append:
+        - includes/mkdocs.md
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+      combine_header_slug: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+# Page tree
+nav:
+  - Home: index.md
+  
+  - Getting Started:
+    - Quick Start: getting-started/quick-start.md
+    - Installation: getting-started/installation.md
+    - Configuration: getting-started/configuration.md
+  
+  - Architecture:
+    - Overview: architecture/overview.md
+    - Security: architecture/security.md
+    - Zero Trust: architecture/zero-trust.md
+    - Observability: architecture/observability.md
+    - Service Discovery: architecture/service-discovery.md
+    - Security Diagrams: architecture/security-diagrams.md
+  
+  - API Documentation:
+    - Overview: api/README.md
+    - Authentication: api/authentication.md
+    - Devices: api/devices.md
+    - OpenAPI Spec: api/openapi.yaml
+  
+  - Development:
+    - Overview: development/README.md
+    - Setup: development/setup.md
+    - Testing: development/testing.md
+    - Contributing: development/contributing.md
+    - Code Style: development/code-style.md
+    - CLI: development/cli.md
+    - Project Structure: development/project-structure.md
+    - API Documentation: development/api-documentation.md
+    - SDK Generation: development/sdk_generation.md
+  
+  - Deployment:
+    - Overview: deployment/README.md
+    - Docker: deployment/docker.md
+    - Kubernetes: deployment/kubernetes.md
+    - Production: deployment/production.md
+    - Security: deployment/security.md
+    - GitOps: deployment/gitops.md
+    - Runbook: deployment/DEPLOYMENT_RUNBOOK.md
+  
+  - Security:
+    - Overview: security/README.md
+    - Threat Model: security/threat-model.md
+    - Policies: security/policies.md
+    - Incident Response: security/incident-response.md
+    - Security Scanning: security/security-scanning-setup.md
+    - Quick Reference: security/SECURITY-SCANNING-QUICK-REFERENCE.md
+    - Playbooks: security/playbooks/README.md
+  
+  - Operations:
+    - Troubleshooting: troubleshooting.md
+    - GitOps Implementation: GITOPS_IMPLEMENTATION_PLAN.md
+    - GitOps Quickstart: GITOPS_QUICKSTART.md
+    - Production Readiness: PRODUCTION_READINESS_CHECKLIST.md
+    - Istio Migration: ISTIO_MIGRATION_GUIDE.md
+    - Helm Charts: HELM_CHARTS_REFERENCE.md
+    - CI/CD Pipeline: CI_CD_PIPELINE.md
+  
+  - Testing:
+    - E2E Testing: testing/e2e-testing-guide.md
+    - Test Scenarios: ../tests/test-scenarios.md
+  
+  - SDKs:
+    - Go SDK: sdk/go/README.md
+    - JavaScript SDK: sdk/javascript/README.md
+    - Python SDK: sdk/python/README.md
+  
+  - CLI:
+    - Overview: cli/README.md
+  
+  - Examples:
+    - Overview: examples/README.md
+    - Backend Examples: examples/backend/go-fiber/README.md
+    - Frontend Examples: examples/frontend/react-spa/README.md
+    - Infrastructure Examples: examples/infrastructure/kubernetes/README.md
+  
+  - Schema:
+    - Database Schema: schema/README.md
+  
+  - Reference:
+    - Tags: reference/tags.md
+
+# Extra
+extra:
+  version:
+    provider: mike
+    default: latest
+  
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/zamaz/root-zamaz
+    - icon: fontawesome/brands/docker
+      link: https://hub.docker.com/r/zamaz/root-zamaz
+  
+  generator: false
+  
+  status:
+    new: Recently added
+    deprecated: Deprecated
+
+# Hooks (disabled for now)
+# hooks:
+#   - hooks/social_cards.py
+
+# Additional CSS and JavaScript
+extra_css:
+  - assets/stylesheets/extra.css
+
+extra_javascript:
+  - assets/javascripts/mathjax.js
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+
+# Copyright
+copyright: Copyright &copy; 2024 Zamaz Development Team

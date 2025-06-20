@@ -2,10 +2,12 @@
 bin/
 dist/
 build/
+site/  # MkDocs build output
 
 # Dependencies
 node_modules/
 vendor/
+.venv-docs/  # MkDocs virtual environment
 
 # IDE
 .idea/

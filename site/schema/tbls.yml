@@ -1,0 +1,20 @@
+dsn: "postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=disable"
+docPath: "docs/schema"
+erd:
+  format: "plantuml"
+  path: "docs/schema/diagram.puml"
+dict:
+  tables:
+    users: "User accounts and authentication data"
+    roles: "User roles for RBAC"
+    permissions: "System permissions"
+    user_roles: "User-role associations"
+    role_permissions: "Role-permission associations"
+    device_attestations: "Device trust and attestation data"
+    audit_logs: "System audit trail"
+    compliance_audit_logs: "Compliance-specific audit logs"
+    compliance_violations: "Detected compliance violations"
+    data_subject_requests: "GDPR data subject requests"
+    consent_records: "User consent tracking"
+    retention_policies: "Data retention policies"
+    compliance_reports: "Generated compliance reports"

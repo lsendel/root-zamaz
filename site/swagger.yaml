@@ -1,0 +1,1064 @@
+basePath: /api
+definitions:
+  auth.LoginRequest:
+    properties:
+      device_id:
+        type: string
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  auth.RefreshRequest:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  handlers.AttestDeviceRequest:
+    properties:
+      attestation_data:
+        additionalProperties: true
+        type: object
+      device_id:
+        type: string
+      device_name:
+        type: string
+      platform:
+        type: string
+      spiffe_id:
+        type: string
+      workload_selector:
+        type: string
+    required:
+    - device_id
+    - device_name
+    - platform
+    type: object
+  handlers.ChangePasswordRequest:
+    properties:
+      current_password:
+        type: string
+      new_password:
+        minLength: 8
+        type: string
+    required:
+    - current_password
+    - new_password
+    type: object
+  handlers.DeviceResponse:
+    properties:
+      attestation_data:
+        additionalProperties: true
+        type: object
+      created_at:
+        type: string
+      device_id:
+        type: string
+      device_name:
+        type: string
+      id:
+        type: string
+      is_verified:
+        type: boolean
+      platform:
+        type: string
+      spiffe_id:
+        type: string
+      trust_level:
+        type: integer
+      updated_at:
+        type: string
+      verified_at:
+        type: string
+      workload_selector:
+        type: string
+    type: object
+  handlers.HealthResponse:
+    properties:
+      services:
+        additionalProperties:
+          $ref: '#/definitions/handlers.ServiceInfo'
+        type: object
+      status:
+        type: string
+      timestamp:
+        type: string
+    type: object
+  handlers.RegisterRequest:
+    properties:
+      email:
+        type: string
+      first_name:
+        maxLength: 50
+        type: string
+      last_name:
+        maxLength: 50
+        type: string
+      password:
+        minLength: 8
+        type: string
+      username:
+        maxLength: 50
+        minLength: 3
+        type: string
+    required:
+    - email
+    - password
+    - username
+    type: object
+  handlers.ServiceInfo:
+    properties:
+      details:
+        additionalProperties: true
+        type: object
+      last_check:
+        type: string
+      response_time:
+        type: string
+      status:
+        type: string
+    type: object
+  handlers.UserResponse:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      first_name:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      is_admin:
+        type: boolean
+      last_name:
+        type: string
+      roles:
+        items:
+          type: string
+        type: array
+      updated_at:
+        type: string
+      username:
+        type: string
+    type: object
+  handlers.VerifyDeviceRequest:
+    properties:
+      trust_level:
+        maximum: 100
+        minimum: 0
+        type: integer
+    type: object
+  models.DeviceAttestation:
+    properties:
+      attestation_data:
+        description: JSON data
+        type: string
+      created_at:
+        type: string
+      device_id:
+        type: string
+      device_name:
+        type: string
+      id:
+        type: string
+      is_verified:
+        type: boolean
+      platform:
+        type: string
+      spiffe_id:
+        description: SPIRE integration
+        type: string
+      trust_level:
+        description: Attestation data
+        type: integer
+      updated_at:
+        type: string
+      user:
+        $ref: '#/definitions/models.User'
+      user_id:
+        description: Device identification
+        type: string
+      verified_at:
+        type: string
+      workload_selector:
+        type: string
+    type: object
+  models.Permission:
+    properties:
+      action:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      name:
+        description: Permission definition
+        type: string
+      resource:
+        type: string
+      roles:
+        description: RBAC relationships
+        items:
+          $ref: '#/definitions/models.Role'
+        type: array
+      updated_at:
+        type: string
+    type: object
+  models.Role:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      is_active:
+        type: boolean
+      name:
+        description: Role definition
+        type: string
+      permissions:
+        items:
+          $ref: '#/definitions/models.Permission'
+        type: array
+      updated_at:
+        type: string
+      users:
+        description: RBAC relationships
+        items:
+          $ref: '#/definitions/models.User'
+        type: array
+    type: object
+  models.User:
+    properties:
+      created_at:
+        type: string
+      device_attestations:
+        description: Zero Trust fields
+        items:
+          $ref: '#/definitions/models.DeviceAttestation'
+        type: array
+      email:
+        type: string
+      first_name:
+        description: Profile fields
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      is_admin:
+        type: boolean
+      last_name:
+        type: string
+      roles:
+        description: RBAC relationships
+        items:
+          $ref: '#/definitions/models.Role'
+        type: array
+      sessions:
+        items:
+          $ref: '#/definitions/models.UserSession'
+        type: array
+      updated_at:
+        type: string
+      username:
+        description: Authentication fields
+        type: string
+    type: object
+  models.UserSession:
+    properties:
+      created_at:
+        type: string
+      device_id:
+        description: Device and location tracking
+        type: string
+      expires_at:
+        type: string
+      id:
+        type: string
+      ip_address:
+        type: string
+      is_active:
+        type: boolean
+      location:
+        type: string
+      trust_level:
+        type: integer
+      updated_at:
+        type: string
+      user:
+        $ref: '#/definitions/models.User'
+      user_agent:
+        type: string
+      user_id:
+        description: Session tracking
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@example.com
+    name: API Support
+  description: Zero Trust Authentication MVP API documentation
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Zero Trust Auth API
+  version: "1.0"
+paths:
+  /admin/roles:
+    get:
+      consumes:
+      - application/json
+      description: Get a list of all roles in the system
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of roles
+          schema:
+            items:
+              $ref: '#/definitions/models.Role'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Server error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List all roles
+      tags:
+      - admin
+    post:
+      consumes:
+      - application/json
+      description: Create a new role in the system
+      parameters:
+      - description: Role data
+        in: body
+        name: role
+        required: true
+        schema:
+          properties:
+            description:
+              type: string
+            name:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created role
+          schema:
+            $ref: '#/definitions/models.Role'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Role already exists
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Server error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create a new role
+      tags:
+      - admin
+  /admin/roles/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a role from the system
+      parameters:
+      - description: Role ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Role deleted successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid role ID
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Role not found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Server error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a role
+      tags:
+      - admin
+    put:
+      consumes:
+      - application/json
+      description: Update an existing role
+      parameters:
+      - description: Role ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated role data
+        in: body
+        name: role
+        required: true
+        schema:
+          properties:
+            description:
+              type: string
+            is_active:
+              type: boolean
+            name:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated role
+          schema:
+            $ref: '#/definitions/models.Role'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Role not found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Server error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update a role
+      tags:
+      - admin
+  /admin/users:
+    get:
+      consumes:
+      - application/json
+      description: Get a list of all users in the system
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of users
+          schema:
+            items:
+              $ref: '#/definitions/models.User'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Server error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List all users
+      tags:
+      - admin
+  /auth/change-password:
+    post:
+      consumes:
+      - application/json
+      description: Change the current user's password
+      parameters:
+      - description: Password change details
+        in: body
+        name: password
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.ChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Password changed successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Invalid current password
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Server error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Change password
+      tags:
+      - auth
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user and return JWT tokens
+      parameters:
+      - description: Login credentials
+        in: body
+        name: login
+        required: true
+        schema:
+          $ref: '#/definitions/auth.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Login successful
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Invalid credentials
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: User login
+      tags:
+      - auth
+  /auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Invalidate current session and tokens
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Logout successful
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Server error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: User logout
+      tags:
+      - auth
+  /auth/me:
+    get:
+      consumes:
+      - application/json
+      description: Get information about the currently authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User information
+          schema:
+            $ref: '#/definitions/handlers.UserResponse'
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get current user
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Exchange refresh token for new access token
+      parameters:
+      - description: Refresh token
+        in: body
+        name: refresh
+        required: true
+        schema:
+          $ref: '#/definitions/auth.RefreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: New tokens
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Invalid refresh token
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Refresh access token
+      tags:
+      - auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Create a new user account
+      parameters:
+      - description: Registration details
+        in: body
+        name: register
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: User created successfully
+          schema:
+            $ref: '#/definitions/handlers.UserResponse'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: User already exists
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Server error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: User registration
+      tags:
+      - auth
+  /devices:
+    get:
+      consumes:
+      - application/json
+      description: Get all device attestations for the authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of devices
+          schema:
+            items:
+              $ref: '#/definitions/handlers.DeviceResponse'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Server error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get user devices
+      tags:
+      - devices
+    post:
+      consumes:
+      - application/json
+      description: Create a new device attestation for zero trust verification
+      parameters:
+      - description: Device attestation data
+        in: body
+        name: device
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.AttestDeviceRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created device attestation
+          schema:
+            $ref: '#/definitions/handlers.DeviceResponse'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Device already exists
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Server error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Attest a device
+      tags:
+      - devices
+  /devices/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a device attestation
+      parameters:
+      - description: Device ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Device deleted successfully
+        "400":
+          description: Invalid device ID
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Device not found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Server error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete device
+      tags:
+      - devices
+    get:
+      consumes:
+      - application/json
+      description: Get a specific device attestation by ID
+      parameters:
+      - description: Device ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Device details
+          schema:
+            $ref: '#/definitions/handlers.DeviceResponse'
+        "400":
+          description: Invalid device ID
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Device not found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Server error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get device by ID
+      tags:
+      - devices
+    put:
+      consumes:
+      - application/json
+      description: Update a device attestation
+      parameters:
+      - description: Device ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated device data
+        in: body
+        name: device
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.AttestDeviceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated device
+          schema:
+            $ref: '#/definitions/handlers.DeviceResponse'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Device not found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Server error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update device
+      tags:
+      - devices
+  /devices/{id}/verify:
+    post:
+      consumes:
+      - application/json
+      description: Verify a device attestation and set trust level
+      parameters:
+      - description: Device ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Verification data
+        in: body
+        name: verification
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.VerifyDeviceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Verified device
+          schema:
+            $ref: '#/definitions/handlers.DeviceResponse'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden - insufficient permissions
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Device not found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Server error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Verify a device
+      tags:
+      - devices
+  /health:
+    get:
+      consumes:
+      - application/json
+      description: Get the health status of the system
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: System is healthy
+          schema:
+            $ref: '#/definitions/handlers.HealthResponse'
+        "503":
+          description: System is degraded or unhealthy
+          schema:
+            $ref: '#/definitions/handlers.HealthResponse'
+      summary: Health check
+      tags:
+      - system
+  /system/health:
+    get:
+      consumes:
+      - application/json
+      description: Get detailed health information about all system components
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Detailed system health
+          schema:
+            $ref: '#/definitions/handlers.HealthResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden - insufficient permissions
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Detailed system health
+      tags:
+      - system
+securityDefinitions:
+  BearerAuth:
+    description: 'Bearer token authentication. Format: "Bearer {token}"'
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
