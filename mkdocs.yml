@@ -227,8 +227,23 @@ nav:
     - Frontend Examples: examples/frontend/react-spa/README.md
     - Infrastructure Examples: examples/infrastructure/kubernetes/README.md
   
-  - Schema:
-    - Database Schema: schema/README.md
+  - Database Schema:
+    - Overview: schema/README.md
+    - Domain Architecture:
+      - Authentication & Authorization: schema/auth-domain.md
+      - Security & Monitoring: schema/security-domain.md
+      - Zero Trust & Device Security: schema/zero-trust-domain.md
+      - Compliance & Data Governance: schema/compliance-domain.md
+    - Table Reference:
+      - Users: schema/public.users.md
+      - Roles & Permissions: schema/public.roles.md
+      - Sessions: schema/public.user_sessions.md
+      - Device Attestations: schema/public.device_attestations.md
+      - Audit Logs: schema/public.audit_logs.md
+      - Login Attempts: schema/public.login_attempts.md
+      - Compliance Logs: schema/public.compliance_audit_logs.md
+      - Data Subject Requests: schema/public.data_subject_requests.md
+      - Consent Records: schema/public.consent_records.md
   
   - Reference:
     - Tags: reference/tags.md

@@ -75,7 +75,7 @@ BOLD := \033[1m
 	bytebase-setup bytebase-start bytebase-stop bytebase-status bytebase-migrate \
 	consul-setup consul-start consul-stop consul-status consul-services \
 	istio-setup istio-install istio-uninstall istio-verify istio-dashboards \
-  docs docs-generate docs-serve docs-deploy docs-schema \
+  docs docs-ci docs-wiki-sync docs-wiki-sync-api docs-wiki-local docs-generate docs-serve docs-deploy docs-schema \
 	docs-mkdocs-install docs-mkdocs-serve docs-mkdocs-build docs-mkdocs-deploy docs-mkdocs-help \
 	docs-book-build docs-book-serve docs-book-help install-tbls \
 	monitor monitor-setup monitor-status monitor-logs \
@@ -1733,6 +1733,25 @@ db-restore: ## Restore database from backup (set BACKUP_FILE)
 # DOCUMENTATION
 # =============================================================================
 docs: docs-generate docs-schema ## 📚 Generate and serve documentation
+
+docs-ci: ## 🤖 Complete CI documentation pipeline
+	@./scripts/docs-generate.sh
+
+docs-wiki-sync: ## 📚 Sync documentation to GitHub Wiki (SSH)
+	@./scripts/sync-wiki.sh
+
+docs-wiki-sync-api: ## 📚 Sync documentation to GitHub Wiki (API)
+	@./scripts/sync-wiki-api.sh
+
+docs-wiki-local: ## 🔍 Preview wiki sync locally (dry run)
+	@printf "$(BLUE)📋 Wiki sync preview (dry run)...$(RESET)\n"
+	@printf "$(YELLOW)Files that would be synced to wiki:$(RESET)\n"
+	@find docs -name "*.md" -type f | head -20 | while read file; do \
+		printf "  $(GREEN)✓$(RESET) $$file\n"; \
+	done
+	@printf "$(BLUE)💡 Sync options:$(RESET)\n"
+	@printf "  $(BLUE)make docs-wiki-sync$(RESET)     # SSH-based sync (requires deploy key)\n"
+	@printf "  $(BLUE)make docs-wiki-sync-api$(RESET) # API-based sync (requires GITHUB_TOKEN)\n"
 
 install-tbls: ## Install tbls CLI for schema documentation
 	@printf "$(BLUE)🔧 Checking for tbls CLI...$(RESET)\n"
