@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { QueryProvider } from './providers/query-provider'
+import { AuthProvider } from './hooks/useAuth'
 import { ErrorBoundary } from './components/error-boundary'
 import { Notifications } from './components/notifications'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -22,35 +23,37 @@ const PageLoader: React.FC = () => (
 function App() {
   return (
     <ErrorBoundary>
-      <QueryProvider>
-        <Router>
-          <div className="app">
-            <Suspense fallback={<PageLoader />}>
-              <Routes>
-                <Route path="/login" element={<LoginPage />} />
-                <Route 
-                  path="/dashboard" 
-                  element={
-                    <ProtectedRoute>
-                      <DashboardPage />
-                    </ProtectedRoute>
-                  } 
-                />
-                <Route 
-                  path="/profile" 
-                  element={
-                    <ProtectedRoute>
-                      <ProfilePage />
-                    </ProtectedRoute>
-                  } 
-                />
-                <Route path="/" element={<LoginPage />} />
-              </Routes>
-            </Suspense>
-            <Notifications />
-          </div>
-        </Router>
-      </QueryProvider>
+      <AuthProvider>
+        <QueryProvider>
+          <Router>
+            <div className="app">
+              <Suspense fallback={<PageLoader />}>
+                <Routes>
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route 
+                    path="/dashboard" 
+                    element={
+                      <ProtectedRoute>
+                        <DashboardPage />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/profile" 
+                    element={
+                      <ProtectedRoute>
+                        <ProfilePage />
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route path="/" element={<LoginPage />} />
+                </Routes>
+              </Suspense>
+              <Notifications />
+            </div>
+          </Router>
+        </QueryProvider>
+      </AuthProvider>
     </ErrorBoundary>
   )
 }

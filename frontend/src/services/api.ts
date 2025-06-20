@@ -1,9 +1,13 @@
 import axios from 'axios'
 import { LoginRequest, LoginResponse, RefreshTokenResponse, RegisterCredentials, User, DeviceAttestation, Role, Permission, UserWithRoles } from '../types/auth'
+import { apiConfig } from '../config/api'
+
+// Get configuration from the ApiConfigService
+const config = apiConfig.getConfig()
 
 const api = axios.create({
-  baseURL: '/api',
-  timeout: 10000,
+  baseURL: config.baseURL,
+  timeout: config.timeout,
 })
 
 // Add auth token to requests

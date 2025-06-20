@@ -137,7 +137,7 @@ test.describe('Authentication E2E Tests', () => {
     await page.click('button[type="submit"]');
     
     // Wait for navigation to complete - either to dashboard or stay on login with error
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     
     // Give a bit more time for React to render after navigation
     await page.waitForTimeout(1000);

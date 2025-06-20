@@ -15,7 +15,7 @@ async function globalSetup(config: FullConfig) {
   
   // Wait for backend to be ready
   console.log('⏳ Waiting for backend to be ready...');
-  const apiUrl = process.env.API_URL || 'http://localhost:8080';
+  const apiUrl = process.env.API_URL || 'http://localhost:3001';
   
   const browser = await chromium.launch();
   const page = await browser.newPage();
@@ -26,7 +26,7 @@ async function globalSetup(config: FullConfig) {
   
   while (!backendReady && attempts < maxAttempts) {
     try {
-      const response = await page.goto(`${apiUrl}/health`, { timeout: 5000 });
+      const response = await page.goto(`${apiUrl}/api/health`, { timeout: 5000 });
       if (response && response.status() === 200) {
         backendReady = true;
         console.log('✅ Backend is ready!');

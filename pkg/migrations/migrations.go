@@ -4,6 +4,7 @@ package migrations
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -170,10 +171,20 @@ func (m *Migrator) runMigration(migration Migration) error {
 		}
 	}()
 
-	// Execute migration SQL
-	if err := tx.Exec(migration.UpSQL).Error; err != nil {
-		tx.Rollback()
-		return errors.Wrap(err, errors.CodeInternal, fmt.Sprintf("Failed to execute migration %s", migration.ID))
+	// Split SQL into individual statements
+	statements := splitSQL(migration.UpSQL)
+	
+	// Execute each statement separately
+	for i, stmt := range statements {
+		stmt = strings.TrimSpace(stmt)
+		if stmt == "" || strings.HasPrefix(stmt, "--") {
+			continue // Skip empty lines and comments
+		}
+		
+		if err := tx.Exec(stmt).Error; err != nil {
+			tx.Rollback()
+			return errors.Wrap(err, errors.CodeInternal, fmt.Sprintf("Failed to execute migration %s statement %d: %s", migration.ID, i+1, stmt))
+		}
 	}
 
 	// Record migration
@@ -264,6 +275,55 @@ func calculateChecksum(sql string) string {
 	return fmt.Sprintf("%x", sum)
 }
 
+// splitSQL splits a multi-statement SQL string into individual statements
+func splitSQL(sql string) []string {
+	// Split on semicolons but be careful about quoted strings
+	var statements []string
+	var current strings.Builder
+	inQuotes := false
+	inComment := false
+	
+	lines := strings.Split(sql, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		
+		// Skip empty lines
+		if line == "" {
+			continue
+		}
+		
+		// Skip comment lines
+		if strings.HasPrefix(line, "--") {
+			continue
+		}
+		
+		// Check for SQL statements that end with semicolon
+		if strings.HasSuffix(line, ";") && !inQuotes && !inComment {
+			current.WriteString(line[:len(line)-1]) // Remove the semicolon
+			stmt := strings.TrimSpace(current.String())
+			if stmt != "" {
+				statements = append(statements, stmt)
+			}
+			current.Reset()
+		} else {
+			if current.Len() > 0 {
+				current.WriteString("\n")
+			}
+			current.WriteString(line)
+		}
+	}
+	
+	// Add any remaining statement
+	if current.Len() > 0 {
+		stmt := strings.TrimSpace(current.String())
+		if stmt != "" {
+			statements = append(statements, stmt)
+		}
+	}
+	
+	return statements
+}
+
 // CreateMigration creates a new migration file template
 func CreateMigration(id, description string) Migration {
 	return Migration{
@@ -315,6 +375,8 @@ CREATE TABLE IF NOT EXISTS device_attestations (
     workload_selector VARCHAR(255),
     attestation_data JSONB,
     status VARCHAR(20) DEFAULT 'pending',
+    trust_level INTEGER DEFAULT 0,
+    is_verified BOOLEAN DEFAULT false,
     verified_at TIMESTAMP WITH TIME ZONE,
     expires_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -469,91 +531,91 @@ DROP TABLE IF EXISTS login_attempts;
 			Version:     1640995500, // 2022-01-01 + 300 seconds
 			UpSQL: `
 -- Users table performance indexes
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_email_active ON users(email) WHERE is_active = true;
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_username_active ON users(username) WHERE is_active = true;
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_failed_login_attempts ON users(failed_login_attempts) WHERE failed_login_attempts > 0;
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_account_locked ON users(account_locked_until) WHERE account_locked_until IS NOT NULL;
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_last_login ON users(last_login_at DESC);
+CREATE INDEX IF NOT EXISTS idx_users_email_active ON users(email) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_users_username_active ON users(username) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_users_failed_login_attempts ON users(failed_login_attempts) WHERE failed_login_attempts > 0;
+CREATE INDEX IF NOT EXISTS idx_users_account_locked ON users(account_locked_until) WHERE account_locked_until IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_users_last_login ON users(last_login_at DESC);
 
 -- Login attempts performance indexes - for rate limiting and security analysis
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_login_attempts_username_created ON login_attempts(username, created_at DESC);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_login_attempts_ip_created ON login_attempts(ip_address, created_at DESC);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_login_attempts_success_created ON login_attempts(success, created_at DESC);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_login_attempts_suspicious ON login_attempts(is_suspicious) WHERE is_suspicious = true;
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_login_attempts_user_success ON login_attempts(user_id, success, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_login_attempts_username_created ON login_attempts(username, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_login_attempts_ip_created ON login_attempts(ip_address, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_login_attempts_success_created ON login_attempts(success, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_login_attempts_suspicious ON login_attempts(is_suspicious) WHERE is_suspicious = true;
+CREATE INDEX IF NOT EXISTS idx_login_attempts_user_success ON login_attempts(user_id, success, created_at DESC);
 
 -- Audit logs performance indexes - for security analysis and reporting
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_logs_user_created ON audit_logs(user_id, created_at DESC);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_logs_action_created ON audit_logs(action, created_at DESC);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_logs_success_created ON audit_logs(success, created_at DESC);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_logs_ip_created ON audit_logs(ip_address, created_at DESC);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_logs_resource_action ON audit_logs(resource, action);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user_created ON audit_logs(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_action_created ON audit_logs(action, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_success_created ON audit_logs(success, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_ip_created ON audit_logs(ip_address, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_resource_action ON audit_logs(resource, action);
 
 -- User sessions performance indexes - for session management
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_sessions_user_active ON user_sessions(user_id, is_active) WHERE is_active = true;
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_sessions_device_user ON user_sessions(device_id, user_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_sessions_ip_created ON user_sessions(ip_address, created_at DESC);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_sessions_token_active ON user_sessions(session_token) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_user_sessions_user_active ON user_sessions(user_id, is_active) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_user_sessions_expires_at ON user_sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_device_user ON user_sessions(device_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_ip_created ON user_sessions(ip_address, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_token_active ON user_sessions(session_token) WHERE is_active = true;
 
 -- Device attestations performance indexes - for Zero Trust verification
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_device_attestations_user_status ON device_attestations(user_id, is_verified, trust_level);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_device_attestations_device_verified ON device_attestations(device_id, is_verified);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_device_attestations_platform_trust ON device_attestations(platform, trust_level);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_device_attestations_spiffe_id ON device_attestations(spiffe_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_device_attestations_verified_at ON device_attestations(verified_at DESC) WHERE verified_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_device_attestations_user_status ON device_attestations(user_id, is_verified, trust_level);
+CREATE INDEX IF NOT EXISTS idx_device_attestations_device_verified ON device_attestations(device_id, is_verified);
+CREATE INDEX IF NOT EXISTS idx_device_attestations_platform_trust ON device_attestations(platform, trust_level);
+CREATE INDEX IF NOT EXISTS idx_device_attestations_spiffe_id ON device_attestations(spiffe_id);
+CREATE INDEX IF NOT EXISTS idx_device_attestations_verified_at ON device_attestations(verified_at DESC) WHERE verified_at IS NOT NULL;
 
 -- RBAC performance indexes
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_roles_name_active ON roles(name) WHERE is_active = true;
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_permissions_resource_action_active ON permissions(resource, action) WHERE is_active = true;
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_permissions_name_active ON permissions(name) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_roles_name_active ON roles(name) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_permissions_resource_action_active ON permissions(resource, action) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_permissions_name_active ON permissions(name) WHERE is_active = true;
 
 -- Junction table performance indexes for many-to-many relationships
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_roles_user_id_opt ON user_roles(user_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_roles_role_id_opt ON user_roles(role_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_role_permissions_role_id_opt ON role_permissions(role_id);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_role_permissions_permission_id_opt ON role_permissions(permission_id);
+CREATE INDEX IF NOT EXISTS idx_user_roles_user_id_opt ON user_roles(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_roles_role_id_opt ON user_roles(role_id);
+CREATE INDEX IF NOT EXISTS idx_role_permissions_role_id_opt ON role_permissions(role_id);
+CREATE INDEX IF NOT EXISTS idx_role_permissions_permission_id_opt ON role_permissions(permission_id);
 
 -- Composite indexes for common query patterns
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_logs_user_action_time ON audit_logs(user_id, action, created_at DESC);
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_user_sessions_user_device_active ON user_sessions(user_id, device_id, is_active);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_user_action_time ON audit_logs(user_id, action, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_user_device_active ON user_sessions(user_id, device_id, is_active);
 `,
 			DownSQL: `
 -- Drop performance indexes
-DROP INDEX CONCURRENTLY IF EXISTS idx_users_email_active;
-DROP INDEX CONCURRENTLY IF EXISTS idx_users_username_active;
-DROP INDEX CONCURRENTLY IF EXISTS idx_users_failed_login_attempts;
-DROP INDEX CONCURRENTLY IF EXISTS idx_users_account_locked;
-DROP INDEX CONCURRENTLY IF EXISTS idx_users_last_login;
-DROP INDEX CONCURRENTLY IF EXISTS idx_login_attempts_username_created;
-DROP INDEX CONCURRENTLY IF EXISTS idx_login_attempts_ip_created;
-DROP INDEX CONCURRENTLY IF EXISTS idx_login_attempts_success_created;
-DROP INDEX CONCURRENTLY IF EXISTS idx_login_attempts_suspicious;
-DROP INDEX CONCURRENTLY IF EXISTS idx_login_attempts_user_success;
-DROP INDEX CONCURRENTLY IF EXISTS idx_audit_logs_user_created;
-DROP INDEX CONCURRENTLY IF EXISTS idx_audit_logs_action_created;
-DROP INDEX CONCURRENTLY IF EXISTS idx_audit_logs_success_created;
-DROP INDEX CONCURRENTLY IF EXISTS idx_audit_logs_ip_created;
-DROP INDEX CONCURRENTLY IF EXISTS idx_audit_logs_resource_action;
-DROP INDEX CONCURRENTLY IF EXISTS idx_user_sessions_user_active;
-DROP INDEX CONCURRENTLY IF EXISTS idx_user_sessions_expires_at;
-DROP INDEX CONCURRENTLY IF EXISTS idx_user_sessions_device_user;
-DROP INDEX CONCURRENTLY IF EXISTS idx_user_sessions_ip_created;
-DROP INDEX CONCURRENTLY IF EXISTS idx_user_sessions_token_active;
-DROP INDEX CONCURRENTLY IF EXISTS idx_device_attestations_user_status;
-DROP INDEX CONCURRENTLY IF EXISTS idx_device_attestations_device_verified;
-DROP INDEX CONCURRENTLY IF EXISTS idx_device_attestations_platform_trust;
-DROP INDEX CONCURRENTLY IF EXISTS idx_device_attestations_spiffe_id;
-DROP INDEX CONCURRENTLY IF EXISTS idx_device_attestations_verified_at;
-DROP INDEX CONCURRENTLY IF EXISTS idx_roles_name_active;
-DROP INDEX CONCURRENTLY IF EXISTS idx_permissions_resource_action_active;
-DROP INDEX CONCURRENTLY IF EXISTS idx_permissions_name_active;
-DROP INDEX CONCURRENTLY IF EXISTS idx_user_roles_user_id_opt;
-DROP INDEX CONCURRENTLY IF EXISTS idx_user_roles_role_id_opt;
-DROP INDEX CONCURRENTLY IF EXISTS idx_role_permissions_role_id_opt;
-DROP INDEX CONCURRENTLY IF EXISTS idx_role_permissions_permission_id_opt;
-DROP INDEX CONCURRENTLY IF EXISTS idx_audit_logs_user_action_time;
-DROP INDEX CONCURRENTLY IF EXISTS idx_user_sessions_user_device_active;
+DROP INDEX IF EXISTS idx_users_email_active;
+DROP INDEX IF EXISTS idx_users_username_active;
+DROP INDEX IF EXISTS idx_users_failed_login_attempts;
+DROP INDEX IF EXISTS idx_users_account_locked;
+DROP INDEX IF EXISTS idx_users_last_login;
+DROP INDEX IF EXISTS idx_login_attempts_username_created;
+DROP INDEX IF EXISTS idx_login_attempts_ip_created;
+DROP INDEX IF EXISTS idx_login_attempts_success_created;
+DROP INDEX IF EXISTS idx_login_attempts_suspicious;
+DROP INDEX IF EXISTS idx_login_attempts_user_success;
+DROP INDEX IF EXISTS idx_audit_logs_user_created;
+DROP INDEX IF EXISTS idx_audit_logs_action_created;
+DROP INDEX IF EXISTS idx_audit_logs_success_created;
+DROP INDEX IF EXISTS idx_audit_logs_ip_created;
+DROP INDEX IF EXISTS idx_audit_logs_resource_action;
+DROP INDEX IF EXISTS idx_user_sessions_user_active;
+DROP INDEX IF EXISTS idx_user_sessions_expires_at;
+DROP INDEX IF EXISTS idx_user_sessions_device_user;
+DROP INDEX IF EXISTS idx_user_sessions_ip_created;
+DROP INDEX IF EXISTS idx_user_sessions_token_active;
+DROP INDEX IF EXISTS idx_device_attestations_user_status;
+DROP INDEX IF EXISTS idx_device_attestations_device_verified;
+DROP INDEX IF EXISTS idx_device_attestations_platform_trust;
+DROP INDEX IF EXISTS idx_device_attestations_spiffe_id;
+DROP INDEX IF EXISTS idx_device_attestations_verified_at;
+DROP INDEX IF EXISTS idx_roles_name_active;
+DROP INDEX IF EXISTS idx_permissions_resource_action_active;
+DROP INDEX IF EXISTS idx_permissions_name_active;
+DROP INDEX IF EXISTS idx_user_roles_user_id_opt;
+DROP INDEX IF EXISTS idx_user_roles_role_id_opt;
+DROP INDEX IF EXISTS idx_role_permissions_role_id_opt;
+DROP INDEX IF EXISTS idx_role_permissions_permission_id_opt;
+DROP INDEX IF EXISTS idx_audit_logs_user_action_time;
+DROP INDEX IF EXISTS idx_user_sessions_user_device_active;
 `,
 		},
 		{

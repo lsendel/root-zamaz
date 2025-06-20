@@ -71,7 +71,7 @@ func (a *AuthMiddleware) RequireAuth() fiber.Handler {
 
 		// Check if user still exists and is active
 		var user models.User
-		if err := a.db.First(&user, claims.UserID).Error; err != nil {
+		if err := a.db.Where("id = ?", claims.UserID).First(&user).Error; err != nil {
 			if err == gorm.ErrRecordNotFound {
 				return a.sendUnauthorized(c, "User not found")
 			}

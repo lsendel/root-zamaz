@@ -19,19 +19,76 @@ test.describe('Admin Functionality E2E Tests', () => {
 
     // Login as admin before each test
     await page.goto('/login');
+    
+    // Wait for the form to be visible
+    await page.waitForSelector('input[name="email"]');
+    await page.waitForSelector('input[name="password"]');
+    
     await page.fill('input[name="email"]', testCredentials.admin.username);
     await page.fill('input[name="password"]', testCredentials.admin.password);
+    
+    // Click login button and wait for either success or error
     await page.click('button[type="submit"]');
     
-    // Wait for successful login and redirect to dashboard
-    await page.waitForURL('**/dashboard', { timeout: 10000 });
+    // Wait a bit for the request to process
+    await page.waitForTimeout(2000);
+    
+    // Check if we're on dashboard or if there's an error
+    try {
+      await page.waitForURL('**/dashboard', { timeout: 8000 });
+    } catch (error) {
+      // If we didn't navigate to dashboard, check for errors
+      const errorElement = await page.locator('.error').textContent();
+      if (errorElement) {
+        throw new Error(`Login failed with error: ${errorElement}`);
+      }
+      // Take a screenshot to see what's happening
+      await page.screenshot({ path: 'test-results/login-failed-state.png' });
+      throw new Error('Failed to navigate to dashboard after login');
+    }
+    
+    // Wait for the page to be ready - use domcontentloaded instead of networkidle
+    await page.waitForLoadState('domcontentloaded');
+    
+    // Add a small wait for React to hydrate and render
+    await page.waitForTimeout(1000);
   });
 
   test.describe('Admin Panel Access', () => {
     test('should display admin panel button for admin user', async ({ page }) => {
-      // Check that admin panel button is visible
-      const adminButton = page.locator('button:has-text("Admin Panel")');
-      await expect(adminButton).toBeVisible();
+      // Take screenshot to see current state
+      await page.screenshot({ path: 'test-results/dashboard-state.png' });
+      
+      // Check if we're actually on the dashboard
+      const url = page.url();
+      console.log('Current URL:', url);
+      
+      // First check if we're still in loading state and wait for it to finish
+      const loadingIndicator = page.locator('text=Loading dashboard...');
+      if (await loadingIndicator.isVisible()) {
+        console.log('Dashboard is in loading state, waiting for it to finish...');
+        await page.waitForFunction(() => {
+          return !document.body.textContent?.includes('Loading dashboard...');
+        }, { timeout: 30000 });
+      }
+      
+      // Wait for the page header to be visible first
+      await expect(page.locator('h1:has-text("Zero Trust Dashboard")')).toBeVisible({ timeout: 15000 });
+      
+      // Wait for user authentication state to load by checking for welcome message
+      await expect(page.locator('text=Welcome,')).toBeVisible({ timeout: 15000 });
+      
+      // Now check if user menu is visible
+      const userMenu = page.locator('[data-testid="user-menu"]');
+      await expect(userMenu).toBeVisible({ timeout: 10000 });
+      
+      // Log the content of the user menu
+      const userMenuText = await userMenu.textContent();
+      console.log('User menu content:', userMenuText);
+      
+      // Check that admin panel button is visible (with more specific selector)
+      const adminButton = page.locator('button.admin-btn', { hasText: 'Admin Panel' });
+      await expect(adminButton).toBeVisible({ timeout: 10000 });
       
       // Take screenshot for verification
       await page.screenshot({ path: 'test-results/admin-panel-button.png' });
