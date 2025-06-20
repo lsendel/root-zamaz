@@ -118,6 +118,11 @@ make docs-wiki-sync-safe  # Perform safe sync
 2. **Database Dependency**: Never fail builds due to missing DB
 3. **Graceful Degradation**: Always provide useful docs even without schema
 4. **Version Control**: All manual docs in git, generated docs optional
+5. **URL Verification**: **NEVER ask user to check URLs without verifying them first**
+   - Always test URLs before suggesting them to user
+   - Verify local servers are actually running before providing links
+   - Check API endpoints work before referencing them
+   - Test file paths exist before suggesting access methods
 
 ## 🎯 **Project Context**
 

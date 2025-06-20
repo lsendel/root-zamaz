@@ -35,4 +35,9 @@ make docs-wiki-preview    # 👀 Safe preview
 - When wiki integration needs testing
 - When CI/CD pipelines are modified
 
+## 🚨 **Critical Rules**
+- **URL Verification**: ALWAYS verify URLs work before suggesting them to user
+- **Server Status**: Check if local servers are running before providing links
+- **File Existence**: Verify file paths exist before suggesting access
+
 **Remember**: This hybrid approach ensures documentation reliability while maximizing automation when conditions allow.
