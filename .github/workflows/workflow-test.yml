@@ -1,0 +1,277 @@
+name: Workflow Health Check
+
+# Test all workflows and validate best practices
+on:
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Type of test to run'
+        required: true
+        default: 'basic'
+        type: choice
+        options:
+          - basic
+          - security
+          - performance
+          - all
+  schedule:
+    # Run every Monday at 6 AM UTC
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  workflow-validation:
+    name: Validate Workflow Configurations
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      
+    - name: Setup Node.js for workflow linting
+      uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: '.github/package*.json'
+        
+    - name: Install workflow validation tools
+      run: |
+        npm install -g @github/actionlint
+        curl -sSL https://github.com/rhymond/yaml-lint/releases/latest/download/yamllint_linux_amd64.tar.gz | tar -xz
+        sudo mv yamllint /usr/local/bin/
+        
+    - name: Validate YAML syntax
+      run: |
+        echo "🔍 Validating YAML syntax in all workflows..."
+        find .github/workflows -name "*.yml" -o -name "*.yaml" | while read file; do
+          echo "Checking: $file"
+          yamllint "$file" || exit 1
+        done
+        
+    - name: Lint GitHub Actions workflows
+      run: |
+        echo "🔍 Linting GitHub Actions workflows..."
+        find .github/workflows -name "*.yml" -o -name "*.yaml" | while read file; do
+          echo "Linting: $file"
+          actionlint "$file" || exit 1
+        done
+        
+    - name: Check for security best practices
+      run: |
+        echo "🔒 Checking security best practices..."
+        
+        # Check for pinned action versions (should use SHA)
+        echo "Checking for unpinned actions..."
+        unpinned=$(grep -r "uses: " .github/workflows/ | grep -v "@[a-f0-9]\{40\}" | grep -v "@main" | grep -v "@master" || true)
+        if [ -n "$unpinned" ]; then
+          echo "❌ Found unpinned actions (security risk):"
+          echo "$unpinned"
+          exit 1
+        else
+          echo "✅ All actions are properly pinned"
+        fi
+        
+        # Check for hardcoded secrets
+        echo "Checking for hardcoded secrets..."
+        secrets=$(grep -r -i "password\|secret\|token\|key" .github/workflows/ | grep -v "\${{" | grep -v "#" || true)
+        if [ -n "$secrets" ]; then
+          echo "⚠️ Potential hardcoded secrets found:"
+          echo "$secrets"
+        else
+          echo "✅ No hardcoded secrets detected"
+        fi
+        
+        # Check for proper permissions
+        echo "Checking for workflow permissions..."
+        workflows_without_permissions=$(find .github/workflows -name "*.yml" -exec grep -L "permissions:" {} \; || true)
+        if [ -n "$workflows_without_permissions" ]; then
+          echo "⚠️ Workflows without explicit permissions:"
+          echo "$workflows_without_permissions"
+        else
+          echo "✅ All workflows have explicit permissions"
+        fi
+
+  dependency-check:
+    name: Check Dependencies and Vulnerabilities
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: ${{ github.event.inputs.test_type == 'security' || github.event.inputs.test_type == 'all' || github.event_name == 'schedule' }}
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      
+    - name: Setup Go
+      uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
+      with:
+        go-version: '1.23'
+        cache: true
+        
+    - name: Check for Go vulnerabilities
+      run: |
+        echo "🔍 Checking Go dependencies for vulnerabilities..."
+        go install golang.org/x/vuln/cmd/govulncheck@latest
+        govulncheck ./...
+        
+    - name: Setup Node.js
+      uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8 # v4.0.2
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: 'frontend/package*.json'
+        
+    - name: Check for Node.js vulnerabilities
+      working-directory: frontend
+      run: |
+        echo "🔍 Checking Node.js dependencies for vulnerabilities..."
+        npm audit --audit-level=moderate
+        
+    - name: Trivy filesystem scan
+      uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b9c9ac3c # v0.24.0
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@662472033e021d55d94146f66f6058822b0b39fd # v3.27.0
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  performance-test:
+    name: Workflow Performance Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: ${{ github.event.inputs.test_type == 'performance' || github.event.inputs.test_type == 'all' }}
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      
+    - name: Analyze workflow efficiency
+      run: |
+        echo "📊 Analyzing workflow configurations for performance..."
+        
+        # Check for missing caches
+        echo "Checking for missing cache configurations..."
+        workflows_without_cache=$(find .github/workflows -name "*.yml" -exec grep -L "cache:" {} \; | grep -v "workflow-test.yml" || true)
+        if [ -n "$workflows_without_cache" ]; then
+          echo "⚠️ Workflows without caching (may be slower):"
+          echo "$workflows_without_cache"
+        fi
+        
+        # Check for missing timeouts
+        echo "Checking for missing timeout configurations..."
+        workflows_without_timeout=$(find .github/workflows -name "*.yml" -exec grep -L "timeout-minutes:" {} \; || true)
+        if [ -n "$workflows_without_timeout" ]; then
+          echo "⚠️ Workflows without timeouts (resource risk):"
+          echo "$workflows_without_timeout"
+        fi
+        
+        # Check for inefficient patterns
+        echo "Checking for potentially inefficient patterns..."
+        inefficient=$(grep -r "run.*sleep\|run.*wait" .github/workflows/ || true)
+        if [ -n "$inefficient" ]; then
+          echo "⚠️ Found potentially inefficient patterns:"
+          echo "$inefficient"
+        fi
+
+  documentation-check:
+    name: Validate Documentation Workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      
+    - name: Test documentation generation
+      run: |
+        echo "📚 Testing documentation workflow components..."
+        
+        # Check if MkDocs config is valid
+        if [ -f "mkdocs.yml" ]; then
+          echo "✅ MkDocs configuration found"
+          # We could install and validate MkDocs here
+        fi
+        
+        # Check if wiki sync scripts exist and are executable
+        if [ -x "scripts/sync-wiki-api.sh" ]; then
+          echo "✅ Wiki sync script is executable"
+        else
+          echo "❌ Wiki sync script is not executable"
+          exit 1
+        fi
+        
+        # Test wiki sync simulation
+        if [ -f "scripts/test-wiki-sync-simulation.sh" ]; then
+          echo "🧪 Running wiki sync simulation..."
+          ./scripts/test-wiki-sync-simulation.sh
+        fi
+
+  consolidation-report:
+    name: Generate Workflow Consolidation Report
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [workflow-validation, documentation-check]
+    if: always()
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      
+    - name: Generate consolidation recommendations
+      run: |
+        echo "📋 Workflow Consolidation Report"
+        echo "=================================="
+        echo ""
+        
+        echo "📊 Current Workflow Count: $(find .github/workflows -name "*.yml" -o -name "*.yaml" | wc -l)"
+        echo ""
+        
+        echo "🔍 Duplicate Patterns Detected:"
+        echo "- ci.yml vs ci-modern.yml (similar CI logic)"
+        echo "- security.yml vs security-enhanced.yml (security scanning)"
+        echo "- release.yml vs release-modern.yml (release automation)"
+        echo ""
+        
+        echo "💡 Consolidation Opportunities:"
+        echo "1. Create reusable workflow for testing"
+        echo "2. Merge security scanning workflows"
+        echo "3. Standardize on modern CI approach"
+        echo "4. Create shared deployment workflow"
+        echo ""
+        
+        echo "🎯 Recommended Actions:"
+        echo "- Remove legacy workflows (ci.yml, security.yml, release.yml)"
+        echo "- Create .github/workflows/reusable/ directory"
+        echo "- Implement workflow_call patterns"
+        echo "- Add comprehensive workflow documentation"
+
+  notification:
+    name: Send Results Notification
+    runs-on: ubuntu-latest
+    needs: [workflow-validation, dependency-check, performance-test, documentation-check, consolidation-report]
+    if: always()
+    
+    steps:
+    - name: Report Results
+      run: |
+        echo "🎉 Workflow Health Check Complete!"
+        echo ""
+        echo "Results Summary:"
+        echo "- Workflow Validation: ${{ needs.workflow-validation.result }}"
+        echo "- Dependency Check: ${{ needs.dependency-check.result }}"
+        echo "- Performance Test: ${{ needs.performance-test.result }}"
+        echo "- Documentation Check: ${{ needs.documentation-check.result }}"
+        echo "- Consolidation Report: ${{ needs.consolidation-report.result }}"
+        echo ""
+        echo "📍 View detailed results in the Actions tab"

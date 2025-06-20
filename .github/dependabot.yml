@@ -1,0 +1,60 @@
+# Dependabot configuration for automated dependency updates
+# This ensures GitHub Actions are kept up-to-date and secure
+
+version: 2
+updates:
+  # GitHub Actions dependencies
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "lsendel"
+    assignees:
+      - "lsendel"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+
+  # Go module dependencies
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "tuesday"
+      time: "06:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "lsendel"
+    ignore:
+      # Ignore major version updates for critical dependencies
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  # Frontend dependencies
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+      day: "wednesday"
+      time: "06:00"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "lsendel"
+    ignore:
+      # Ignore dev dependencies major updates
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+        dependency-type: "development"
+
+  # Docker dependencies
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "thursday"
+      time: "06:00"
+    open-pull-requests-limit: 5

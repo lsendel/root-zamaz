@@ -31,23 +31,25 @@ jobs:
   validate:
     name: Validate Documentation
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       with:
         fetch-depth: 0  # Full history for git-revision-date-localized plugin
     
     - name: Setup Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
       with:
         python-version: '3.11'
         cache: 'pip'
     
     - name: Setup Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
       with:
         go-version: '1.23'
+        cache: true
         
     - name: Install dependencies
       run: |
@@ -80,25 +82,27 @@ jobs:
   deploy:
     name: Deploy to GitHub Pages  
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: validate
     if: false  # Disabled - using wiki as primary documentation
     
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       with:
         fetch-depth: 0  # Full history for git plugins
     
     - name: Setup Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
       with:
         python-version: '3.11'
         cache: 'pip'
         
     - name: Setup Go
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@cdcb36043654635271a94b9a6d1392de5bb323a7 # v5.0.1
       with:
         go-version: '1.23'
+        cache: true
     
     - name: Install dependencies
       run: |
@@ -125,33 +129,34 @@ jobs:
         mkdocs build --clean --verbose
     
     - name: Setup Pages
-      uses: actions/configure-pages@v5
+      uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
     
     - name: Upload artifact
-      uses: actions/upload-pages-artifact@v3
+      uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
       with:
         path: './site'
     
     - name: Deploy to GitHub Pages
       id: deployment
-      uses: actions/deploy-pages@v4
+      uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
 
   # Alternative deployment using mkdocs gh-deploy
   deploy-gh-pages:
     name: Deploy with gh-deploy
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     needs: validate
     if: github.ref == 'refs/heads/main' && false  # Disabled by default
     
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       with:
         fetch-depth: 0
         token: ${{ secrets.GITHUB_TOKEN }}
     
     - name: Setup Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
       with:
         python-version: '3.11'
         cache: 'pip'
