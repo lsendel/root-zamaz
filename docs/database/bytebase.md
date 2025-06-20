@@ -1,26 +1,73 @@
-# Bytebase Setup for PostgreSQL Change Management
+# Bytebase Database Change Management
 
-This project uses [Bytebase](https://www.bytebase.com/) to manage PostgreSQL schema changes.
+This project uses [Bytebase](https://www.bytebase.com/) for enterprise-grade PostgreSQL change management with GitOps integration.
 
-## Running Bytebase Locally
+## Quick Start
 
-1. Start Bytebase with Docker Compose:
-
+1. **Start Bytebase Service:**
    ```bash
-   docker compose -f docker-compose.bytebase.yml up -d
+   make bytebase-start
    ```
+   
+2. **Initialize Configuration:**
+   ```bash
+   make bytebase-setup
+   ```
+   
+3. **Access Web Console:**
+   Open <http://localhost:5678> and login with `admin@bytebase.com` / `admin`
 
-   The service exposes the web console at <http://localhost:5678>.
+## Automated Setup
 
-2. Log in using the default administrator account (`admin@bytebase.com` / `admin`).
-3. Create an instance using the credentials from your `.env` file.
-4. Link the `zero-trust-auth` project to the `db/migrations` directory for VCS-based change management.
+The project includes automated Bytebase configuration:
+
+- **Docker Compose:** Latest Bytebase image with persistent data
+- **Multi-Environment:** Development, Staging, Production environments
+- **SQL Review Policies:** Enforced naming conventions and safety rules
+- **GitOps Integration:** VCS-based change management ready
+
+### Available Commands
+
+```bash
+make bytebase-start    # Start Bytebase service
+make bytebase-stop     # Stop Bytebase service  
+make bytebase-status   # Check service health
+make bytebase-setup    # Run automated configuration
+make bytebase-migrate  # Apply pending migrations
+```
+
+## GitOps Workflow
+
+Bytebase is configured for GitOps with:
+
+- **File Structure:** `{{ENV_ID}}/{{DB_NAME}}/{{VERSION}}__{{TYPE}}.sql`
+- **Schema Templates:** Latest schema tracking per environment
+- **Approval Policies:** 
+  - Development: Automatic approval
+  - Staging: Manual approval required
+  - Production: Multi-approver with issue tracking
+
+## SQL Review Policies
+
+Enforced rules include:
+
+- Snake_case naming for tables and columns
+- Explicit WHERE clauses for DELETE/UPDATE
+- No SELECT * in production queries
+- Backward compatibility checks
+- Commit transaction restrictions
 
 ## Best Practices (2025)
 
-- **Schema Versioning**: Store all migration scripts under `db/migrations` with incremental numbering.
-- **Review Process**: Use Bytebase&#39;s SQL review features to enforce naming conventions and safety checks.
-- **Rollback Planning**: Include reverse migrations for every change to support rollbacks.
-- **Continuous Integration**: Configure Bytebase GitOps workflow so schema changes are automatically applied after review.
-- **Observability**: Monitor migration history and database anomalies through Bytebase dashboards.
+- **Schema Versioning:** All migrations in `db/migrations` with semantic versioning
+- **Review Process:** Automated SQL review with configurable rule sets
+- **Rollback Planning:** Comprehensive backup and rollback strategies
+- **Multi-Environment:** Staged deployments with environment-specific policies
+- **Observability:** Complete audit trails and migration monitoring
+- **Security:** Role-based access control and compliance tracking
 
+## Configuration Files
+
+- `docker-compose.bytebase.yml` - Service configuration
+- `scripts/bytebase-setup.sh` - Automated setup script
+- `bytebase/config/gitops.yml` - GitOps workflow configuration

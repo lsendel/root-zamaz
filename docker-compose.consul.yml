@@ -1,0 +1,69 @@
+version: '3.8'
+
+services:
+  consul:
+    image: hashicorp/consul:1.16.1
+    container_name: consul
+    restart: unless-stopped
+    ports:
+      - "8500:8500"      # HTTP API
+      - "8600:8600/tcp"  # DNS interface (TCP)
+      - "8600:8600/udp"  # DNS interface (UDP)
+    environment:
+      - CONSUL_BIND_INTERFACE=eth0
+      - CONSUL_CLIENT_INTERFACE=eth0
+    command: >
+      consul agent
+      -dev
+      -node=consul-dev
+      -datacenter=dc1
+      -server
+      -ui
+      -client=0.0.0.0
+      -log-level=INFO
+      -enable-script-checks=true
+    volumes:
+      - consul_data:/consul/data
+      - consul_config:/consul/config
+      - ./consul/config:/consul/config/custom:ro
+    networks:
+      - consul-network
+    healthcheck:
+      test: ["CMD", "consul", "members"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  consul-registrator:
+    image: gliderlabs/registrator:latest
+    container_name: consul-registrator
+    restart: unless-stopped
+    depends_on:
+      consul:
+        condition: service_healthy
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock
+    command: >
+      -internal
+      -cleanup
+      -tags="environment=development"
+      consul://consul:8500
+    networks:
+      - consul-network
+    environment:
+      - SERVICE_NAME=registrator
+      - SERVICE_TAGS=consul,discovery
+
+volumes:
+  consul_data:
+    driver: local
+  consul_config:
+    driver: local
+
+networks:
+  consul-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

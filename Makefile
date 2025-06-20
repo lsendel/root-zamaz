@@ -72,6 +72,8 @@ BOLD := \033[1m
 	db-analyze db-monitor db-health db-tune db-perf-test \
 	cache cache-clean cache-warmup \
 	db db-migrate db-reset db-backup db-restore \
+	bytebase-setup bytebase-start bytebase-stop bytebase-status bytebase-migrate \
+	consul-setup consul-start consul-stop consul-status consul-services \
   docs docs-generate docs-serve docs-deploy docs-schema \
 	docs docs-generate docs-serve docs-deploy install-tbls \
 	monitor monitor-setup monitor-status monitor-logs \
@@ -513,23 +515,18 @@ lint-fix: ## 🔧 Auto-fix linting issues where possible
 # =============================================================================
 static-analysis: lint-go vet
 
-lint-go:
-	@echo "Running golangci-lint..."
-	@golangci-lint run ./...
+# Duplicate lint-go target removed - see main definition below
 
 vet:
 	@echo "Running go vet..."
 	@go vet ./...
 
-security-scan:
-	@echo "Running gosec for security scanning..."
-	@gosec ./...
+# Duplicate security-scan target removed - see main definition below
 
 # =============================================================================
 # TEST PIPELINE
 # =============================================================================
-test-all: test-go test-frontend test-integration test-e2e
-	@echo "All tests (unit, integration, e2e) completed."
+# Duplicate test-all target removed - see main definition below
 
 # =============================================================================
 # SECURITY WORKFLOW
@@ -1764,12 +1761,12 @@ docs-generate: install-tbls ## Generate API documentation
 
 docs-schema: install-tbls ## 💾 Generate database schema documentation using tbls
 	@printf "$(BLUE)💾 Generating database schema documentation...$(RESET)\n"
-	@printf "$(BLUE)   Output will be in ./docs/schema/ $(RESET)\n"
+	@printf "$(BLUE)   Output will be in ./dbdoc/ $(RESET)\n"
 	@export TBLS_DSN="postgres://$(DB_USER):$(DB_PASSWORD)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=$(DB_SSLMODE)"; \
 	if command -v tbls >/dev/null 2>&1; then \
-		tbls doc -c docs/schema/.tbls.yml; \
+		tbls doc -c docs/schema/tbls.yml; \
 	elif [ -f "$$HOME/go/bin/tbls" ]; then \
-		$$HOME/go/bin/tbls doc -c docs/schema/.tbls.yml; \
+		$$HOME/go/bin/tbls doc -c docs/schema/tbls.yml; \
 	else \
 		printf "$(RED)❌ tbls command not found. Please ensure it is installed and in your PATH.$(RESET)\n"; \
 		exit 1; \
@@ -1786,16 +1783,7 @@ docs-deploy: docs-generate ## Deploy documentation
 	@printf "$(BLUE)📚 Deploying documentation...$(RESET)\n"
 	@printf "$(YELLOW)⚠️  Documentation deployment not implemented$(RESET)\n"
 
-docs-schema: ## Generate database schema documentation using tbls
-		@printf "$(BLUE)📚 Generating schema documentation...$(RESET)\n"
-		@mkdir -p docs/schema
-		@if command -v tbls >/dev/null 2>&1; then \
-		tbls doc -c docs/schema/tbls.yml && \
-		tbls out -t plantuml -c docs/schema/tbls.yml -o docs/schema/diagram.puml && \
-		printf "$(GREEN)✅ Schema documentation generated$(RESET)\n"; \
-		else \
-		printf "$(YELLOW)⚠️  tbls not installed$(RESET)\n"; \
-		fi
+# Duplicate docs-schema target removed - see main definition above
 
 # =============================================================================
 # MONITORING & OBSERVABILITY
@@ -1823,6 +1811,80 @@ monitor-status: ## Check monitoring system status
 
 monitor-logs: ## View monitoring system logs
 	@docker-compose -f $(COMPOSE_FILE) logs -f prometheus grafana jaeger
+
+# =============================================================================
+# BYTEBASE - Database Change Management
+# =============================================================================
+bytebase-setup: ## 🗄️ Setup Bytebase for database change management
+	@printf "$(BLUE)🗄️ Setting up Bytebase...$(RESET)\n"
+	@if [ ! -f scripts/bytebase-setup.sh ]; then \
+		printf "$(RED)❌ Bytebase setup script not found$(RESET)\n"; \
+		exit 1; \
+	fi
+	@chmod +x scripts/bytebase-setup.sh
+	@./scripts/bytebase-setup.sh
+	@printf "$(GREEN)✅ Bytebase setup completed$(RESET)\n"
+
+bytebase-start: ## 🗄️ Start Bytebase service
+	@printf "$(BLUE)🗄️ Starting Bytebase...$(RESET)\n"
+	@docker-compose -f docker-compose.bytebase.yml up -d
+	@printf "$(GREEN)✅ Bytebase started at http://localhost:5678$(RESET)\n"
+
+bytebase-stop: ## 🗄️ Stop Bytebase service
+	@printf "$(BLUE)🗄️ Stopping Bytebase...$(RESET)\n"
+	@docker-compose -f docker-compose.bytebase.yml down
+	@printf "$(GREEN)✅ Bytebase stopped$(RESET)\n"
+
+bytebase-status: ## 🗄️ Check Bytebase status
+	@printf "$(BLUE)🗄️ Checking Bytebase status...$(RESET)\n"
+	@if curl -f -s http://localhost:5678/api/actuator/health > /dev/null 2>&1; then \
+		printf "  Bytebase: $(GREEN)✅ Running$(RESET)\n"; \
+		printf "  URL: $(BLUE)http://localhost:5678$(RESET)\n"; \
+	else \
+		printf "  Bytebase: $(RED)❌ Not Running$(RESET)\n"; \
+	fi
+
+bytebase-migrate: ## 🗄️ Run database migrations through Bytebase
+	@printf "$(BLUE)🗄️ Running migrations through Bytebase...$(RESET)\n"
+	@printf "$(YELLOW)⚠️  Migration should be triggered through Bytebase UI or GitOps$(RESET)\n"
+	@printf "$(BLUE)📱 Access Bytebase at: http://localhost:5678$(RESET)\n"
+
+# =============================================================================
+# CONSUL SERVICE REGISTRY COMMANDS
+# =============================================================================
+consul-setup: ## 🔗 Setup and configure Consul service registry
+	@printf "$(BLUE)🔗 Setting up Consul service registry...$(RESET)\n"
+	@chmod +x scripts/consul-setup.sh
+	@./scripts/consul-setup.sh
+	@printf "$(GREEN)✅ Consul setup completed$(RESET)\n"
+
+consul-start: ## 🚀 Start Consul service registry
+	@printf "$(BLUE)🚀 Starting Consul service registry...$(RESET)\n"
+	@docker-compose -f docker-compose.consul.yml up -d
+	@printf "$(GREEN)✅ Consul started at http://localhost:8500$(RESET)\n"
+
+consul-stop: ## ⏹️ Stop Consul service registry
+	@printf "$(BLUE)⏹️ Stopping Consul service registry...$(RESET)\n"
+	@docker-compose -f docker-compose.consul.yml down
+	@printf "$(GREEN)✅ Consul stopped$(RESET)\n"
+
+consul-status: ## 📊 Check Consul service registry status
+	@printf "$(BLUE)📊 Consul Service Registry Status:$(RESET)\n"
+	@if curl -f -s http://localhost:8500/v1/status/leader > /dev/null 2>&1; then \
+		printf "  Consul: $(GREEN)✅ Running$(RESET)\n"; \
+		printf "  URL: $(BLUE)http://localhost:8500$(RESET)\n"; \
+		printf "  UI: $(BLUE)http://localhost:8500/ui$(RESET)\n"; \
+	else \
+		printf "  Consul: $(RED)❌ Not Running$(RESET)\n"; \
+	fi
+
+consul-services: ## 📋 List all registered services in Consul
+	@printf "$(BLUE)📋 Registered services in Consul:$(RESET)\n"
+	@if curl -f -s http://localhost:8500/v1/agent/services > /dev/null 2>&1; then \
+		curl -s http://localhost:8500/v1/agent/services | jq -r 'to_entries[] | "  - \(.value.Service) (\(.value.ID)) - \(.value.Address):\(.value.Port)"'; \
+	else \
+		printf "$(RED)❌ Consul is not running$(RESET)\n"; \
+	fi
 
 # =============================================================================
 # DATABASE OPTIMIZATION COMMANDS

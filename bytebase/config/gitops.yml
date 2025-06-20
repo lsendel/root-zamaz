@@ -1,0 +1,97 @@
+# Bytebase GitOps Configuration
+apiVersion: bytebase.com/v1alpha1
+kind: GitOpsConfig
+metadata:
+  name: mvp-zero-trust-auth-gitops
+  namespace: bytebase
+spec:
+  # VCS Integration
+  vcs:
+    type: GITHUB
+    url: "https://github.com/user/mvp-zero-trust-auth"
+    branch: "main"
+    baseDirectory: "db/migrations"
+    filePathTemplate: "{{ENV_ID}}/{{DB_NAME}}/{{VERSION}}__{{TYPE}}.sql"
+    schemaPathTemplate: "{{ENV_ID}}/{{DB_NAME}}/LATEST__SCHEMA.sql"
+    
+  # Environment Configuration
+  environments:
+    - name: "development"
+      id: "dev"
+      approvalPolicy:
+        type: "AUTOMATIC"
+    - name: "staging"
+      id: "staging"
+      approvalPolicy:
+        type: "MANUAL"
+        approvers:
+          - "admin@mvp.local"
+    - name: "production"
+      id: "prod"
+      approvalPolicy:
+        type: "MANUAL"
+        approvers:
+          - "admin@mvp.local"
+          - "dba@mvp.local"
+        requiresIssue: true
+        
+  # Database Configuration
+  databases:
+    - name: "mvp_db_dev"
+      environment: "development"
+      host: "localhost"
+      port: 5432
+      username: "mvp_user"
+      connectionDatabase: "mvp_db"
+      
+    - name: "mvp_db_staging"
+      environment: "staging"
+      host: "staging-db.mvp.local"
+      port: 5432
+      username: "mvp_user"
+      connectionDatabase: "mvp_db"
+      
+    - name: "mvp_db_prod"
+      environment: "production"
+      host: "prod-db.mvp.local"
+      port: 5432
+      username: "mvp_user"
+      connectionDatabase: "mvp_db"
+
+  # Migration Settings
+  migration:
+    autoRollback: true
+    timeoutSeconds: 600
+    retryAttempts: 3
+    backupBeforeMigration: true
+    validateMigration: true
+    
+  # SQL Review Configuration
+  sqlReview:
+    enabled: true
+    rules:
+      - type: "naming.table"
+        level: "ERROR"
+        payload:
+          format: "^[a-z][a-z0-9_]*[a-z0-9]$"
+      - type: "naming.column"
+        level: "ERROR"
+        payload:
+          format: "^[a-z][a-z0-9_]*[a-z0-9]$"
+      - type: "statement.select.no-select-all"
+        level: "WARNING"
+      - type: "statement.where.require"
+        level: "ERROR"
+        payload:
+          list: ["DELETE", "UPDATE"]
+      - type: "statement.disallow-commit"
+        level: "ERROR"
+      - type: "schema.backward-compatibility"
+        level: "WARNING"
+        
+  # Backup Configuration
+  backup:
+    enabled: true
+    schedule: "0 2 * * *"  # Daily at 2 AM
+    retention: "30d"
+    location: "s3://mvp-backups/bytebase/"
