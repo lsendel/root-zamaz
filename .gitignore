@@ -73,3 +73,4 @@ charts/*/Chart.lock
 # Security scans
 security-reports/
 trivy-results.json
+bytebase/data/

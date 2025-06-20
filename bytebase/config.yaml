@@ -1,0 +1,19 @@
+# Bytebase configuration for database change management
+# This file defines the PostgreSQL instance and project settings.
+
+instances:
+  - name: local-postgres
+    engine: POSTGRES
+    host: localhost
+    port: 5432
+    username: mvp_user
+    password: mvp_password
+    database: mvp_db
+
+projects:
+  - name: zero-trust-auth
+    key: ZTA
+    repositories:
+      - path: db/migrations
+        schemaVersion: v1
+        type: SDL
