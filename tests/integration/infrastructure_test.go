@@ -26,7 +26,7 @@ func TestInfrastructureIntegration(t *testing.T) {
 
 	// Start Docker Compose environment
 	composeStack, err := compose.NewDockerComposeWith(
-		compose.WithStackFiles("../../docker-compose.yml"),
+		compose.WithStackFiles("../../docker-compose.test.yml"),
 		compose.StackIdentifier("integration-test"),
 	)
 	if err != nil {

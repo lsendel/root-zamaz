@@ -51,17 +51,17 @@ import (
 
 // Server represents the main application server
 type Server struct {
-	app                     *fiber.App
-	config                  *config.Config
-	db                      *database.Database
-	redisClient             *redis.Client
-	obs                     *observability.Observability
-	authzService            *auth.AuthorizationService
-	jwtService              *auth.JWTService
-	lockoutService          *security.LockoutService
-	requestSigningManager   *security.RequestSigningManager
-	validationMiddleware    *validation.ValidationMiddleware
-	slaMetrics              *observability.SLAMetrics
+	app                   *fiber.App
+	config                *config.Config
+	db                    *database.Database
+	redisClient           *redis.Client
+	obs                   *observability.Observability
+	authzService          *auth.AuthorizationService
+	jwtService            *auth.JWTService
+	lockoutService        *security.LockoutService
+	requestSigningManager *security.RequestSigningManager
+	validationMiddleware  *validation.ValidationMiddleware
+	slaMetrics            *observability.SLAMetrics
 }
 
 func main() {
@@ -119,7 +119,7 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	// Security metrics will be initialized in middleware setup
 
 	// Initialize database
-	db := database.NewDatabase(&cfg.Database)
+	db := database.NewDatabase(&cfg.Database, obs)
 	if err := db.Connect(); err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
@@ -270,8 +270,8 @@ func (s *Server) setupMiddleware() {
 	// 8. Request signing middleware (validate signatures before processing)
 	if s.requestSigningManager != nil && s.requestSigningManager.IsEnabled() {
 		signingConfig := middleware.RequestSigningConfig{
-			SkipPaths:   []string{"/health", "/metrics"},  // Skip health/metrics endpoints
-			SkipMethods: []string{"OPTIONS"},              // Skip CORS preflight
+			SkipPaths:   []string{"/health", "/metrics"}, // Skip health/metrics endpoints
+			SkipMethods: []string{"OPTIONS"},             // Skip CORS preflight
 		}
 		s.app.Use(middleware.RequestSigningMiddlewareWithConfig(s.requestSigningManager, signingConfig))
 	}

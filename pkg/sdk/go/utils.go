@@ -71,7 +71,7 @@ func (uu *URLUtils) BuildAuthURL(baseURL, clientID, redirectURI, state string, s
 	}
 
 	u.Path = "/oauth/authorize"
-	
+
 	params := url.Values{}
 	params.Set("response_type", "code")
 	params.Set("client_id", clientID)
@@ -80,7 +80,7 @@ func (uu *URLUtils) BuildAuthURL(baseURL, clientID, redirectURI, state string, s
 	if len(scopes) > 0 {
 		params.Set("scope", strings.Join(scopes, " "))
 	}
-	
+
 	u.RawQuery = params.Encode()
 	return u.String(), nil
 }
@@ -93,7 +93,7 @@ func (uu *URLUtils) BuildAuthURLWithPKCE(baseURL, clientID, redirectURI, state, 
 	}
 
 	u.Path = "/oauth/authorize"
-	
+
 	params := url.Values{}
 	params.Set("response_type", "code")
 	params.Set("client_id", clientID)
@@ -104,7 +104,7 @@ func (uu *URLUtils) BuildAuthURLWithPKCE(baseURL, clientID, redirectURI, state, 
 	if len(scopes) > 0 {
 		params.Set("scope", strings.Join(scopes, " "))
 	}
-	
+
 	u.RawQuery = params.Encode()
 	return u.String(), nil
 }
@@ -117,7 +117,7 @@ func (uu *URLUtils) ExtractAuthCode(callbackURL string) (code, state string, err
 	}
 
 	params := u.Query()
-	
+
 	if errorCode := params.Get("error"); errorCode != "" {
 		errorDesc := params.Get("error_description")
 		return "", "", fmt.Errorf("authorization error: %s - %s", errorCode, errorDesc)
@@ -125,7 +125,7 @@ func (uu *URLUtils) ExtractAuthCode(callbackURL string) (code, state string, err
 
 	code = params.Get("code")
 	state = params.Get("state")
-	
+
 	if code == "" {
 		return "", "", fmt.Errorf("authorization code not found in callback URL")
 	}
@@ -153,7 +153,7 @@ func (su *SecurityUtils) GenerateFingerprint(userAgent, ip string, additionalDat
 	for _, extra := range additionalData {
 		data += "|" + extra
 	}
-	
+
 	hash := sha256.Sum256([]byte(data))
 	return hex.EncodeToString(hash[:])
 }
@@ -210,8 +210,8 @@ func NewErrorUtils() *ErrorUtils {
 func (eu *ErrorUtils) IsAuthenticationError(err error) bool {
 	if apiErr, ok := err.(*APIError); ok {
 		return strings.Contains(strings.ToLower(apiErr.Code), "auth") ||
-			   strings.Contains(strings.ToLower(apiErr.Code), "token") ||
-			   strings.Contains(strings.ToLower(apiErr.Code), "unauthorized")
+			strings.Contains(strings.ToLower(apiErr.Code), "token") ||
+			strings.Contains(strings.ToLower(apiErr.Code), "unauthorized")
 	}
 	return false
 }
@@ -220,9 +220,9 @@ func (eu *ErrorUtils) IsAuthenticationError(err error) bool {
 func (eu *ErrorUtils) IsRetryableError(err error) bool {
 	if apiErr, ok := err.(*APIError); ok {
 		// Don't retry client errors except rate limiting
-		return apiErr.Code == "RATE_LIMITED" || 
-			   strings.Contains(strings.ToLower(apiErr.Code), "timeout") ||
-			   strings.Contains(strings.ToLower(apiErr.Code), "network")
+		return apiErr.Code == "RATE_LIMITED" ||
+			strings.Contains(strings.ToLower(apiErr.Code), "timeout") ||
+			strings.Contains(strings.ToLower(apiErr.Code), "network")
 	}
 	return true // Retry non-API errors
 }

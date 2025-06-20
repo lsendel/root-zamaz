@@ -654,11 +654,11 @@ func (rc *RedisCache) recordOperation(operation string, duration time.Duration, 
 	// Record cache operation using the performance metrics
 	// For cache hits/misses, we need to determine if this was a hit or miss based on operation and success
 	isHit := success && (operation == "get" || operation == "mget" || operation == "hget")
-	
+
 	// Get the performance metrics if available through the observability system
 	// Note: This requires the observability system to expose performance metrics
 	// For now, we'll use direct OpenTelemetry metrics
-	
+
 	// Create metrics using the meter directly
 	if counter, err := rc.obs.Meter.Int64Counter(
 		"cache_operations_total",

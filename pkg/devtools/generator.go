@@ -17,16 +17,16 @@ import (
 type GeneratorConfig struct {
 	// Target language for generation
 	Language string `yaml:"language"`
-	
+
 	// Output directory for generated files
 	OutputDir string `yaml:"output_dir"`
-	
+
 	// Package/module name
 	PackageName string `yaml:"package_name"`
-	
+
 	// API base URL
 	BaseURL string `yaml:"base_url"`
-	
+
 	// Additional metadata
 	Version     string            `yaml:"version"`
 	Author      string            `yaml:"author"`

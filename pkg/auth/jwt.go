@@ -259,7 +259,7 @@ func (j *JWTService) ValidateToken(tokenString string) (*JWTClaims, error) {
 				return nil, errors.Unauthorized("All user tokens have been revoked")
 			}
 		}
-		
+
 		return claims, nil
 	}
 
@@ -489,7 +489,7 @@ func (j *JWTService) BlacklistToken(ctx context.Context, tokenString, userID, re
 	if j.blacklist == nil {
 		return errors.Internal("JWT blacklist not configured")
 	}
-	
+
 	return j.blacklist.BlacklistToken(ctx, tokenString, userID, reason, expiresAt)
 }
 
@@ -498,10 +498,10 @@ func (j *JWTService) BlacklistUserTokens(ctx context.Context, userID, reason str
 	if j.blacklist == nil {
 		return errors.Internal("JWT blacklist not configured")
 	}
-	
+
 	// Calculate maximum possible token expiry (current time + max token lifetime)
 	maxTokenExpiry := time.Now().Add(j.expiryDuration)
-	
+
 	return j.blacklist.BlacklistUserTokens(ctx, userID, reason, maxTokenExpiry)
 }
 
@@ -510,6 +510,6 @@ func (j *JWTService) IsTokenBlacklisted(ctx context.Context, tokenString string)
 	if j.blacklist == nil {
 		return false, nil
 	}
-	
+
 	return j.blacklist.IsTokenBlacklisted(ctx, tokenString)
 }

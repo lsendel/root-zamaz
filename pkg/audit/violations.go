@@ -12,7 +12,7 @@ import (
 type ComplianceViolation struct {
 	Type        string `json:"type"`
 	Framework   string `json:"framework"`
-	Severity    int    `json:"severity"`    // 1-5 scale
+	Severity    int    `json:"severity"` // 1-5 scale
 	Description string `json:"description"`
 	Remediation string `json:"remediation"`
 	RiskScore   int    `json:"risk_score"`
@@ -31,7 +31,7 @@ func NewViolationDetector(obs *observability.Observability) *ViolationDetector {
 // DetectViolations analyzes an audit entry for compliance violations
 func (vd *ViolationDetector) DetectViolations(entry ComplianceLogEntry) []ComplianceViolation {
 	var violations []ComplianceViolation
-	
+
 	// Check each compliance framework
 	for _, framework := range entry.ComplianceFrameworks {
 		switch framework {
@@ -47,20 +47,20 @@ func (vd *ViolationDetector) DetectViolations(entry ComplianceLogEntry) []Compli
 			violations = append(violations, vd.detectISO27001Violations(entry)...)
 		}
 	}
-	
+
 	// Check general security violations
 	violations = append(violations, vd.detectSecurityViolations(entry)...)
-	
+
 	// Check data handling violations
 	violations = append(violations, vd.detectDataHandlingViolations(entry)...)
-	
+
 	return violations
 }
 
 // detectGDPRViolations detects GDPR-specific violations
 func (vd *ViolationDetector) detectGDPRViolations(entry ComplianceLogEntry) []ComplianceViolation {
 	var violations []ComplianceViolation
-	
+
 	// Check for missing legal basis
 	if entry.LegalBasis == "" && entry.DataClassification == ClassificationPII {
 		violations = append(violations, ComplianceViolation{
@@ -72,7 +72,7 @@ func (vd *ViolationDetector) detectGDPRViolations(entry ComplianceLogEntry) []Co
 			RiskScore:   85,
 		})
 	}
-	
+
 	// Check for excessive data access
 	if entry.Action == "bulk_download" && entry.DataClassification == ClassificationPII {
 		violations = append(violations, ComplianceViolation{
@@ -84,7 +84,7 @@ func (vd *ViolationDetector) detectGDPRViolations(entry ComplianceLogEntry) []Co
 			RiskScore:   70,
 		})
 	}
-	
+
 	// Check for missing data subject identification
 	if len(entry.DataSubjects) == 0 && entry.DataClassification == ClassificationPII {
 		violations = append(violations, ComplianceViolation{
@@ -96,7 +96,7 @@ func (vd *ViolationDetector) detectGDPRViolations(entry ComplianceLogEntry) []Co
 			RiskScore:   60,
 		})
 	}
-	
+
 	// Check for retention violations
 	if entry.RetentionCategory == RetentionCategoryPermanent && entry.DataClassification == ClassificationPII {
 		violations = append(violations, ComplianceViolation{
@@ -108,7 +108,7 @@ func (vd *ViolationDetector) detectGDPRViolations(entry ComplianceLogEntry) []Co
 			RiskScore:   75,
 		})
 	}
-	
+
 	// Check for cross-border transfers without safeguards
 	if entry.GeolocationCountry != "" && !vd.isEEACountry(entry.GeolocationCountry) && entry.DataClassification == ClassificationPII {
 		violations = append(violations, ComplianceViolation{
@@ -120,14 +120,14 @@ func (vd *ViolationDetector) detectGDPRViolations(entry ComplianceLogEntry) []Co
 			RiskScore:   80,
 		})
 	}
-	
+
 	return violations
 }
 
 // detectHIPAAViolations detects HIPAA-specific violations
 func (vd *ViolationDetector) detectHIPAAViolations(entry ComplianceLogEntry) []ComplianceViolation {
 	var violations []ComplianceViolation
-	
+
 	// Check for PHI access without authorization
 	if entry.DataClassification == ClassificationPHI && !entry.ApprovalRequired {
 		violations = append(violations, ComplianceViolation{
@@ -139,7 +139,7 @@ func (vd *ViolationDetector) detectHIPAAViolations(entry ComplianceLogEntry) []C
 			RiskScore:   95,
 		})
 	}
-	
+
 	// Check for minimum necessary standard
 	if entry.Action == "bulk_download" && entry.DataClassification == ClassificationPHI {
 		violations = append(violations, ComplianceViolation{
@@ -151,7 +151,7 @@ func (vd *ViolationDetector) detectHIPAAViolations(entry ComplianceLogEntry) []C
 			RiskScore:   85,
 		})
 	}
-	
+
 	// Check for audit controls
 	if !vd.hasAuditControls(entry.ControlsApplied) && entry.DataClassification == ClassificationPHI {
 		violations = append(violations, ComplianceViolation{
@@ -163,14 +163,14 @@ func (vd *ViolationDetector) detectHIPAAViolations(entry ComplianceLogEntry) []C
 			RiskScore:   70,
 		})
 	}
-	
+
 	return violations
 }
 
 // detectSOXViolations detects SOX-specific violations
 func (vd *ViolationDetector) detectSOXViolations(entry ComplianceLogEntry) []ComplianceViolation {
 	var violations []ComplianceViolation
-	
+
 	// Check for segregation of duties
 	if vd.isFinancialAction(entry.Action) && !vd.hasSegregationOfDuties(entry.ControlsApplied) {
 		violations = append(violations, ComplianceViolation{
@@ -182,7 +182,7 @@ func (vd *ViolationDetector) detectSOXViolations(entry ComplianceLogEntry) []Com
 			RiskScore:   85,
 		})
 	}
-	
+
 	// Check for change management
 	if strings.Contains(entry.Action, "modify") && !vd.hasChangeApproval(entry.ApprovalStatus) {
 		violations = append(violations, ComplianceViolation{
@@ -194,14 +194,14 @@ func (vd *ViolationDetector) detectSOXViolations(entry ComplianceLogEntry) []Com
 			RiskScore:   75,
 		})
 	}
-	
+
 	return violations
 }
 
 // detectPCIDSSViolations detects PCI-DSS-specific violations
 func (vd *ViolationDetector) detectPCIDSSViolations(entry ComplianceLogEntry) []ComplianceViolation {
 	var violations []ComplianceViolation
-	
+
 	// Check for cardholder data access logging
 	if vd.isCardholderData(entry.DataCategories) && !vd.hasProperLogging(entry.ControlsApplied) {
 		violations = append(violations, ComplianceViolation{
@@ -213,7 +213,7 @@ func (vd *ViolationDetector) detectPCIDSSViolations(entry ComplianceLogEntry) []
 			RiskScore:   80,
 		})
 	}
-	
+
 	// Check for encryption requirements
 	if vd.isCardholderData(entry.DataCategories) && !vd.hasEncryption(entry.ControlsApplied) {
 		violations = append(violations, ComplianceViolation{
@@ -225,14 +225,14 @@ func (vd *ViolationDetector) detectPCIDSSViolations(entry ComplianceLogEntry) []
 			RiskScore:   95,
 		})
 	}
-	
+
 	return violations
 }
 
 // detectISO27001Violations detects ISO 27001-specific violations
 func (vd *ViolationDetector) detectISO27001Violations(entry ComplianceLogEntry) []ComplianceViolation {
 	var violations []ComplianceViolation
-	
+
 	// Check for access control
 	if entry.SensitivityLevel >= 4 && !vd.hasAccessControl(entry.ControlsApplied) {
 		violations = append(violations, ComplianceViolation{
@@ -244,7 +244,7 @@ func (vd *ViolationDetector) detectISO27001Violations(entry ComplianceLogEntry) 
 			RiskScore:   70,
 		})
 	}
-	
+
 	// Check for incident management
 	if !entry.Success && entry.RiskScore > 70 && entry.ReviewStatus == "" {
 		violations = append(violations, ComplianceViolation{
@@ -256,14 +256,14 @@ func (vd *ViolationDetector) detectISO27001Violations(entry ComplianceLogEntry) 
 			RiskScore:   75,
 		})
 	}
-	
+
 	return violations
 }
 
 // detectSecurityViolations detects general security violations
 func (vd *ViolationDetector) detectSecurityViolations(entry ComplianceLogEntry) []ComplianceViolation {
 	var violations []ComplianceViolation
-	
+
 	// Check for failed authentication attempts
 	if !entry.Success && strings.Contains(entry.Action, "login") {
 		violations = append(violations, ComplianceViolation{
@@ -275,7 +275,7 @@ func (vd *ViolationDetector) detectSecurityViolations(entry ComplianceLogEntry) 
 			RiskScore:   entry.RiskScore,
 		})
 	}
-	
+
 	// Check for privilege escalation
 	if strings.Contains(entry.Action, "privilege") || strings.Contains(entry.Action, "role_change") {
 		violations = append(violations, ComplianceViolation{
@@ -287,7 +287,7 @@ func (vd *ViolationDetector) detectSecurityViolations(entry ComplianceLogEntry) 
 			RiskScore:   85,
 		})
 	}
-	
+
 	// Check for unusual activity times
 	hour := time.Now().Hour()
 	if (hour < 6 || hour > 22) && entry.RiskScore > 60 {
@@ -300,14 +300,14 @@ func (vd *ViolationDetector) detectSecurityViolations(entry ComplianceLogEntry) 
 			RiskScore:   entry.RiskScore,
 		})
 	}
-	
+
 	return violations
 }
 
 // detectDataHandlingViolations detects data handling violations
 func (vd *ViolationDetector) detectDataHandlingViolations(entry ComplianceLogEntry) []ComplianceViolation {
 	var violations []ComplianceViolation
-	
+
 	// Check for unclassified sensitive data
 	if entry.DataClassification == "" && entry.SensitivityLevel > 3 {
 		violations = append(violations, ComplianceViolation{
@@ -319,7 +319,7 @@ func (vd *ViolationDetector) detectDataHandlingViolations(entry ComplianceLogEnt
 			RiskScore:   70,
 		})
 	}
-	
+
 	// Check for excessive retention
 	if entry.RetentionCategory == RetentionCategoryPermanent && entry.SensitivityLevel > 3 {
 		violations = append(violations, ComplianceViolation{
@@ -331,7 +331,7 @@ func (vd *ViolationDetector) detectDataHandlingViolations(entry ComplianceLogEnt
 			RiskScore:   60,
 		})
 	}
-	
+
 	return violations
 }
 
@@ -371,8 +371,8 @@ func (vd *ViolationDetector) isFinancialAction(action string) bool {
 func (vd *ViolationDetector) hasSegregationOfDuties(controls []string) bool {
 	for _, control := range controls {
 		if strings.Contains(strings.ToLower(control), "segregation") ||
-		   strings.Contains(strings.ToLower(control), "separation") ||
-		   strings.Contains(strings.ToLower(control), "dual_approval") {
+			strings.Contains(strings.ToLower(control), "separation") ||
+			strings.Contains(strings.ToLower(control), "dual_approval") {
 			return true
 		}
 	}
@@ -396,7 +396,7 @@ func (vd *ViolationDetector) isCardholderData(dataCategories []string) bool {
 func (vd *ViolationDetector) hasProperLogging(controls []string) bool {
 	for _, control := range controls {
 		if strings.Contains(strings.ToLower(control), "logging") ||
-		   strings.Contains(strings.ToLower(control), "audit") {
+			strings.Contains(strings.ToLower(control), "audit") {
 			return true
 		}
 	}
@@ -406,8 +406,8 @@ func (vd *ViolationDetector) hasProperLogging(controls []string) bool {
 func (vd *ViolationDetector) hasEncryption(controls []string) bool {
 	for _, control := range controls {
 		if strings.Contains(strings.ToLower(control), "encrypt") ||
-		   strings.Contains(strings.ToLower(control), "tls") ||
-		   strings.Contains(strings.ToLower(control), "ssl") {
+			strings.Contains(strings.ToLower(control), "tls") ||
+			strings.Contains(strings.ToLower(control), "ssl") {
 			return true
 		}
 	}
@@ -418,8 +418,8 @@ func (vd *ViolationDetector) hasAccessControl(controls []string) bool {
 	for _, control := range controls {
 		control = strings.ToLower(control)
 		if strings.Contains(control, "access_control") ||
-		   strings.Contains(control, "authentication") ||
-		   strings.Contains(control, "authorization") {
+			strings.Contains(control, "authentication") ||
+			strings.Contains(control, "authorization") {
 			return true
 		}
 	}

@@ -40,12 +40,12 @@ func NewService(db *gorm.DB, obs *observability.Observability) *Service {
 		db:  db,
 		obs: obs,
 	}
-	
+
 	// Initialize compliance services
 	service.complianceService = NewComplianceService(db, obs)
 	service.gdprService = NewGDPRService(db, obs, service.complianceService)
 	service.reportingService = NewReportingService(db, obs)
-	
+
 	return service
 }
 

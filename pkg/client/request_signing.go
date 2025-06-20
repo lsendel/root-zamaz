@@ -23,13 +23,13 @@ type SigningHTTPClient struct {
 
 // ClientConfig contains configuration for the signing HTTP client
 type ClientConfig struct {
-	KeyID        string
-	Secret       string
-	Algorithm    string
-	Headers      []string
-	Timeout      time.Duration
-	MaxRetries   int
-	RetryDelay   time.Duration
+	KeyID      string
+	Secret     string
+	Algorithm  string
+	Headers    []string
+	Timeout    time.Duration
+	MaxRetries int
+	RetryDelay time.Duration
 }
 
 // NewSigningHTTPClient creates a new HTTP client with request signing capability
@@ -86,7 +86,7 @@ func NewSigningHTTPClientFromConfig(config *config.RequestSigningConfig, obs *ob
 // Do performs an HTTP request with automatic signing
 func (c *SigningHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	start := time.Now()
-	
+
 	// Sign the request
 	if err := c.signer.Sign(req); err != nil {
 		if c.obs != nil {
@@ -101,7 +101,7 @@ func (c *SigningHTTPClient) Do(req *http.Request) (*http.Response, error) {
 
 	// Perform the request
 	resp, err := c.client.Do(req)
-	
+
 	// Log request metrics
 	if c.obs != nil {
 		duration := time.Since(start)
@@ -109,12 +109,12 @@ func (c *SigningHTTPClient) Do(req *http.Request) (*http.Response, error) {
 		if err != nil {
 			logger = c.obs.Logger.Error().Err(err)
 		}
-		
+
 		statusCode := 0
 		if resp != nil {
 			statusCode = resp.StatusCode
 		}
-		
+
 		logger.
 			Str("method", req.Method).
 			Str("url", req.URL.String()).
@@ -141,11 +141,11 @@ func (c *SigningHTTPClient) Post(ctx context.Context, url string, contentType st
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
-	
+
 	return c.Do(req)
 }
 
@@ -160,11 +160,11 @@ func (c *SigningHTTPClient) Put(ctx context.Context, url string, contentType str
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
-	
+
 	return c.Do(req)
 }
 
@@ -188,11 +188,11 @@ func (c *SigningHTTPClient) Patch(ctx context.Context, url string, contentType s
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
-	
+
 	return c.Do(req)
 }
 
@@ -228,7 +228,7 @@ func NewSigningRoundTripper(base http.RoundTripper, signer *security.RequestSign
 	if base == nil {
 		base = http.DefaultTransport
 	}
-	
+
 	return &SigningRoundTripper{
 		base:   base,
 		signer: signer,
@@ -239,10 +239,10 @@ func NewSigningRoundTripper(base http.RoundTripper, signer *security.RequestSign
 // RoundTrip implements http.RoundTripper interface
 func (rt *SigningRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	start := time.Now()
-	
+
 	// Clone the request to avoid modifying the original
 	clonedReq := req.Clone(req.Context())
-	
+
 	// Sign the cloned request
 	if err := rt.signer.Sign(clonedReq); err != nil {
 		if rt.obs != nil {
@@ -257,7 +257,7 @@ func (rt *SigningRoundTripper) RoundTrip(req *http.Request) (*http.Response, err
 
 	// Perform the request
 	resp, err := rt.base.RoundTrip(clonedReq)
-	
+
 	// Log request metrics
 	if rt.obs != nil {
 		duration := time.Since(start)
@@ -265,12 +265,12 @@ func (rt *SigningRoundTripper) RoundTrip(req *http.Request) (*http.Response, err
 		if err != nil {
 			logger = rt.obs.Logger.Error().Err(err)
 		}
-		
+
 		statusCode := 0
 		if resp != nil {
 			statusCode = resp.StatusCode
 		}
-		
+
 		logger.
 			Str("method", req.Method).
 			Str("url", req.URL.String()).
@@ -291,9 +291,9 @@ func NewHTTPClientWithSigning(config ClientConfig, obs *observability.Observabil
 		Headers:   config.Headers,
 	}
 	signer := security.NewRequestSignerWithConfig(signingConfig, obs)
-	
+
 	transport := NewSigningRoundTripper(nil, signer, obs)
-	
+
 	return &http.Client{
 		Transport: transport,
 		Timeout:   config.Timeout,

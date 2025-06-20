@@ -88,13 +88,13 @@ type DatabaseConfig struct {
 	DisableForeignKey bool `yaml:"disable_foreign_key" env:"DB_DISABLE_FOREIGN_KEY" default:"false"`
 
 	// Monitoring and observability
-	EnableMetrics         bool          `yaml:"enable_metrics" env:"DB_ENABLE_METRICS" default:"true"`
-	SlowQueryThreshold    time.Duration `yaml:"slow_query_threshold" env:"DB_SLOW_QUERY_THRESHOLD" default:"1s"`
-	DetailedMetrics       bool          `yaml:"detailed_metrics" env:"DB_DETAILED_METRICS" default:"false"`
-	QueryLogging          bool          `yaml:"query_logging" env:"DB_QUERY_LOGGING" default:"false"`
-	ConnectionTracing     bool          `yaml:"connection_tracing" env:"DB_CONNECTION_TRACING" default:"false"`
-	StatsExportInterval   time.Duration `yaml:"stats_export_interval" env:"DB_STATS_EXPORT_INTERVAL" default:"60s"`
-	HealthCheckInterval   time.Duration `yaml:"health_check_interval" env:"DB_HEALTH_CHECK_INTERVAL" default:"30s"`
+	EnableMetrics       bool          `yaml:"enable_metrics" env:"DB_ENABLE_METRICS" default:"true"`
+	SlowQueryThreshold  time.Duration `yaml:"slow_query_threshold" env:"DB_SLOW_QUERY_THRESHOLD" default:"1s"`
+	DetailedMetrics     bool          `yaml:"detailed_metrics" env:"DB_DETAILED_METRICS" default:"false"`
+	QueryLogging        bool          `yaml:"query_logging" env:"DB_QUERY_LOGGING" default:"false"`
+	ConnectionTracing   bool          `yaml:"connection_tracing" env:"DB_CONNECTION_TRACING" default:"false"`
+	StatsExportInterval time.Duration `yaml:"stats_export_interval" env:"DB_STATS_EXPORT_INTERVAL" default:"60s"`
+	HealthCheckInterval time.Duration `yaml:"health_check_interval" env:"DB_HEALTH_CHECK_INTERVAL" default:"30s"`
 }
 
 // RedisConfig contains Redis connection settings

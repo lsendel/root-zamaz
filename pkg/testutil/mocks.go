@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm/logger"
 
 	"mvp.local/pkg/auth"
+	"mvp.local/pkg/cache"
 	"mvp.local/pkg/models"
 	"mvp.local/pkg/observability"
 	"mvp.local/pkg/security"
@@ -85,7 +86,7 @@ func (m *MockJWTService) GetKeyManagerStats() map[string]interface{} {
 	return args.Get(0).(map[string]interface{})
 }
 
-func (m *MockJWTService) SetBlacklist(blacklist interface{}) {
+func (m *MockJWTService) SetBlacklist(blacklist *auth.JWTBlacklist) {
 	m.Called(blacklist)
 }
 
@@ -186,7 +187,7 @@ func (m *MockAuthorizationService) SavePolicy() error {
 	return args.Error(0)
 }
 
-func (m *MockAuthorizationService) SetCache(cache interface{}) {
+func (m *MockAuthorizationService) SetCache(cache cache.Cache) {
 	m.Called(cache)
 }
 

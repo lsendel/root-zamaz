@@ -20,16 +20,16 @@ import (
 type BenchmarkConfig struct {
 	// Test parameters
 	ConcurrentConnections int           `yaml:"concurrent_connections" default:"10"`
-	TestDuration         time.Duration `yaml:"test_duration" default:"60s"`
-	QueryTypes           []QueryType   `yaml:"query_types"`
-	WarmupDuration       time.Duration `yaml:"warmup_duration" default:"10s"`
-	
+	TestDuration          time.Duration `yaml:"test_duration" default:"60s"`
+	QueryTypes            []QueryType   `yaml:"query_types"`
+	WarmupDuration        time.Duration `yaml:"warmup_duration" default:"10s"`
+
 	// Result parameters
-	SampleInterval      time.Duration `yaml:"sample_interval" default:"1s"`
-	ReportInterval      time.Duration `yaml:"report_interval" default:"10s"`
-	DetailedReporting   bool          `yaml:"detailed_reporting" default:"true"`
-	ExportResults       bool          `yaml:"export_results" default:"true"`
-	ExportPath          string        `yaml:"export_path" default:"./benchmark_results"`
+	SampleInterval    time.Duration `yaml:"sample_interval" default:"1s"`
+	ReportInterval    time.Duration `yaml:"report_interval" default:"10s"`
+	DetailedReporting bool          `yaml:"detailed_reporting" default:"true"`
+	ExportResults     bool          `yaml:"export_results" default:"true"`
+	ExportPath        string        `yaml:"export_path" default:"./benchmark_results"`
 }
 
 // QueryType represents different types of database queries to benchmark
@@ -46,16 +46,16 @@ const (
 
 // BenchmarkRunner executes database performance benchmarks
 type BenchmarkRunner struct {
-	config    *BenchmarkConfig
-	db        *gorm.DB
-	database  *Database
-	obs       *observability.Observability
-	
+	config   *BenchmarkConfig
+	db       *gorm.DB
+	database *Database
+	obs      *observability.Observability
+
 	// Runtime state
-	ctx       context.Context
-	cancel    context.CancelFunc
-	wg        sync.WaitGroup
-	
+	ctx    context.Context
+	cancel context.CancelFunc
+	wg     sync.WaitGroup
+
 	// Results collection
 	results   *BenchmarkResults
 	resultsMu sync.RWMutex
@@ -63,44 +63,44 @@ type BenchmarkRunner struct {
 
 // BenchmarkResults contains comprehensive benchmark results
 type BenchmarkResults struct {
-	StartTime       time.Time                  `json:"start_time"`
-	EndTime         time.Time                  `json:"end_time"`
-	Duration        time.Duration              `json:"duration"`
-	Configuration   *BenchmarkConfig           `json:"configuration"`
-	PoolConfig      *config.DatabaseConfig     `json:"pool_config"`
-	
+	StartTime     time.Time              `json:"start_time"`
+	EndTime       time.Time              `json:"end_time"`
+	Duration      time.Duration          `json:"duration"`
+	Configuration *BenchmarkConfig       `json:"configuration"`
+	PoolConfig    *config.DatabaseConfig `json:"pool_config"`
+
 	// Overall statistics
-	TotalQueries        int64         `json:"total_queries"`
-	QueriesPerSecond    float64       `json:"queries_per_second"`
-	AverageLatency      time.Duration `json:"average_latency"`
-	MedianLatency       time.Duration `json:"median_latency"`
-	P95Latency          time.Duration `json:"p95_latency"`
-	P99Latency          time.Duration `json:"p99_latency"`
-	MinLatency          time.Duration `json:"min_latency"`
-	MaxLatency          time.Duration `json:"max_latency"`
-	
+	TotalQueries     int64         `json:"total_queries"`
+	QueriesPerSecond float64       `json:"queries_per_second"`
+	AverageLatency   time.Duration `json:"average_latency"`
+	MedianLatency    time.Duration `json:"median_latency"`
+	P95Latency       time.Duration `json:"p95_latency"`
+	P99Latency       time.Duration `json:"p99_latency"`
+	MinLatency       time.Duration `json:"min_latency"`
+	MaxLatency       time.Duration `json:"max_latency"`
+
 	// Error statistics
-	TotalErrors         int64   `json:"total_errors"`
-	ErrorRate           float64 `json:"error_rate"`
-	TimeoutErrors       int64   `json:"timeout_errors"`
-	ConnectionErrors    int64   `json:"connection_errors"`
-	
+	TotalErrors      int64   `json:"total_errors"`
+	ErrorRate        float64 `json:"error_rate"`
+	TimeoutErrors    int64   `json:"timeout_errors"`
+	ConnectionErrors int64   `json:"connection_errors"`
+
 	// Connection pool statistics
-	PoolStats           []PoolSnapshot        `json:"pool_stats"`
-	MaxConnections      int                   `json:"max_connections"`
-	PeakConnections     int                   `json:"peak_connections"`
-	AverageConnections  float64               `json:"average_connections"`
-	ConnectionUtilization float64             `json:"connection_utilization"`
-	
+	PoolStats             []PoolSnapshot `json:"pool_stats"`
+	MaxConnections        int            `json:"max_connections"`
+	PeakConnections       int            `json:"peak_connections"`
+	AverageConnections    float64        `json:"average_connections"`
+	ConnectionUtilization float64        `json:"connection_utilization"`
+
 	// Query type breakdown
-	QueryTypeResults    map[QueryType]*QueryTypeResults `json:"query_type_results"`
-	
+	QueryTypeResults map[QueryType]*QueryTypeResults `json:"query_type_results"`
+
 	// Time series data
-	TimeSeriesData      []TimeSeriesPoint     `json:"time_series_data"`
-	
+	TimeSeriesData []TimeSeriesPoint `json:"time_series_data"`
+
 	// Performance insights
-	Insights            []PerformanceInsight  `json:"insights"`
-	Recommendations     []Recommendation      `json:"recommendations"`
+	Insights        []PerformanceInsight `json:"insights"`
+	Recommendations []Recommendation     `json:"recommendations"`
 }
 
 // QueryTypeResults contains results for a specific query type
@@ -116,12 +116,12 @@ type QueryTypeResults struct {
 
 // PoolSnapshot captures connection pool state at a point in time
 type PoolSnapshot struct {
-	Timestamp         time.Time `json:"timestamp"`
-	OpenConnections   int       `json:"open_connections"`
-	InUse            int       `json:"in_use"`
-	Idle             int       `json:"idle"`
-	WaitCount        int64     `json:"wait_count"`
-	WaitDuration     int64     `json:"wait_duration_ms"`
+	Timestamp       time.Time `json:"timestamp"`
+	OpenConnections int       `json:"open_connections"`
+	InUse           int       `json:"in_use"`
+	Idle            int       `json:"idle"`
+	WaitCount       int64     `json:"wait_count"`
+	WaitDuration    int64     `json:"wait_duration_ms"`
 }
 
 // TimeSeriesPoint represents a data point in the benchmark time series
@@ -144,10 +144,10 @@ type PerformanceInsight struct {
 
 // Recommendation suggests optimizations based on benchmark results
 type Recommendation struct {
-	Type         string `json:"type"`
-	Priority     string `json:"priority"`
-	Title        string `json:"title"`
-	Description  string `json:"description"`
+	Type           string `json:"type"`
+	Priority       string `json:"priority"`
+	Title          string `json:"title"`
+	Description    string `json:"description"`
 	Implementation string `json:"implementation"`
 	ExpectedImpact string `json:"expected_impact"`
 }
@@ -172,9 +172,9 @@ func NewBenchmarkRunner(
 	if database == nil || database.DB == nil {
 		return nil, errors.Internal("Database connection required for benchmarking")
 	}
-	
+
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	return &BenchmarkRunner{
 		config:   config,
 		db:       database.DB,
@@ -199,54 +199,54 @@ func (br *BenchmarkRunner) RunBenchmark() (*BenchmarkResults, error) {
 		Int("concurrent_connections", br.config.ConcurrentConnections).
 		Dur("test_duration", br.config.TestDuration).
 		Msg("Starting database benchmark")
-	
+
 	br.results.StartTime = time.Now()
-	
+
 	// Initialize query type results
 	for _, queryType := range br.config.QueryTypes {
 		br.results.QueryTypeResults[queryType] = &QueryTypeResults{}
 	}
-	
+
 	// Start pool monitoring
 	go br.monitorPool()
-	
+
 	// Start time series collection
 	go br.collectTimeSeries()
-	
+
 	// Warmup phase
 	if br.config.WarmupDuration > 0 {
 		br.obs.Logger.Info().Dur("duration", br.config.WarmupDuration).Msg("Starting benchmark warmup")
 		br.runWarmup()
 	}
-	
+
 	// Main benchmark phase
 	br.obs.Logger.Info().Dur("duration", br.config.TestDuration).Msg("Starting main benchmark")
 	workerResults := br.runMainBenchmark()
-	
+
 	br.results.EndTime = time.Now()
 	br.results.Duration = br.results.EndTime.Sub(br.results.StartTime)
-	
+
 	// Process results
 	br.processResults(workerResults)
-	
+
 	// Generate insights and recommendations
 	br.generateInsights()
 	br.generateRecommendations()
-	
+
 	// Export results if configured
 	if br.config.ExportResults {
 		if err := br.exportResults(); err != nil {
 			br.obs.Logger.Warn().Err(err).Msg("Failed to export benchmark results")
 		}
 	}
-	
+
 	br.obs.Logger.Info().
 		Int64("total_queries", br.results.TotalQueries).
 		Float64("qps", br.results.QueriesPerSecond).
 		Dur("avg_latency", br.results.AverageLatency).
 		Float64("error_rate", br.results.ErrorRate).
 		Msg("Benchmark completed")
-	
+
 	return br.results, nil
 }
 
@@ -254,15 +254,15 @@ func (br *BenchmarkRunner) RunBenchmark() (*BenchmarkResults, error) {
 func (br *BenchmarkRunner) runWarmup() {
 	ctx, cancel := context.WithTimeout(br.ctx, br.config.WarmupDuration)
 	defer cancel()
-	
+
 	var wg sync.WaitGroup
-	
+
 	// Start fewer workers for warmup
 	warmupWorkers := br.config.ConcurrentConnections / 2
 	if warmupWorkers < 1 {
 		warmupWorkers = 1
 	}
-	
+
 	for i := 0; i < warmupWorkers; i++ {
 		wg.Add(1)
 		go func(workerID int) {
@@ -270,7 +270,7 @@ func (br *BenchmarkRunner) runWarmup() {
 			br.runBenchmarkWorker(ctx, workerID, true)
 		}(i)
 	}
-	
+
 	wg.Wait()
 }
 
@@ -278,12 +278,12 @@ func (br *BenchmarkRunner) runWarmup() {
 func (br *BenchmarkRunner) runMainBenchmark() []*WorkerResult {
 	ctx, cancel := context.WithTimeout(br.ctx, br.config.TestDuration)
 	defer cancel()
-	
+
 	results := make([]*WorkerResult, br.config.ConcurrentConnections)
 	resultsCh := make(chan *WorkerResult, br.config.ConcurrentConnections)
-	
+
 	var wg sync.WaitGroup
-	
+
 	// Start all benchmark workers
 	for i := 0; i < br.config.ConcurrentConnections; i++ {
 		wg.Add(1)
@@ -293,18 +293,18 @@ func (br *BenchmarkRunner) runMainBenchmark() []*WorkerResult {
 			resultsCh <- result
 		}(i)
 	}
-	
+
 	// Wait for all workers to complete
 	wg.Wait()
 	close(resultsCh)
-	
+
 	// Collect results
 	i := 0
 	for result := range resultsCh {
 		results[i] = result
 		i++
 	}
-	
+
 	return results
 }
 
@@ -315,9 +315,9 @@ func (br *BenchmarkRunner) runBenchmarkWorker(ctx context.Context, workerID int,
 		MinLatency: time.Hour, // Initialize to high value
 		Latencies:  make([]time.Duration, 0, 1000),
 	}
-	
+
 	queryIndex := 0
-	
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -326,29 +326,29 @@ func (br *BenchmarkRunner) runBenchmarkWorker(ctx context.Context, workerID int,
 			// Select query type (round-robin for simplicity)
 			queryType := br.config.QueryTypes[queryIndex%len(br.config.QueryTypes)]
 			queryIndex++
-			
+
 			// Execute query and measure latency
 			start := time.Now()
 			err := br.executeQuery(queryType)
 			latency := time.Since(start)
-			
+
 			// Update worker results (skip during warmup)
 			if !isWarmup {
 				result.QueryCount++
 				result.TotalLatency += latency
 				result.Latencies = append(result.Latencies, latency)
-				
+
 				if latency < result.MinLatency {
 					result.MinLatency = latency
 				}
 				if latency > result.MaxLatency {
 					result.MaxLatency = latency
 				}
-				
+
 				if err != nil {
 					result.ErrorCount++
 				}
-				
+
 				// Update global counters
 				atomic.AddInt64(&br.results.TotalQueries, 1)
 				if err != nil {
@@ -443,7 +443,7 @@ func (br *BenchmarkRunner) executeIndexQuery() error {
 func (br *BenchmarkRunner) monitorPool() {
 	ticker := time.NewTicker(br.config.SampleInterval)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-br.ctx.Done():
@@ -454,9 +454,9 @@ func (br *BenchmarkRunner) monitorPool() {
 				snapshot := PoolSnapshot{
 					Timestamp:       time.Now(),
 					OpenConnections: int(stats["open_connections"].(int32)),
-					InUse:          int(stats["in_use"].(int32)),
-					Idle:           int(stats["idle"].(int32)),
-					WaitCount:      stats["wait_count"].(int64),
+					InUse:           int(stats["in_use"].(int32)),
+					Idle:            int(stats["idle"].(int32)),
+					WaitCount:       stats["wait_count"].(int64),
 				}
 				if wd, ok := stats["wait_duration_ms"].(int64); ok {
 					snapshot.WaitDuration = wd
@@ -472,10 +472,10 @@ func (br *BenchmarkRunner) monitorPool() {
 func (br *BenchmarkRunner) collectTimeSeries() {
 	ticker := time.NewTicker(br.config.SampleInterval)
 	defer ticker.Stop()
-	
+
 	lastQueryCount := int64(0)
 	lastTimestamp := time.Now()
-	
+
 	for {
 		select {
 		case <-br.ctx.Done():
@@ -484,14 +484,14 @@ func (br *BenchmarkRunner) collectTimeSeries() {
 			now := time.Now()
 			currentQueryCount := atomic.LoadInt64(&br.results.TotalQueries)
 			currentErrorCount := atomic.LoadInt64(&br.results.TotalErrors)
-			
+
 			interval := now.Sub(lastTimestamp).Seconds()
 			qps := float64(currentQueryCount-lastQueryCount) / interval
 			errorRate := 0.0
 			if currentQueryCount > 0 {
 				errorRate = float64(currentErrorCount) / float64(currentQueryCount)
 			}
-			
+
 			// Get current connection usage
 			connectionsInUse := 0
 			if stats, err := br.database.GetStats(); err == nil {
@@ -499,7 +499,7 @@ func (br *BenchmarkRunner) collectTimeSeries() {
 					connectionsInUse = int(inUse)
 				}
 			}
-			
+
 			br.resultsMu.Lock()
 			br.results.TimeSeriesData = append(br.results.TimeSeriesData, TimeSeriesPoint{
 				Timestamp:        now,
@@ -508,7 +508,7 @@ func (br *BenchmarkRunner) collectTimeSeries() {
 				ConnectionsInUse: connectionsInUse,
 			})
 			br.resultsMu.Unlock()
-			
+
 			lastQueryCount = currentQueryCount
 			lastTimestamp = now
 		}
@@ -518,41 +518,41 @@ func (br *BenchmarkRunner) collectTimeSeries() {
 // processResults analyzes and aggregates benchmark results
 func (br *BenchmarkRunner) processResults(workerResults []*WorkerResult) {
 	allLatencies := make([]time.Duration, 0)
-	
+
 	for _, result := range workerResults {
 		allLatencies = append(allLatencies, result.Latencies...)
 	}
-	
+
 	if len(allLatencies) == 0 {
 		return
 	}
-	
+
 	// Sort latencies for percentile calculations
 	sort.Slice(allLatencies, func(i, j int) bool {
 		return allLatencies[i] < allLatencies[j]
 	})
-	
+
 	// Calculate basic statistics
 	br.results.QueriesPerSecond = float64(br.results.TotalQueries) / br.results.Duration.Seconds()
-	
+
 	totalLatency := time.Duration(0)
 	for _, latency := range allLatencies {
 		totalLatency += latency
 	}
 	br.results.AverageLatency = totalLatency / time.Duration(len(allLatencies))
-	
+
 	// Calculate percentiles
 	br.results.MinLatency = allLatencies[0]
 	br.results.MaxLatency = allLatencies[len(allLatencies)-1]
 	br.results.MedianLatency = allLatencies[len(allLatencies)/2]
 	br.results.P95Latency = allLatencies[int(float64(len(allLatencies))*0.95)]
 	br.results.P99Latency = allLatencies[int(float64(len(allLatencies))*0.99)]
-	
+
 	// Calculate error rate
 	if br.results.TotalQueries > 0 {
 		br.results.ErrorRate = float64(br.results.TotalErrors) / float64(br.results.TotalQueries)
 	}
-	
+
 	// Calculate connection pool statistics
 	if len(br.results.PoolStats) > 0 {
 		maxConns := 0
@@ -565,7 +565,7 @@ func (br *BenchmarkRunner) processResults(workerResults []*WorkerResult) {
 		}
 		br.results.PeakConnections = maxConns
 		br.results.AverageConnections = float64(totalConns) / float64(len(br.results.PoolStats))
-		
+
 		if stats, err := br.database.GetStats(); err == nil {
 			if maxOpen, ok := stats["max_open_connections"].(int32); ok {
 				br.results.MaxConnections = int(maxOpen)
@@ -583,7 +583,7 @@ func (br *BenchmarkRunner) generateInsights() {
 		if br.results.AverageLatency > 500*time.Millisecond {
 			severity = "critical"
 		}
-		
+
 		br.results.Insights = append(br.results.Insights, PerformanceInsight{
 			Category:    "latency",
 			Severity:    severity,
@@ -592,14 +592,14 @@ func (br *BenchmarkRunner) generateInsights() {
 			Impact:      "Users may experience slow response times",
 		})
 	}
-	
+
 	// High error rate insight
 	if br.results.ErrorRate > 0.01 { // 1%
 		severity := "warning"
 		if br.results.ErrorRate > 0.05 { // 5%
 			severity = "critical"
 		}
-		
+
 		br.results.Insights = append(br.results.Insights, PerformanceInsight{
 			Category:    "reliability",
 			Severity:    severity,
@@ -608,7 +608,7 @@ func (br *BenchmarkRunner) generateInsights() {
 			Impact:      "Application functionality may be degraded",
 		})
 	}
-	
+
 	// Connection pool utilization insight
 	if br.results.ConnectionUtilization > 0.8 {
 		br.results.Insights = append(br.results.Insights, PerformanceInsight{
@@ -619,7 +619,7 @@ func (br *BenchmarkRunner) generateInsights() {
 			Impact:      "May cause connection waits and increased latency under higher load",
 		})
 	}
-	
+
 	// Low throughput insight
 	expectedQPS := float64(br.config.ConcurrentConnections) * 10 // Rough estimate
 	if br.results.QueriesPerSecond < expectedQPS*0.5 {
@@ -646,7 +646,7 @@ func (br *BenchmarkRunner) generateRecommendations() {
 			ExpectedImpact: "Reduced connection wait times and improved throughput under load",
 		})
 	}
-	
+
 	// Query optimization recommendation
 	if br.results.AverageLatency > 50*time.Millisecond {
 		br.results.Recommendations = append(br.results.Recommendations, Recommendation{
@@ -658,7 +658,7 @@ func (br *BenchmarkRunner) generateRecommendations() {
 			ExpectedImpact: "Significantly reduced query latency and improved user experience",
 		})
 	}
-	
+
 	// Prepared statements recommendation
 	if !br.results.PoolConfig.PrepareStmt {
 		br.results.Recommendations = append(br.results.Recommendations, Recommendation{
@@ -670,7 +670,7 @@ func (br *BenchmarkRunner) generateRecommendations() {
 			ExpectedImpact: "Reduced query parsing overhead and slight performance improvement",
 		})
 	}
-	
+
 	// Optimization profile recommendation
 	if br.results.QueriesPerSecond > 100 && br.results.PoolConfig.OptimizationProfile != "high_throughput" {
 		br.results.Recommendations = append(br.results.Recommendations, Recommendation{

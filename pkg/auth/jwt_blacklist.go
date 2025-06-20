@@ -38,7 +38,7 @@ const (
 
 // Cache key constants for JWT blacklist
 const (
-	BlacklistKeyPrefix = "jwt_blacklist:"
+	BlacklistKeyPrefix  = "jwt_blacklist:"
 	UserBlacklistPrefix = "user_blacklist:"
 )
 
@@ -57,7 +57,7 @@ func (jb *JWTBlacklist) BlacklistToken(ctx context.Context, tokenString, userID,
 
 	// Create hash of token to avoid storing the actual token
 	tokenHash := jb.hashToken(tokenString)
-	
+
 	entry := BlacklistEntry{
 		TokenHash: tokenHash,
 		UserID:    userID,
@@ -74,7 +74,7 @@ func (jb *JWTBlacklist) BlacklistToken(ctx context.Context, tokenString, userID,
 	}
 
 	blacklistKey := jb.getBlacklistKey(tokenHash)
-	
+
 	// Store the blacklist entry with JSON serialization
 	if err := jb.cache.Set(ctx, blacklistKey, entry, ttl); err != nil {
 		return errors.Wrap(err, errors.CodeInternal, "Failed to blacklist token")
@@ -121,7 +121,7 @@ func (jb *JWTBlacklist) BlacklistUserTokens(ctx context.Context, userID, reason 
 	// Create a user-wide blacklist entry that affects all tokens for this user
 	// This is useful for password changes, account suspension, etc.
 	userBlacklistKey := jb.getUserBlacklistKey(userID)
-	
+
 	entry := BlacklistEntry{
 		TokenHash: "", // Empty for user-wide blacklist
 		UserID:    userID,
@@ -150,7 +150,7 @@ func (jb *JWTBlacklist) IsUserTokensBlacklisted(ctx context.Context, userID stri
 	}
 
 	userBlacklistKey := jb.getUserBlacklistKey(userID)
-	
+
 	exists, err := jb.cache.Exists(ctx, userBlacklistKey)
 	if err != nil {
 		return false, nil

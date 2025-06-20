@@ -235,14 +235,14 @@ func runBenchmark(cmd *cobra.Command, args []string) {
 	// Configure benchmark
 	benchmarkConfig := &database.BenchmarkConfig{
 		ConcurrentConnections: connections,
-		TestDuration:         duration,
-		QueryTypes:           benchmarkQueryTypes,
-		WarmupDuration:       warmup,
-		SampleInterval:       1 * time.Second,     // Add missing sample interval
-		ReportInterval:       10 * time.Second,    // Add missing report interval
-		DetailedReporting:    detailed,
-		ExportResults:        exportPath != "",
-		ExportPath:           exportPath,
+		TestDuration:          duration,
+		QueryTypes:            benchmarkQueryTypes,
+		WarmupDuration:        warmup,
+		SampleInterval:        1 * time.Second,  // Add missing sample interval
+		ReportInterval:        10 * time.Second, // Add missing report interval
+		DetailedReporting:     detailed,
+		ExportResults:         exportPath != "",
+		ExportPath:            exportPath,
 	}
 
 	// Run benchmark
@@ -397,7 +397,7 @@ func displayBenchmarkResults(results *database.BenchmarkResults) {
 	fmt.Printf("P95 Latency: %v\n", results.P95Latency)
 	fmt.Printf("P99 Latency: %v\n", results.P99Latency)
 	fmt.Printf("Error Rate: %.2f%%\n", results.ErrorRate*100)
-	fmt.Printf("Peak Connections: %d/%d (%.1f%% utilization)\n", 
+	fmt.Printf("Peak Connections: %d/%d (%.1f%% utilization)\n",
 		results.PeakConnections, results.MaxConnections, results.ConnectionUtilization*100)
 
 	if len(results.Insights) > 0 {

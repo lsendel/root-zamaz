@@ -3,11 +3,12 @@
 // token operations, and system administration.
 //
 // Example usage:
-//   ztcli auth login user@example.com
-//   ztcli user create --email user@example.com --role admin
-//   ztcli token validate <token>
-//   ztcli system health
-//   ztcli dev generate-key
+//
+//	ztcli auth login user@example.com
+//	ztcli user create --email user@example.com --role admin
+//	ztcli token validate <token>
+//	ztcli system health
+//	ztcli dev generate-key
 package main
 
 import (
@@ -25,12 +26,12 @@ import (
 )
 
 var (
-	cfgFile     string
-	baseURL     string
-	apiKey      string
+	cfgFile      string
+	baseURL      string
+	apiKey       string
 	outputFormat string
-	verbose     bool
-	client      *sdk.Client
+	verbose      bool
+	client       *sdk.Client
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -412,7 +413,7 @@ func runValidate(cmd *cobra.Command, args []string) {
 	}
 
 	printOutput(resp)
-	
+
 	if resp.Valid {
 		fmt.Printf("\n✅ Token is valid!\n")
 	} else {
@@ -485,7 +486,7 @@ func runStatus(cmd *cobra.Command, args []string) {
 	fmt.Println("📊 System Status:")
 	fmt.Printf("Base URL: %s\n", baseURL)
 	fmt.Printf("API Key: %s\n", maskAPIKey(apiKey))
-	
+
 	// Test connection
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -526,14 +527,14 @@ func runGenerateClient(cmd *cobra.Command, args []string) {
 	if packageName != "" {
 		fmt.Printf("Package name: %s\n", packageName)
 	}
-	
+
 	fmt.Println("🚧 Code generation functionality not yet implemented")
 	fmt.Println("This would generate SDK client code in the specified language")
 }
 
 func runTestConnection(cmd *cobra.Command, args []string) {
 	fmt.Printf("🔗 Testing connection to %s...\n", baseURL)
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 

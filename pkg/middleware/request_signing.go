@@ -30,7 +30,7 @@ func RequestSigningMiddleware(manager *security.RequestSigningManager) fiber.Han
 		if err := manager.ValidateRequest(httpReq); err != nil {
 			return errors.Unauthorized("request signature validation failed").WithDetails(err.Error())
 		}
-		
+
 		return c.Next()
 	}
 }
@@ -39,10 +39,10 @@ func RequestSigningMiddleware(manager *security.RequestSigningManager) fiber.Han
 type RequestSigningConfig struct {
 	// SkipPaths contains paths that should skip signature validation
 	SkipPaths []string
-	
+
 	// SkipMethods contains HTTP methods that should skip signature validation
 	SkipMethods []string
-	
+
 	// OnError is called when signature validation fails (optional)
 	OnError func(c *fiber.Ctx, err error) error
 }
@@ -88,7 +88,7 @@ func RequestSigningMiddlewareWithConfig(manager *security.RequestSigningManager,
 			}
 			return errors.Unauthorized("request signature validation failed").WithDetails(err.Error())
 		}
-		
+
 		return c.Next()
 	}
 }

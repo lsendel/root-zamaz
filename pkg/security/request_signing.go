@@ -26,10 +26,10 @@ const (
 	SignatureKeyIDHeader     = "X-Signature-Key"
 	SignatureAlgorithmHeader = "X-Signature-Algorithm"
 	SignatureNonceHeader     = "X-Signature-Nonce"
-	
+
 	// Cache key prefix for replay protection
 	ReplayCachePrefix = "request_signature_replay:"
-	
+
 	// Default algorithm constants
 	AlgorithmHMACSHA256 = "HMAC-SHA256"
 	AlgorithmHMACSHA512 = "HMAC-SHA512"
@@ -149,35 +149,35 @@ func NewRequestSigningManager(config *config.RequestSigningConfig, obs *observab
 // Sign adds signature headers to the request with enhanced security
 func (s *RequestSigner) Sign(req *http.Request) error {
 	start := time.Now()
-	
+
 	// Generate timestamp and nonce
 	ts := time.Now().UTC().Format(time.RFC3339)
 	nonce := generateNonce()
-	
+
 	// Add signature headers first so they're included in canonical string
 	req.Header.Set(SignatureTimestampHeader, ts)
 	req.Header.Set(SignatureKeyIDHeader, s.KeyID)
 	req.Header.Set(SignatureAlgorithmHeader, s.Algorithm)
 	req.Header.Set(SignatureNonceHeader, nonce)
-	
+
 	// Build canonical string including new headers
 	canonical := s.buildCanonicalString(req, ts, nonce)
-	
+
 	// Select hash function based on algorithm
 	hasher, err := s.getHashFunc()
 	if err != nil {
 		return errors.Internal("unsupported signature algorithm").WithDetails(s.Algorithm)
 	}
-	
+
 	// Generate HMAC signature
 	mac := hmac.New(hasher, s.Key)
 	if _, err := mac.Write([]byte(canonical)); err != nil {
 		return errors.Internal("failed to generate signature").WithDetails(err.Error())
 	}
-	
+
 	sig := base64.StdEncoding.EncodeToString(mac.Sum(nil))
 	req.Header.Set(SignatureHeader, sig)
-	
+
 	// Log signing operation if observability is available
 	if s.obs != nil {
 		duration := time.Since(start)
@@ -187,7 +187,7 @@ func (s *RequestSigner) Sign(req *http.Request) error {
 			Dur("duration", duration).
 			Msg("Request signed successfully")
 	}
-	
+
 	return nil
 }
 
@@ -206,28 +206,28 @@ func (s *RequestSigner) getHashFunc() (func() hash.Hash, error) {
 // buildCanonicalString creates the canonical representation for signing
 func (s *RequestSigner) buildCanonicalString(req *http.Request, ts, nonce string) string {
 	var b strings.Builder
-	
+
 	// HTTP method
 	b.WriteString(strings.ToUpper(req.Method))
 	b.WriteString("\n")
-	
+
 	// Request URI (path + query)
 	b.WriteString(req.URL.RequestURI())
 	b.WriteString("\n")
-	
+
 	// Timestamp
 	b.WriteString(ts)
 	b.WriteString("\n")
-	
+
 	// Nonce
 	b.WriteString(nonce)
 	b.WriteString("\n")
-	
+
 	// Host header (always include for security)
 	b.WriteString("host:")
 	b.WriteString(strings.ToLower(req.Host))
 	b.WriteString("\n")
-	
+
 	// Include specified headers in canonical form
 	for _, header := range s.Headers {
 		headerName := strings.ToLower(header)
@@ -237,7 +237,7 @@ func (s *RequestSigner) buildCanonicalString(req *http.Request, ts, nonce string
 		b.WriteString(headerValue)
 		b.WriteString("\n")
 	}
-	
+
 	return b.String()
 }
 
@@ -268,20 +268,20 @@ func NewSignatureValidatorWithCache(keys map[string][]byte, headers []string, v 
 // Validate checks the signature on the request with enhanced security
 func (v *SignatureValidator) Validate(req *http.Request) error {
 	start := time.Now()
-	
+
 	// Extract and validate all required headers
 	headers := v.extractSignatureHeaders(req)
 	if err := v.validateHeaders(headers); err != nil {
 		v.logValidationFailure("header_validation_failed", err)
 		return err
 	}
-	
+
 	// Validate timestamp and clock skew
 	if err := v.validateTimestamp(headers.Timestamp); err != nil {
 		v.logValidationFailure("timestamp_validation_failed", err)
 		return err
 	}
-	
+
 	// Get signing key
 	key, ok := v.Keys[headers.KeyID]
 	if !ok {
@@ -289,22 +289,22 @@ func (v *SignatureValidator) Validate(req *http.Request) error {
 		v.logValidationFailure("unknown_key", err)
 		return err
 	}
-	
+
 	// Check for replay attacks
 	if err := v.checkReplayAttack(headers.Signature, headers.Nonce); err != nil {
 		v.logValidationFailure("replay_attack_detected", err)
 		return err
 	}
-	
+
 	// Validate signature
 	if err := v.validateSignature(req, headers, key); err != nil {
 		v.logValidationFailure("signature_validation_failed", err)
 		return err
 	}
-	
+
 	// Record successful validation
 	v.recordValidationSuccess(start, headers.KeyID, headers.Algorithm)
-	
+
 	return nil
 }
 
@@ -345,12 +345,12 @@ func (v *SignatureValidator) validateHeaders(headers SignatureHeaders) error {
 	if headers.Nonce == "" {
 		return errors.Authentication("missing signature nonce")
 	}
-	
+
 	// Validate algorithm
 	if headers.Algorithm != AlgorithmHMACSHA256 && headers.Algorithm != AlgorithmHMACSHA512 {
 		return errors.Authentication("unsupported signature algorithm").WithDetails(headers.Algorithm)
 	}
-	
+
 	return nil
 }
 
@@ -360,9 +360,9 @@ func (v *SignatureValidator) validateTimestamp(tsStr string) error {
 	if err != nil {
 		return errors.Authentication("invalid signature timestamp format").WithDetails(err.Error())
 	}
-	
+
 	now := time.Now().UTC()
-	
+
 	// Check if timestamp is within acceptable clock skew
 	if ts.Before(now.Add(-v.MaxClockSkew)) {
 		return errors.Authentication("signature timestamp too old")
@@ -370,7 +370,7 @@ func (v *SignatureValidator) validateTimestamp(tsStr string) error {
 	if ts.After(now.Add(v.MaxClockSkew)) {
 		return errors.Authentication("signature timestamp too far in future")
 	}
-	
+
 	return nil
 }
 
@@ -379,15 +379,15 @@ func (v *SignatureValidator) checkReplayAttack(signature, nonce string) error {
 	if v.ReplayWindow <= 0 {
 		return nil // Replay protection disabled
 	}
-	
+
 	// Create unique key for this request (signature + nonce combination)
 	replayKey := fmt.Sprintf("%s:%s", signature, nonce)
-	
+
 	// Try cache-based replay protection first
 	if v.cache != nil {
 		ctx := context.Background()
 		cacheKey := ReplayCachePrefix + replayKey
-		
+
 		exists, err := v.cache.Exists(ctx, cacheKey)
 		if err == nil {
 			if exists {
@@ -399,28 +399,28 @@ func (v *SignatureValidator) checkReplayAttack(signature, nonce string) error {
 		}
 		// Fall through to in-memory protection if cache fails
 	}
-	
+
 	// Fallback to in-memory replay protection
 	v.mu.Lock()
 	defer v.mu.Unlock()
-	
+
 	now := time.Now()
-	
+
 	// Clean up old entries first
 	for key, timestamp := range v.seen {
 		if now.Sub(timestamp) > v.ReplayWindow {
 			delete(v.seen, key)
 		}
 	}
-	
+
 	// Check if this request was seen before
 	if timestamp, found := v.seen[replayKey]; found && now.Sub(timestamp) < v.ReplayWindow {
 		return errors.Authentication("replay attack detected")
 	}
-	
+
 	// Record this request
 	v.seen[replayKey] = now
-	
+
 	return nil
 }
 
@@ -431,23 +431,23 @@ func (v *SignatureValidator) validateSignature(req *http.Request, headers Signat
 	if err != nil {
 		return errors.Authentication("unsupported signature algorithm").WithDetails(headers.Algorithm)
 	}
-	
+
 	// Rebuild canonical string
 	canonical := v.buildCanonicalString(req, headers.Timestamp, headers.Nonce)
-	
+
 	// Generate expected signature
 	mac := hmac.New(hasher, key)
 	if _, err := mac.Write([]byte(canonical)); err != nil {
 		return errors.Internal("failed to generate expected signature").WithDetails(err.Error())
 	}
-	
+
 	expected := base64.StdEncoding.EncodeToString(mac.Sum(nil))
-	
+
 	// Compare signatures using constant-time comparison
 	if !hmac.Equal([]byte(headers.Signature), []byte(expected)) {
 		return errors.Authentication("invalid request signature")
 	}
-	
+
 	return nil
 }
 
@@ -466,28 +466,28 @@ func (v *SignatureValidator) getHashFunc(algorithm string) (func() hash.Hash, er
 // buildCanonicalString builds the canonical string for validation (same as signer)
 func (v *SignatureValidator) buildCanonicalString(req *http.Request, ts, nonce string) string {
 	var b strings.Builder
-	
+
 	// HTTP method
 	b.WriteString(strings.ToUpper(req.Method))
 	b.WriteString("\n")
-	
+
 	// Request URI (path + query)
 	b.WriteString(req.URL.RequestURI())
 	b.WriteString("\n")
-	
+
 	// Timestamp
 	b.WriteString(ts)
 	b.WriteString("\n")
-	
+
 	// Nonce
 	b.WriteString(nonce)
 	b.WriteString("\n")
-	
+
 	// Host header (always include for security)
 	b.WriteString("host:")
 	b.WriteString(strings.ToLower(req.Host))
 	b.WriteString("\n")
-	
+
 	// Include specified headers in canonical form
 	for _, header := range v.Headers {
 		headerName := strings.ToLower(header)
@@ -497,7 +497,7 @@ func (v *SignatureValidator) buildCanonicalString(req *http.Request, ts, nonce s
 		b.WriteString(headerValue)
 		b.WriteString("\n")
 	}
-	
+
 	return b.String()
 }
 

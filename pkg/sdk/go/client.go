@@ -87,76 +87,76 @@ type AuthenticationRequest struct {
 
 // AuthenticationResponse represents the response from authentication
 type AuthenticationResponse struct {
-	AccessToken           string    `json:"access_token"`
-	RefreshToken          string    `json:"refresh_token"`
-	TokenType             string    `json:"token_type"`
-	ExpiresIn             int       `json:"expires_in"`
-	ExpiresAt             time.Time `json:"expires_at"`
-	Scope                 string    `json:"scope"`
-	RequiresMFA           bool      `json:"requires_mfa"`
-	MFAChallenge          string    `json:"mfa_challenge,omitempty"`
-	PartialToken          string    `json:"partial_token,omitempty"`
-	User                  *User     `json:"user"`
-	SessionID             string    `json:"session_id"`
-	TrustScore            float64   `json:"trust_score"`
-	RiskFactors           []string  `json:"risk_factors,omitempty"`
-	RecommendedActions    []string  `json:"recommended_actions,omitempty"`
+	AccessToken        string    `json:"access_token"`
+	RefreshToken       string    `json:"refresh_token"`
+	TokenType          string    `json:"token_type"`
+	ExpiresIn          int       `json:"expires_in"`
+	ExpiresAt          time.Time `json:"expires_at"`
+	Scope              string    `json:"scope"`
+	RequiresMFA        bool      `json:"requires_mfa"`
+	MFAChallenge       string    `json:"mfa_challenge,omitempty"`
+	PartialToken       string    `json:"partial_token,omitempty"`
+	User               *User     `json:"user"`
+	SessionID          string    `json:"session_id"`
+	TrustScore         float64   `json:"trust_score"`
+	RiskFactors        []string  `json:"risk_factors,omitempty"`
+	RecommendedActions []string  `json:"recommended_actions,omitempty"`
 }
 
 // TokenValidationRequest represents a token validation request
 type TokenValidationRequest struct {
-	Token     string `json:"token" validate:"required"`
-	Audience  string `json:"audience,omitempty"`
+	Token          string   `json:"token" validate:"required"`
+	Audience       string   `json:"audience,omitempty"`
 	RequiredScopes []string `json:"required_scopes,omitempty"`
 }
 
 // TokenValidationResponse represents the response from token validation
 type TokenValidationResponse struct {
-	Valid       bool      `json:"valid"`
-	Claims      *Claims   `json:"claims,omitempty"`
-	ExpiresAt   time.Time `json:"expires_at"`
-	IssuedAt    time.Time `json:"issued_at"`
-	TrustScore  float64   `json:"trust_score"`
-	Permissions []string  `json:"permissions"`
-	Roles       []string  `json:"roles"`
+	Valid       bool                   `json:"valid"`
+	Claims      *Claims                `json:"claims,omitempty"`
+	ExpiresAt   time.Time              `json:"expires_at"`
+	IssuedAt    time.Time              `json:"issued_at"`
+	TrustScore  float64                `json:"trust_score"`
+	Permissions []string               `json:"permissions"`
+	Roles       []string               `json:"roles"`
 	Metadata    map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // Claims represents JWT token claims
 type Claims struct {
-	Subject   string                 `json:"sub"`
-	Audience  []string              `json:"aud"`
-	Issuer    string                `json:"iss"`
-	ExpiresAt time.Time             `json:"exp"`
-	IssuedAt  time.Time             `json:"iat"`
-	NotBefore time.Time             `json:"nbf"`
-	JTI       string                `json:"jti"`
-	Email     string                `json:"email"`
-	Roles     []string              `json:"roles"`
-	Permissions []string            `json:"permissions"`
-	TrustScore float64              `json:"trust_score"`
-	SessionID  string               `json:"session_id"`
-	Custom     map[string]interface{} `json:"custom,omitempty"`
+	Subject     string                 `json:"sub"`
+	Audience    []string               `json:"aud"`
+	Issuer      string                 `json:"iss"`
+	ExpiresAt   time.Time              `json:"exp"`
+	IssuedAt    time.Time              `json:"iat"`
+	NotBefore   time.Time              `json:"nbf"`
+	JTI         string                 `json:"jti"`
+	Email       string                 `json:"email"`
+	Roles       []string               `json:"roles"`
+	Permissions []string               `json:"permissions"`
+	TrustScore  float64                `json:"trust_score"`
+	SessionID   string                 `json:"session_id"`
+	Custom      map[string]interface{} `json:"custom,omitempty"`
 }
 
 // User represents a user in the system
 type User struct {
-	ID            string                 `json:"id"`
-	Email         string                 `json:"email"`
-	FirstName     string                 `json:"first_name"`
-	LastName      string                 `json:"last_name"`
-	DisplayName   string                 `json:"display_name"`
-	Avatar        string                 `json:"avatar,omitempty"`
-	Roles         []string              `json:"roles"`
-	Permissions   []string              `json:"permissions"`
-	TrustScore    float64               `json:"trust_score"`
-	LastLoginAt   *time.Time            `json:"last_login_at,omitempty"`
-	CreatedAt     time.Time             `json:"created_at"`
-	UpdatedAt     time.Time             `json:"updated_at"`
-	IsActive      bool                  `json:"is_active"`
-	IsVerified    bool                  `json:"is_verified"`
-	MFAEnabled    bool                  `json:"mfa_enabled"`
-	Metadata      map[string]interface{} `json:"metadata,omitempty"`
+	ID          string                 `json:"id"`
+	Email       string                 `json:"email"`
+	FirstName   string                 `json:"first_name"`
+	LastName    string                 `json:"last_name"`
+	DisplayName string                 `json:"display_name"`
+	Avatar      string                 `json:"avatar,omitempty"`
+	Roles       []string               `json:"roles"`
+	Permissions []string               `json:"permissions"`
+	TrustScore  float64                `json:"trust_score"`
+	LastLoginAt *time.Time             `json:"last_login_at,omitempty"`
+	CreatedAt   time.Time              `json:"created_at"`
+	UpdatedAt   time.Time              `json:"updated_at"`
+	IsActive    bool                   `json:"is_active"`
+	IsVerified  bool                   `json:"is_verified"`
+	MFAEnabled  bool                   `json:"mfa_enabled"`
+	Metadata    map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // RefreshTokenRequest represents a token refresh request
@@ -166,9 +166,9 @@ type RefreshTokenRequest struct {
 
 // LogoutRequest represents a logout request
 type LogoutRequest struct {
-	Token     string `json:"token,omitempty"`
-	SessionID string `json:"session_id,omitempty"`
-	Everywhere bool  `json:"everywhere,omitempty"`
+	Token      string `json:"token,omitempty"`
+	SessionID  string `json:"session_id,omitempty"`
+	Everywhere bool   `json:"everywhere,omitempty"`
 }
 
 // APIError represents an error response from the API
@@ -393,7 +393,7 @@ func (c *Client) makeRequestWithAuth(ctx context.Context, method, path string, b
 // HealthCheck checks the health of the Zero Trust Auth service
 func (c *Client) HealthCheck(ctx context.Context) error {
 	url := c.baseURL.ResolveReference(&url.URL{Path: "/health"})
-	
+
 	req, err := http.NewRequestWithContext(ctx, "GET", url.String(), nil)
 	if err != nil {
 		return fmt.Errorf("failed to create health check request: %w", err)

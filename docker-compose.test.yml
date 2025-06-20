@@ -15,6 +15,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - mvp-test-network
 
   # NATS for messaging integration tests
   nats:
@@ -26,6 +28,8 @@ services:
     command: ["--jetstream", "--store_dir", "/data"]
     volumes:
       - nats-data:/data
+    networks:
+      - mvp-test-network
 
   # Redis for caching integration tests
   redis:
@@ -38,6 +42,16 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - mvp-test-network
 
 volumes:
   nats-data:
+
+networks:
+  mvp-test-network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 192.168.100.0/24

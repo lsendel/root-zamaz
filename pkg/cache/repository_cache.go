@@ -18,14 +18,14 @@ type RepositoryCache struct {
 
 // Cache key prefixes for different entity types
 const (
-	UserCachePrefix            = "repo:user:"
-	UserByEmailCachePrefix     = "repo:user_email:"
-	UserByUsernameCachePrefix  = "repo:user_username:"
-	RoleCachePrefix            = "repo:role:"
-	PermissionCachePrefix      = "repo:permission:"
-	DeviceAttestationPrefix    = "repo:device:"
-	LoginAttemptCachePrefix    = "repo:login_attempt:"
-	RepositoryCacheTTL         = 10 * time.Minute // TTL for repository cache entries
+	UserCachePrefix           = "repo:user:"
+	UserByEmailCachePrefix    = "repo:user_email:"
+	UserByUsernameCachePrefix = "repo:user_username:"
+	RoleCachePrefix           = "repo:role:"
+	PermissionCachePrefix     = "repo:permission:"
+	DeviceAttestationPrefix   = "repo:device:"
+	LoginAttemptCachePrefix   = "repo:login_attempt:"
+	RepositoryCacheTTL        = 10 * time.Minute // TTL for repository cache entries
 )
 
 // NewRepositoryCache creates a new repository cache
@@ -385,11 +385,11 @@ func (rc *RepositoryCache) InvalidateAllCache(ctx context.Context) error {
 func (rc *RepositoryCache) GetCacheStats(ctx context.Context) (map[string]interface{}, error) {
 	if rc.cache == nil {
 		return map[string]interface{}{
-			"users":              0,
-			"roles":              0,
-			"permissions":        0,
+			"users":               0,
+			"roles":               0,
+			"permissions":         0,
 			"device_attestations": 0,
-			"login_attempts":     0,
+			"login_attempts":      0,
 		}, nil
 	}
 

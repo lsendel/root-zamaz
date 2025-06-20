@@ -452,15 +452,15 @@ func (a *AuthorizationService) InvalidateUserCache(userID string) error {
 	}
 
 	ctx := context.Background()
-	
+
 	// Invalidate user roles cache
 	userRolesKey := UserRolesCachePrefix + userID
 	_ = a.cache.Delete(ctx, userRolesKey)
-	
+
 	// Invalidate user permissions cache
 	userPermissionsKey := UserPermissionsCachePrefix + userID
 	_ = a.cache.Delete(ctx, userPermissionsKey)
-	
+
 	return nil
 }
 
@@ -471,15 +471,15 @@ func (a *AuthorizationService) InvalidateRoleCache(role string) error {
 	}
 
 	ctx := context.Background()
-	
+
 	// Invalidate role permissions cache
 	rolePermissionsKey := RolePermissionsCachePrefix + role
 	_ = a.cache.Delete(ctx, rolePermissionsKey)
-	
+
 	// Also need to invalidate all users that have this role
 	// This is more complex and would require tracking role-user relationships
 	// For now, we'll rely on TTL to eventually expire user caches
-	
+
 	return nil
 }
 
@@ -490,14 +490,14 @@ func (a *AuthorizationService) InvalidateAllAuthCache() error {
 	}
 
 	ctx := context.Background()
-	
+
 	// Get all keys matching our cache patterns
 	patterns := []string{
 		UserRolesCachePrefix + "*",
-		UserPermissionsCachePrefix + "*", 
+		UserPermissionsCachePrefix + "*",
 		RolePermissionsCachePrefix + "*",
 	}
-	
+
 	for _, pattern := range patterns {
 		if keys, err := a.cache.Keys(ctx, pattern); err == nil {
 			for _, key := range keys {
@@ -505,6 +505,6 @@ func (a *AuthorizationService) InvalidateAllAuthCache() error {
 			}
 		}
 	}
-	
+
 	return nil
 }

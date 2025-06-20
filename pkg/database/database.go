@@ -95,7 +95,7 @@ func (d *Database) Connect() error {
 			return errors.Wrap(err, errors.CodeInternal, "Failed to initialize pool manager")
 		}
 		d.poolManager = poolManager
-		
+
 		// Start pool management routines
 		if err := d.poolManager.Start(); err != nil {
 			return errors.Wrap(err, errors.CodeInternal, "Failed to start pool manager")
@@ -220,28 +220,28 @@ func (d *Database) GetStats() (map[string]interface{}, error) {
 	if d.poolManager != nil {
 		stats := d.poolManager.GetStats()
 		return map[string]interface{}{
-			"max_open_connections":     stats.MaxOpenConnections,
-			"open_connections":         stats.OpenConnections,
-			"in_use":                   stats.InUse,
-			"idle":                     stats.Idle,
-			"wait_count":               stats.WaitCount,
-			"wait_duration_ms":         stats.WaitDuration,
-			"max_idle_closed":          stats.MaxIdleClosed,
-			"max_idle_time_closed":     stats.MaxIdleTimeClosed,
-			"max_lifetime_closed":      stats.MaxLifetimeClosed,
-			"connection_utilization":   stats.ConnectionUtilization,
-			"optimization_profile":     stats.OptimizationProfile,
-			"auto_tuning_enabled":      stats.TuningEnabled,
-			"connection_leaks":         stats.ConnectionLeaks,
-			"timeout_errors":           stats.TimeoutErrors,
-			"circuit_breaker_trips":    stats.CircuitBreakerTrips,
-			"cpu_cores":                stats.CPUCores,
-			"memory_usage_bytes":       stats.MemoryUsage,
-			"average_query_time_ms":    stats.AverageQueryTime,
-			"slow_queries":             stats.SlowQueries,
-			"failed_connections":       stats.FailedConnections,
-			"total_queries":            stats.TotalQueries,
-			"last_optimization":        stats.LastOptimization,
+			"max_open_connections":   stats.MaxOpenConnections,
+			"open_connections":       stats.OpenConnections,
+			"in_use":                 stats.InUse,
+			"idle":                   stats.Idle,
+			"wait_count":             stats.WaitCount,
+			"wait_duration_ms":       stats.WaitDuration,
+			"max_idle_closed":        stats.MaxIdleClosed,
+			"max_idle_time_closed":   stats.MaxIdleTimeClosed,
+			"max_lifetime_closed":    stats.MaxLifetimeClosed,
+			"connection_utilization": stats.ConnectionUtilization,
+			"optimization_profile":   stats.OptimizationProfile,
+			"auto_tuning_enabled":    stats.TuningEnabled,
+			"connection_leaks":       stats.ConnectionLeaks,
+			"timeout_errors":         stats.TimeoutErrors,
+			"circuit_breaker_trips":  stats.CircuitBreakerTrips,
+			"cpu_cores":              stats.CPUCores,
+			"memory_usage_bytes":     stats.MemoryUsage,
+			"average_query_time_ms":  stats.AverageQueryTime,
+			"slow_queries":           stats.SlowQueries,
+			"failed_connections":     stats.FailedConnections,
+			"total_queries":          stats.TotalQueries,
+			"last_optimization":      stats.LastOptimization,
 		}, nil
 	}
 
@@ -337,15 +337,15 @@ func (d *Database) OptimizeForWorkload(profile OptimizationProfile) error {
 	if d.poolManager != nil {
 		return d.poolManager.optimizeForProfile(profile)
 	}
-	
+
 	// Fallback to basic optimization
 	sqlDB, err := d.DB.DB()
 	if err != nil {
 		return errors.Wrap(err, errors.CodeInternal, "Failed to get underlying database connection")
 	}
-	
+
 	numCPU := runtime.NumCPU()
-	
+
 	switch profile {
 	case ProfileDevelopment:
 		sqlDB.SetMaxOpenConns(numCPU * 2)
@@ -368,6 +368,6 @@ func (d *Database) OptimizeForWorkload(profile OptimizationProfile) error {
 	default:
 		return errors.Validation("Unknown optimization profile")
 	}
-	
+
 	return nil
 }
