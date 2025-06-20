@@ -8,7 +8,14 @@ interface AdminPanelProps {
 }
 
 export default function AdminPanel({ onClose }: AdminPanelProps) {
-  const { user, isAdmin } = useAuth()
+  const { user, isAdmin, isLoading } = useAuth()
+  
+  // Debug logging
+  console.log('AdminPanel render:', { 
+    user: user ? { id: user.id, username: user.username, is_admin: user.is_admin } : null, 
+    isAdmin, 
+    isLoading 
+  })
   const [activeTab, setActiveTab] = useState<'permissions' | 'roles' | 'users'>('permissions')
   const [userPermissions, setUserPermissions] = useState<string[]>([])
   const [roles, setRoles] = useState<Role[]>([])
@@ -224,7 +231,22 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
     }
   }
 
-  if (!isAdmin) {
+  // Wait for authentication to complete before checking admin status
+  if (isLoading || !user) {
+    return (
+      <div className="admin-panel">
+        <div className="admin-panel-header">
+          <h2>Loading...</h2>
+          <button onClick={onClose} className="close-btn">×</button>
+        </div>
+        <div className="admin-panel-content">
+          <p>Verifying administrator privileges...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!isAdmin || !user.is_admin) {
     return (
       <div className="admin-panel">
         <div className="admin-panel-header">
