@@ -72,6 +72,7 @@ BOLD := \033[1m
 	db-analyze db-monitor db-health db-tune db-perf-test \
 	cache cache-clean cache-warmup \
 	db db-migrate db-reset db-backup db-restore \
+  docs docs-generate docs-serve docs-deploy docs-schema \
 	docs docs-generate docs-serve docs-deploy install-tbls \
 	monitor monitor-setup monitor-status monitor-logs \
 	gitops-setup gitops-validate gitops-sync gitops-rollback \
@@ -1785,6 +1786,17 @@ docs-deploy: docs-generate ## Deploy documentation
 	@printf "$(BLUE)📚 Deploying documentation...$(RESET)\n"
 	@printf "$(YELLOW)⚠️  Documentation deployment not implemented$(RESET)\n"
 
+docs-schema: ## Generate database schema documentation using tbls
+		@printf "$(BLUE)📚 Generating schema documentation...$(RESET)\n"
+		@mkdir -p docs/schema
+		@if command -v tbls >/dev/null 2>&1; then \
+		tbls doc -c docs/schema/tbls.yml && \
+		tbls out -t plantuml -c docs/schema/tbls.yml -o docs/schema/diagram.puml && \
+		printf "$(GREEN)✅ Schema documentation generated$(RESET)\n"; \
+		else \
+		printf "$(YELLOW)⚠️  tbls not installed$(RESET)\n"; \
+		fi
+
 # =============================================================================
 # MONITORING & OBSERVABILITY
 # =============================================================================
@@ -1793,21 +1805,21 @@ monitor: monitor-setup ## 📊 Set up monitoring
 monitor-setup: ## Set up monitoring dashboards
 	@printf "$(BLUE)📊 Setting up monitoring...$(RESET)\n"
 	@if [ -f scripts/setup-monitoring.sh ]; then \
-		chmod +x scripts/setup-monitoring.sh && ./scripts/setup-monitoring.sh || \
-			(printf "$(RED)❌ Monitoring setup failed$(RESET)\n" && exit 1); \
+	chmod +x scripts/setup-monitoring.sh && ./scripts/setup-monitoring.sh || \
+	(printf "$(RED)❌ Monitoring setup failed$(RESET)\n" && exit 1); \
 	else \
-		printf "$(YELLOW)⚠️  Monitoring setup script not found$(RESET)\n"; \
+	printf "$(YELLOW)⚠️  Monitoring setup script not found$(RESET)\n"; \
 	fi
 	@printf "$(GREEN)✅ Monitoring setup completed$(RESET)\n"
 
 monitor-status: ## Check monitoring system status
 	@printf "$(BLUE)📊 Checking monitoring status...$(RESET)\n"
 	@curl -f http://localhost:9090/-/healthy >/dev/null 2>&1 && \
-		printf "  Prometheus: $(GREEN)✅ Healthy$(RESET)\n" || \
-		printf "  Prometheus: $(RED)❌ Unhealthy$(RESET)\n"
+	printf "  Prometheus: $(GREEN)✅ Healthy$(RESET)\n" || \
+	printf "  Prometheus: $(RED)❌ Unhealthy$(RESET)\n"
 	@curl -f http://localhost:3000/api/health >/dev/null 2>&1 && \
-		printf "  Grafana:    $(GREEN)✅ Healthy$(RESET)\n" || \
-		printf "  Grafana:    $(RED)❌ Unhealthy$(RESET)\n"
+	printf "  Grafana:    $(GREEN)✅ Healthy$(RESET)\n" || \
+	printf "  Grafana:    $(RED)❌ Unhealthy$(RESET)\n"
 
 monitor-logs: ## View monitoring system logs
 	@docker-compose -f $(COMPOSE_FILE) logs -f prometheus grafana jaeger
