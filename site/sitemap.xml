@@ -121,6 +121,11 @@
          <changefreq>daily</changefreq>
     </url>
     <url>
+         <loc>https://zamaz.github.io/root-zamaz/combined/mermaid-test/</loc>
+         <lastmod>2025-06-20</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
          <loc>https://zamaz.github.io/root-zamaz/combined/schema/</loc>
          <lastmod>2025-06-20</lastmod>
          <changefreq>daily</changefreq>
@@ -502,6 +507,11 @@
     </url>
     <url>
          <loc>https://zamaz.github.io/root-zamaz/security/playbooks/</loc>
+         <lastmod>2025-06-20</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://zamaz.github.io/root-zamaz/testing/CLAUDE/</loc>
          <lastmod>2025-06-20</lastmod>
          <changefreq>daily</changefreq>
     </url>

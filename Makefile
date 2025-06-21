@@ -9,13 +9,19 @@ SHELL := /bin/bash
 MAKEFLAGS += --warn-undefined-variables
 MAKEFLAGS += --no-builtin-rules
 
+# Load environment variables from .env file if it exists
+ifneq (,$(wildcard ./.env))
+    include .env
+    export
+endif
+
 # Project Configuration
 PROJECT_NAME := mvp-zero-trust-auth
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 BUILD_DATE := $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
-# Environment Variables
+# Environment Variables with Defaults
 DB_HOST ?= localhost
 DB_PORT ?= 5432
 DB_NAME ?= mvp_db
@@ -26,6 +32,19 @@ REDIS_URL ?= redis://localhost:6379
 FRONTEND_DIR := frontend
 BUILD_OUTPUT_DIR := bin
 COVERAGE_THRESHOLD := 80
+
+# GitHub Configuration (from .env)
+GITHUB_TOKEN ?= 
+GITHUB_OWNER ?= lsendel
+GITHUB_REPO ?= root-zamaz
+GITHUB_WIKI_URL := https://github.com/$(GITHUB_OWNER)/$(GITHUB_REPO)/wiki
+
+# Documentation Configuration
+DOCS_PORT ?= 8001
+DOCS_HOST ?= 127.0.0.1
+WIKI_SYNC_ENABLED ?= true
+WIKI_BRANCH ?= main
+WIKI_SUBDIRECTORY ?= Documentation
 
 # Colors
 BLUE := \033[34m
@@ -44,22 +63,26 @@ BOLD := \033[1m
 help: ## 📖 Show this help (most common commands at top)
 	@printf "\n$(BOLD)$(BLUE)MVP Zero Trust Auth System$(RESET)\n"
 	@printf "$(BLUE)================================$(RESET)\n\n"
+	@printf "$(BOLD)🔧 FIRST TIME SETUP:$(RESET)\n"
+	@printf "  $(GREEN)make env-setup$(RESET)   🔧 Setup environment configuration (.env)\n"
+	@printf "  $(GREEN)make env-check$(RESET)   🔍 Check environment configuration\n\n"
 	@printf "$(BOLD)🚀 QUICK START:$(RESET)\n"
-	@printf "  $(GREEN)make start$(RESET)     🚀 Start the full development environment\n"
-	@printf "  $(GREEN)make dev$(RESET)       💻 Start development server with hot reload\n"
-	@printf "  $(GREEN)make test$(RESET)      🧪 Run all tests\n"
-	@printf "  $(GREEN)make build$(RESET)     🔨 Build the application\n"
-	@printf "  $(GREEN)make stop$(RESET)      🛑 Stop all services\n"
-	@printf "  $(GREEN)make clean$(RESET)     🧹 Clean all artifacts\n"
-	@printf "  $(GREEN)make status$(RESET)    📊 Show system status\n\n"
+	@printf "  $(GREEN)make start$(RESET)       🚀 Start the full development environment\n"
+	@printf "  $(GREEN)make dev$(RESET)         💻 Start development server with hot reload\n"
+	@printf "  $(GREEN)make test$(RESET)        🧪 Run all tests\n"
+	@printf "  $(GREEN)make build$(RESET)       🔨 Build the application\n"
+	@printf "  $(GREEN)make stop$(RESET)        🛑 Stop all services\n"
+	@printf "  $(GREEN)make clean$(RESET)       🧹 Clean all artifacts\n"
+	@printf "  $(GREEN)make status$(RESET)      📊 Show system status\n\n"
 	@printf "$(BOLD)📚 DETAILED HELP:$(RESET)\n"
-	@printf "  $(BLUE)make dev-help$(RESET)      Development workflow commands\n"
-	@printf "  $(BLUE)make test-help$(RESET)     Testing and quality commands\n"
-	@printf "  $(BLUE)make docs-help$(RESET)     Documentation commands\n"
-	@printf "  $(BLUE)make docker-help$(RESET)   Docker and deployment commands\n"
-	@printf "  $(BLUE)make db-help$(RESET)       Database management commands\n"
-	@printf "  $(BLUE)make matrix-help$(RESET)   Matrix testing across versions\n"
-	@printf "  $(BLUE)make all-targets$(RESET)   Show ALL available targets\n\n"
+	@printf "  $(BLUE)make dev-help$(RESET)        Development workflow commands\n"
+	@printf "  $(BLUE)make test-help$(RESET)       Testing and quality commands\n"
+	@printf "  $(BLUE)make docs-help$(RESET)       Documentation commands\n"
+	@printf "  $(BLUE)make docker-help$(RESET)     Docker and deployment commands\n"
+	@printf "  $(BLUE)make db-help$(RESET)         Database management commands\n"
+	@printf "  $(BLUE)make matrix-help$(RESET)     Matrix testing across versions\n"
+	@printf "  $(BLUE)make show-env$(RESET)        Show current environment config\n"
+	@printf "  $(BLUE)make all-targets$(RESET)     Show ALL available targets\n\n"
 
 start: dev-up ## 🚀 Start the full development environment
 	@printf "$(GREEN)🚀 Development environment started!$(RESET)\n"
@@ -246,12 +269,17 @@ docs-help: ## 📚 Show documentation help
 	@printf "  $(GREEN)make docs-build$(RESET)      🏗️  Build static docs\n"
 	@printf "  $(GREEN)make docs-schema$(RESET)     💾 Generate database schema docs\n\n"
 	@printf "$(BOLD)GitHub Integration:$(RESET)\n"
-	@printf "  $(GREEN)make docs-wiki-sync$(RESET)  🔄 Sync docs to GitHub Wiki\n"
+	@printf "  $(GREEN)make docs-wiki-sync$(RESET)  🔄 Sync docs to GitHub Wiki (requires GITHUB_TOKEN)\n"
+	@printf "  $(GREEN)make docs-wiki-test$(RESET)  🧪 Test Wiki Mermaid diagrams (requires GITHUB_TOKEN)\n"
 	@printf "  $(GREEN)make docs-test$(RESET)       🧪 Test documentation\n\n"
-	@printf "$(BOLD)Documentation Files:$(RESET)\n"
-	@printf "  Local Server: http://127.0.0.1:8001\n"
+	@printf "$(BOLD)Environment Setup:$(RESET)\n"
+	@printf "  $(GREEN)make env-setup$(RESET)       🔧 Create .env file with GITHUB_TOKEN template\n"
+	@printf "  $(GREEN)make check-github-token$(RESET) 🔑 Verify GitHub token configuration\n\n"
+	@printf "$(BOLD)Documentation URLs:$(RESET)\n"
+	@printf "  Local Server: http://$(DOCS_HOST):$(DOCS_PORT)\n"
 	@printf "  Static Files: site/index.html\n"
-	@printf "  Wiki: https://github.com/lsendel/root-zamaz/wiki\n\n"
+	@printf "  GitHub Wiki: $(GITHUB_WIKI_URL)\n"
+	@printf "  Wiki Sync Status: $(if $(filter true,$(WIKI_SYNC_ENABLED)),$(GREEN)Enabled$(RESET),$(YELLOW)Disabled$(RESET))\n\n"
 
 docs-serve: docs-mkdocs-serve ## 📖 Serve documentation locally
 
@@ -261,9 +289,26 @@ docs-schema: ## 💾 Generate database schema documentation
 	@printf "$(BLUE)💾 Generating schema documentation...$(RESET)\n"
 	@make docs-schema-optional
 
-docs-wiki-sync: ## 🔄 Sync documentation to GitHub Wiki
+docs-wiki-sync: check-github-token ## 🔄 Sync documentation to GitHub Wiki
 	@printf "$(BLUE)🔄 Syncing to GitHub Wiki...$(RESET)\n"
-	@make docs-wiki-preview
+	@if [ "$(WIKI_SYNC_ENABLED)" = "true" ]; then \
+		printf "$(YELLOW)📤 Syncing to $(GITHUB_WIKI_URL)$(RESET)\n"; \
+		if [ -f "scripts/sync-wiki-safe.sh" ]; then \
+			GITHUB_TOKEN=$(GITHUB_TOKEN) bash scripts/sync-wiki-safe.sh; \
+		else \
+			printf "$(RED)❌ Wiki sync script not found$(RESET)\n"; \
+		fi; \
+	else \
+		printf "$(YELLOW)⚠️  Wiki sync disabled (WIKI_SYNC_ENABLED=false)$(RESET)\n"; \
+	fi
+
+docs-wiki-test: check-github-token ## 🧪 Test GitHub Wiki integration with Mermaid
+	@printf "$(BLUE)🧪 Testing GitHub Wiki integration...$(RESET)\n"
+	@if [ -f "scripts/sync-mermaid-test.sh" ]; then \
+		GITHUB_TOKEN=$(GITHUB_TOKEN) bash scripts/sync-mermaid-test.sh; \
+	else \
+		printf "$(RED)❌ Mermaid test script not found$(RESET)\n"; \
+	fi
 
 docs-test: test-wiki ## 🧪 Test documentation integration
 
@@ -413,6 +458,241 @@ all-targets: ## 📋 Show ALL available targets
 	@printf "\n$(BOLD)$(BLUE)All Available Targets$(RESET)\n"
 	@printf "$(BLUE)======================$(RESET)\n\n"
 	@awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z_0-9-]+:.*##/ { printf "  $(GREEN)%-20s$(RESET) %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+
+# =============================================================================
+# ENVIRONMENT & SETUP TARGETS
+# =============================================================================
+
+.PHONY: env-setup env-check check-github-token setup-env show-env
+
+env-setup: ## 🔧 Setup environment configuration
+	@printf "$(BLUE)🔧 Setting up environment configuration...$(RESET)\n"
+	@if [ ! -f ".env" ]; then \
+		printf "$(YELLOW)📋 Creating .env from template...$(RESET)\n"; \
+		cp .env.template .env; \
+		printf "$(GREEN)✅ Created .env file$(RESET)\n"; \
+		printf "$(YELLOW)⚠️  Please edit .env with your actual values$(RESET)\n"; \
+		printf "$(BLUE)💡 Key variables to configure:$(RESET)\n"; \
+		printf "  - GITHUB_TOKEN (for wiki sync)\n"; \
+		printf "  - DB_PASSWORD (database password)\n"; \
+		printf "  - JWT_SECRET (JWT signing key)\n"; \
+		printf "  - SESSION_SECRET (session encryption)\n"; \
+	else \
+		printf "$(GREEN)✅ .env file already exists$(RESET)\n"; \
+	fi
+
+env-check: ## 🔍 Check environment configuration
+	@printf "$(BLUE)🔍 Environment Configuration Status$(RESET)\n"
+	@printf "$(BLUE)====================================$(RESET)\n"
+	@printf "Environment file: $(if $(wildcard ./.env),$(GREEN)✅ Found$(RESET),$(RED)❌ Missing$(RESET))\n"
+	@if [ -f ".env" ]; then \
+		printf "GitHub Token: $(if $(GITHUB_TOKEN),$(GREEN)✅ Set$(RESET),$(YELLOW)⚠️  Missing$(RESET))\n"; \
+		printf "Database Config: $(if $(DB_PASSWORD),$(GREEN)✅ Set$(RESET),$(YELLOW)⚠️  Using defaults$(RESET))\n"; \
+		printf "Wiki Sync: $(if $(filter true,$(WIKI_SYNC_ENABLED)),$(GREEN)✅ Enabled$(RESET),$(YELLOW)⚠️  Disabled$(RESET))\n"; \
+	else \
+		printf "$(YELLOW)💡 Run 'make env-setup' to create .env file$(RESET)\n"; \
+	fi
+
+check-github-token: ## 🔑 Verify GitHub token is configured
+	@if [ -z "$(GITHUB_TOKEN)" ]; then \
+		printf "$(RED)❌ GITHUB_TOKEN not set$(RESET)\n"; \
+		printf "$(BLUE)💡 Setup instructions:$(RESET)\n"; \
+		printf "  1. Copy template: make env-setup\n"; \
+		printf "  2. Get token: https://github.com/settings/tokens\n"; \
+		printf "  3. Add to .env: GITHUB_TOKEN=your_token_here\n"; \
+		printf "  4. Required scopes: repo, wiki, workflow\n"; \
+		exit 1; \
+	else \
+		printf "$(GREEN)✅ GitHub token configured$(RESET)\n"; \
+	fi
+
+setup-env: env-setup ## 🚀 Complete environment setup (alias for env-setup)
+
+env-generate-template: ## 🔧 Generate/update .env.template with all configurations
+	@printf "$(BLUE)🔧 Generating comprehensive .env.template...$(RESET)\n"
+	@cat > .env.template << 'EOF' ;\
+# Environment Configuration Template\
+# Copy this file to .env and configure with your actual values\
+# DO NOT commit .env file to version control\
+\
+# =============================================================================\
+# GitHub Integration\
+# =============================================================================\
+\
+# GitHub Personal Access Token for API operations\
+# Required for: wiki sync, releases, workflow triggers\
+# Scopes needed: repo, wiki, workflow\
+# Generate at: https://github.com/settings/tokens\
+GITHUB_TOKEN=your_github_token_here\
+\
+# GitHub Repository Information\
+GITHUB_OWNER=$(GITHUB_OWNER)\
+GITHUB_REPO=$(GITHUB_REPO)\
+\
+# =============================================================================\
+# Database Configuration\
+# =============================================================================\
+\
+# PostgreSQL Database Settings\
+DB_HOST=$(DB_HOST)\
+DB_PORT=$(DB_PORT)\
+DB_NAME=$(DB_NAME)\
+DB_USER=$(DB_USER)\
+DB_PASSWORD=your_secure_password_here\
+DB_SSLMODE=disable\
+\
+# Database URL (alternative to individual settings)\
+DATABASE_URL=postgresql://$${DB_USER}:$${DB_PASSWORD}@$${DB_HOST}:$${DB_PORT}/$${DB_NAME}?sslmode=$${DB_SSLMODE}\
+\
+# =============================================================================\
+# Service Configuration\
+# =============================================================================\
+\
+# NATS Messaging\
+NATS_URL=$(NATS_URL)\
+\
+# Redis Cache\
+REDIS_URL=$(REDIS_URL)\
+\
+# Application Settings\
+APP_ENV=development\
+APP_PORT=8080\
+APP_HOST=localhost\
+\
+# =============================================================================\
+# Authentication & Security\
+# =============================================================================\
+\
+# JWT Configuration (CRITICAL - Generate secure secrets)\
+JWT_SECRET=your_jwt_secret_here_minimum_32_characters\
+JWT_EXPIRY=1h\
+REFRESH_TOKEN_EXPIRY=7d\
+\
+# Session Configuration (CRITICAL - Generate secure secrets)\
+SESSION_SECRET=your_session_secret_here_minimum_32_characters\
+SESSION_TIMEOUT=24h\
+\
+# CORS Settings\
+CORS_ORIGINS=http://localhost:3000,http://localhost:5173,http://$(DOCS_HOST):$(DOCS_PORT)\
+\
+# =============================================================================\
+# External Services\
+# =============================================================================\
+\
+# Bytebase Configuration\
+BYTEBASE_URL=http://localhost:5678\
+BYTEBASE_TOKEN=your_bytebase_token_here\
+\
+# SPIRE Configuration (Zero Trust Identity)\
+SPIRE_SOCKET_PATH=/run/spire/sockets/agent.sock\
+SPIRE_TRUST_DOMAIN=zamaz.dev\
+\
+# =============================================================================\
+# Development Tools\
+# =============================================================================\
+\
+# Log Level (debug, info, warn, error)\
+LOG_LEVEL=debug\
+\
+# Enable Development Features\
+ENABLE_PPROF=true\
+ENABLE_DEBUG_ENDPOINTS=true\
+\
+# API Documentation\
+SWAGGER_ENABLED=true\
+SWAGGER_HOST=localhost:8080\
+\
+# =============================================================================\
+# Documentation & Wiki\
+# =============================================================================\
+\
+# MkDocs Configuration\
+DOCS_PORT=$(DOCS_PORT)\
+DOCS_HOST=$(DOCS_HOST)\
+\
+# Wiki Sync Configuration\
+WIKI_SYNC_ENABLED=$(WIKI_SYNC_ENABLED)\
+WIKI_BRANCH=$(WIKI_BRANCH)\
+WIKI_SUBDIRECTORY=$(WIKI_SUBDIRECTORY)\
+\
+# =============================================================================\
+# Testing Configuration\
+# =============================================================================\
+\
+# Test Database (separate from main DB)\
+TEST_DB_HOST=localhost\
+TEST_DB_PORT=5432\
+TEST_DB_NAME=mvp_test_db\
+TEST_DB_USER=mvp_test_user\
+TEST_DB_PASSWORD=test_password\
+\
+# E2E Testing\
+E2E_BASE_URL=http://localhost:8080\
+E2E_TIMEOUT=30000\
+\
+# Load Testing\
+LOAD_TEST_USERS=10\
+LOAD_TEST_DURATION=5m\
+\
+# =============================================================================\
+# Monitoring & Observability\
+# =============================================================================\
+\
+# Metrics Configuration\
+METRICS_ENABLED=true\
+METRICS_PORT=9090\
+\
+# Prometheus\
+PROMETHEUS_URL=http://localhost:9090\
+\
+# Grafana\
+GRAFANA_URL=http://localhost:3000\
+GRAFANA_API_KEY=your_grafana_api_key_here\
+\
+# =============================================================================\
+# CI/CD Configuration\
+# =============================================================================\
+\
+# Docker Configuration\
+DOCKER_REGISTRY=ghcr.io\
+DOCKER_IMAGE_NAME=$(GITHUB_OWNER)/$(GITHUB_REPO)\
+DOCKER_TAG=latest\
+\
+# Deployment Configuration\
+DEPLOY_ENV=development\
+KUBE_NAMESPACE=zamaz-auth-dev\
+ARGOCD_SERVER=your-argocd-server.com\
+\
+# =============================================================================\
+# Security Secrets Generation\
+# =============================================================================\
+# Generate secure secrets with:\
+# JWT_SECRET=$$(openssl rand -base64 32)\
+# SESSION_SECRET=$$(openssl rand -base64 32)\
+EOF
+	@printf "$(GREEN)✅ .env.template updated with current configuration$(RESET)\n"
+	@printf "$(BLUE)💡 Use 'make env-setup' to create .env from this template$(RESET)\n"
+
+env-secrets: ## 🔐 Generate secure secrets for JWT and SESSION
+	@printf "$(BLUE)🔐 Generating secure secrets...$(RESET)\n"
+	@printf "$(YELLOW)Add these to your .env file:$(RESET)\n"
+	@printf "JWT_SECRET=$$(openssl rand -base64 32)\n"
+	@printf "SESSION_SECRET=$$(openssl rand -base64 32)\n"
+	@printf "$(BLUE)💡 These secrets are cryptographically secure$(RESET)\n"
+
+show-env: ## 📋 Show current environment variables (safe)
+	@printf "$(BLUE)📋 Current Environment Configuration$(RESET)\n"
+	@printf "$(BLUE)====================================$(RESET)\n"
+	@printf "Project: $(GREEN)$(PROJECT_NAME)$(RESET)\n"
+	@printf "Version: $(GREEN)$(VERSION)$(RESET)\n"
+	@printf "GitHub Owner: $(GREEN)$(GITHUB_OWNER)$(RESET)\n"
+	@printf "GitHub Repo: $(GREEN)$(GITHUB_REPO)$(RESET)\n"
+	@printf "GitHub Token: $(if $(GITHUB_TOKEN),$(GREEN)✅ Set (****)$(RESET),$(RED)❌ Not set$(RESET))\n"
+	@printf "Database Host: $(GREEN)$(DB_HOST):$(DB_PORT)$(RESET)\n"
+	@printf "Database Name: $(GREEN)$(DB_NAME)$(RESET)\n"
+	@printf "Frontend Dir: $(GREEN)$(FRONTEND_DIR)$(RESET)\n"
+	@printf "Docs Port: $(GREEN)$(DOCS_HOST):$(DOCS_PORT)$(RESET)\n"
+	@printf "Wiki Sync: $(if $(filter true,$(WIKI_SYNC_ENABLED)),$(GREEN)Enabled$(RESET),$(YELLOW)Disabled$(RESET))\n"
 
 # =============================================================================
 # MISSING DOCUMENTATION TARGETS (Referenced but not implemented)

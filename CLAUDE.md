@@ -35,6 +35,15 @@
 
 ## 🚀 **Quick Start Workflows**
 
+### **First Time Setup**
+```bash
+# 1. Environment Setup
+make env-setup       # Create .env file from template
+# 2. Edit .env file with your GITHUB_TOKEN (see ENV_SETUP_GUIDE.md)
+# 3. Verify configuration
+make env-check       # Check environment status
+```
+
 ### **Development Workflow**
 ```bash
 # Start development environment
@@ -50,7 +59,7 @@ make test-wiki       # Documentation testing
 # Documentation workflow
 make docs-serve      # Local docs (127.0.0.1:8001)
 make docs-schema     # Generate DB schema docs
-make docs-wiki-sync  # Sync to GitHub Wiki
+make docs-wiki-sync  # Sync to GitHub Wiki (requires GITHUB_TOKEN)
 ```
 
 ### **Quality Assurance Workflow**
@@ -158,6 +167,14 @@ curl localhost:8080/health  # API health check
 - **ALWAYS** verify services are running before providing links
 - **PROVIDE** alternative access methods if URLs fail
 - **DOCUMENT** verification steps in relevant CLAUDE.md files
+
+### **Environment File Security**
+- **NEVER** commit `.env` files with real secrets to version control
+- **USE** `.env.template` files for configuration structure
+- **STORE** production secrets in secure vaults (AWS Secrets Manager, HashiCorp Vault)
+- **GENERATE** secure secrets using `make env-secrets`
+- **VERIFY** `.gitignore` excludes all `.env*` files except templates
+- **REMOVE** any accidentally committed secrets immediately
 
 ### **Wiki Integration Safety**
 - **PREVIEW** all sync operations before execution

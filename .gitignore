@@ -35,6 +35,8 @@ junit.xml
 .env
 .env.*
 !.env.example
+!.env.template
+!.env.*.template
 
 # Kubernetes
 kubeconfig

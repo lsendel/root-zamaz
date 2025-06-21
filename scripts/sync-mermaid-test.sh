@@ -22,7 +22,11 @@ echo "============================================="
 # Check if GitHub token is available
 if [ -z "${GITHUB_TOKEN:-}" ]; then
     echo -e "${RED}❌ GITHUB_TOKEN environment variable not set${NC}"
-    echo -e "${BLUE}💡 Export your GitHub token: export GITHUB_TOKEN=your_token${NC}"
+    echo -e "${BLUE}💡 Setup instructions:${NC}"
+    echo -e "  1. Run: make env-setup"
+    echo -e "  2. Edit .env file and add: GITHUB_TOKEN=your_token_here"
+    echo -e "  3. Get token at: https://github.com/settings/tokens"
+    echo -e "  4. Required scopes: repo, wiki, workflow"
     exit 1
 fi
 
