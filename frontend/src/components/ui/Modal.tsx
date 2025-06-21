@@ -1,36 +1,36 @@
 /**
  * Modal Component
- * 
+ *
  * Accessible modal dialog with focus management, keyboard navigation,
  * and consistent styling across the application.
  */
 
-import React, { useEffect, useRef, useCallback } from 'react';
-import { createPortal } from 'react-dom';
-import './Modal.css';
+import React, { useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
+import "./Modal.css";
 
 export interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
   children: React.ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
+  size?: "sm" | "md" | "lg" | "xl" | "full";
   closeOnOverlayClick?: boolean;
   closeOnEscape?: boolean;
   showCloseButton?: boolean;
   className?: string;
   overlayClassName?: string;
-  'data-testid'?: string;
+  "data-testid"?: string;
   footer?: React.ReactNode;
   preventScroll?: boolean;
 }
 
 const sizeClasses = {
-  sm: 'modal__content--sm',
-  md: 'modal__content--md',
-  lg: 'modal__content--lg',
-  xl: 'modal__content--xl',
-  full: 'modal__content--full',
+  sm: "modal__content--sm",
+  md: "modal__content--md",
+  lg: "modal__content--lg",
+  xl: "modal__content--xl",
+  full: "modal__content--full",
 } as const;
 
 export const Modal: React.FC<ModalProps> = ({
@@ -38,13 +38,13 @@ export const Modal: React.FC<ModalProps> = ({
   onClose,
   title,
   children,
-  size = 'md',
+  size = "md",
   closeOnOverlayClick = true,
   closeOnEscape = true,
   showCloseButton = true,
-  className = '',
-  overlayClassName = '',
-  'data-testid': testId = 'modal',
+  className = "",
+  overlayClassName = "",
+  "data-testid": testId = "modal",
   footer,
   preventScroll = true,
 }) => {
@@ -56,96 +56,104 @@ export const Modal: React.FC<ModalProps> = ({
     if (isOpen) {
       // Store the previously focused element
       previousActiveElement.current = document.activeElement as HTMLElement;
-      
+
       // Focus the modal
       const focusableElement = modalRef.current?.querySelector(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
       ) as HTMLElement;
-      
+
       if (focusableElement) {
         focusableElement.focus();
       } else {
         modalRef.current?.focus();
       }
-      
+
       // Prevent body scroll
       if (preventScroll) {
-        document.body.style.overflow = 'hidden';
+        document.body.style.overflow = "hidden";
       }
     } else {
       // Restore focus to previously focused element
       if (previousActiveElement.current) {
         previousActiveElement.current.focus();
       }
-      
+
       // Restore body scroll
       if (preventScroll) {
-        document.body.style.overflow = '';
+        document.body.style.overflow = "";
       }
     }
 
     return () => {
       if (preventScroll) {
-        document.body.style.overflow = '';
+        document.body.style.overflow = "";
       }
     };
   }, [isOpen, preventScroll]);
 
   // Keyboard event handler
-  const handleKeyDown = useCallback((event: KeyboardEvent) => {
-    if (!isOpen) return;
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent) => {
+      if (!isOpen) return;
 
-    if (event.key === 'Escape' && closeOnEscape) {
-      event.preventDefault();
-      onClose();
-      return;
-    }
+      if (event.key === "Escape" && closeOnEscape) {
+        event.preventDefault();
+        onClose();
+        return;
+      }
 
-    if (event.key === 'Tab') {
-      // Trap focus within modal
-      const modal = modalRef.current;
-      if (!modal) return;
+      if (event.key === "Tab") {
+        // Trap focus within modal
+        const modal = modalRef.current;
+        if (!modal) return;
 
-      const focusableElements = modal.querySelectorAll(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-      );
-      
-      const firstFocusable = focusableElements[0] as HTMLElement;
-      const lastFocusable = focusableElements[focusableElements.length - 1] as HTMLElement;
+        const focusableElements = modal.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        );
 
-      if (event.shiftKey) {
-        // Shift + Tab
-        if (document.activeElement === firstFocusable) {
-          event.preventDefault();
-          lastFocusable?.focus();
-        }
-      } else {
-        // Tab
-        if (document.activeElement === lastFocusable) {
-          event.preventDefault();
-          firstFocusable?.focus();
+        const firstFocusable = focusableElements[0] as HTMLElement;
+        const lastFocusable = focusableElements[
+          focusableElements.length - 1
+        ] as HTMLElement;
+
+        if (event.shiftKey) {
+          // Shift + Tab
+          if (document.activeElement === firstFocusable) {
+            event.preventDefault();
+            lastFocusable?.focus();
+          }
+        } else {
+          // Tab
+          if (document.activeElement === lastFocusable) {
+            event.preventDefault();
+            firstFocusable?.focus();
+          }
         }
       }
-    }
-  }, [isOpen, closeOnEscape, onClose]);
+    },
+    [isOpen, closeOnEscape, onClose],
+  );
 
   // Add/remove event listeners
   useEffect(() => {
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
   // Handle overlay click
-  const handleOverlayClick = useCallback((event: React.MouseEvent) => {
-    if (event.target === event.currentTarget && closeOnOverlayClick) {
-      onClose();
-    }
-  }, [closeOnOverlayClick, onClose]);
+  const handleOverlayClick = useCallback(
+    (event: React.MouseEvent) => {
+      if (event.target === event.currentTarget && closeOnOverlayClick) {
+        onClose();
+      }
+    },
+    [closeOnOverlayClick, onClose],
+  );
 
   if (!isOpen) return null;
 
   const modalContent = (
-    <div 
+    <div
       className={`modal__overlay ${overlayClassName}`}
       onClick={handleOverlayClick}
       data-testid={`${testId}-overlay`}
@@ -162,10 +170,7 @@ export const Modal: React.FC<ModalProps> = ({
       >
         {/* Header */}
         <div className="modal__header">
-          <h2 
-            id={`${testId}-title`}
-            className="modal__title"
-          >
+          <h2 id={`${testId}-title`} className="modal__title">
             {title}
           </h2>
           {showCloseButton && (
@@ -197,16 +202,10 @@ export const Modal: React.FC<ModalProps> = ({
         </div>
 
         {/* Body */}
-        <div className="modal__body">
-          {children}
-        </div>
+        <div className="modal__body">{children}</div>
 
         {/* Footer */}
-        {footer && (
-          <div className="modal__footer">
-            {footer}
-          </div>
-        )}
+        {footer && <div className="modal__footer">{footer}</div>}
       </div>
     </div>
   );
@@ -224,7 +223,7 @@ export interface ConfirmModalProps {
   message: string;
   confirmText?: string;
   cancelText?: string;
-  variant?: 'default' | 'danger' | 'warning';
+  variant?: "default" | "danger" | "warning";
   isLoading?: boolean;
 }
 
@@ -234,9 +233,9 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   onConfirm,
   title,
   message,
-  confirmText = 'Confirm',
-  cancelText = 'Cancel',
-  variant = 'default',
+  confirmText = "Confirm",
+  cancelText = "Cancel",
+  variant = "default",
   isLoading = false,
 }) => {
   const handleConfirm = useCallback(() => {
@@ -246,9 +245,9 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   }, [onConfirm, isLoading]);
 
   const variantClasses = {
-    default: 'btn--primary',
-    danger: 'btn--danger',
-    warning: 'btn--warning',
+    default: "btn--primary",
+    danger: "btn--danger",
+    warning: "btn--warning",
   };
 
   const footer = (
@@ -269,7 +268,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
         disabled={isLoading}
         data-testid="confirm-modal-confirm"
       >
-        {isLoading ? 'Processing...' : confirmText}
+        {isLoading ? "Processing..." : confirmText}
       </button>
     </div>
   );

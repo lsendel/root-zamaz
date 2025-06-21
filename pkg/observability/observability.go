@@ -483,23 +483,24 @@ func (o *Observability) RecordErrorMetric(err error, path, method string) {
 //   - metadata - Additional contextual information about the event
 //
 // Example:
-//   obs.RecordBusinessMetric("user_login", "user-123", map[string]string{
-//       "role": "admin",
-//       "source": "web",
-//   })
+//
+//	obs.RecordBusinessMetric("user_login", "user-123", map[string]string{
+//	    "role": "admin",
+//	    "source": "web",
+//	})
 func (o *Observability) RecordBusinessMetric(eventType, userID string, metadata map[string]string) {
 	ctx := context.Background()
-	
+
 	attrs := []attribute.KeyValue{
 		attribute.String("event_type", eventType),
 		attribute.String("user_id", userID),
 	}
-	
+
 	// Add metadata as attributes
 	for key, value := range metadata {
 		attrs = append(attrs, attribute.String(key, value))
 	}
-	
+
 	o.businessMetricsCounter.Add(ctx, 1, metric.WithAttributes(attrs...))
 }
 
@@ -514,23 +515,24 @@ func (o *Observability) RecordBusinessMetric(eventType, userID string, metadata 
 //   - metadata - Additional contextual information about the event
 //
 // Example:
-//   obs.RecordSecurityEvent("failed_login", "medium", "user-123", map[string]string{
-//       "ip_address": "192.168.1.100",
-//       "user_agent": "Mozilla/5.0...",
-//   })
+//
+//	obs.RecordSecurityEvent("failed_login", "medium", "user-123", map[string]string{
+//	    "ip_address": "192.168.1.100",
+//	    "user_agent": "Mozilla/5.0...",
+//	})
 func (o *Observability) RecordSecurityEvent(eventType, severity, userID string, metadata map[string]string) {
 	ctx := context.Background()
-	
+
 	attrs := []attribute.KeyValue{
 		attribute.String("event_type", eventType),
 		attribute.String("severity", severity),
 		attribute.String("user_id", userID),
 	}
-	
+
 	// Add metadata as attributes
 	for key, value := range metadata {
 		attrs = append(attrs, attribute.String(key, value))
 	}
-	
+
 	o.securityEventsCounter.Add(ctx, 1, metric.WithAttributes(attrs...))
 }

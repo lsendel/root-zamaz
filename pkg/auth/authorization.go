@@ -404,12 +404,12 @@ func (a *AuthorizationService) HasPermission(userID string, permission string) b
 	if len(parts) != 2 {
 		return false
 	}
-	
+
 	allowed, err := a.Enforce(userID, parts[0], parts[1])
 	if err != nil {
 		return false
 	}
-	
+
 	return allowed
 }
 

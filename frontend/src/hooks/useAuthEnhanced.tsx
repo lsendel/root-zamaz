@@ -1,34 +1,36 @@
 /**
  * Enhanced Auth Hook - Clean Component Interface
- * 
+ *
  * Provides a React hook interface for the enhanced Zustand auth store,
  * maintaining component-friendly patterns while leveraging Zustand benefits.
  */
 
-import { useEffect } from 'react';
-import { useAuthStore } from '../stores/auth-store-enhanced';
-import type { LoginCredentials } from '../types/auth';
+import { useEffect } from "react";
+import { useAuthStore } from "../stores/auth-store-enhanced";
+import type { LoginCredentials } from "../types/auth";
 
 // Hook return type interface
 interface UseAuthReturn {
   // Core state
-  user: typeof useAuthStore extends (...args: any[]) => infer R ? R['user'] : never;
+  user: typeof useAuthStore extends (...args: any[]) => infer R
+    ? R["user"]
+    : never;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
   isInitialized: boolean;
-  
+
   // Enhanced state
   isAdmin: boolean;
   userRoles: string[];
   permissions: string[];
   lastActivity: number;
-  
+
   // Actions
   login: (credentials: LoginCredentials) => Promise<void>;
   logout: () => Promise<void>;
   clearError: () => void;
-  
+
   // Security helpers
   hasRole: (role: string) => boolean;
   hasPermission: (permission: string) => boolean;
@@ -36,7 +38,7 @@ interface UseAuthReturn {
   hasAllRoles: (roles: string[]) => boolean;
   hasAnyPermission: (permissions: string[]) => boolean;
   hasAllPermissions: (permissions: string[]) => boolean;
-  
+
   // Session helpers
   isSessionExpired: () => boolean;
   refreshSession: () => Promise<void>;
@@ -45,7 +47,7 @@ interface UseAuthReturn {
 
 /**
  * Enhanced authentication hook
- * 
+ *
  * Provides component-friendly interface to the Zustand auth store with
  * additional helper functions for role-based access control.
  */
@@ -87,19 +89,19 @@ export function useAuth(): UseAuthReturn {
   };
 
   const hasAnyRole = (roles: string[]): boolean => {
-    return roles.some(role => userRoles.includes(role));
+    return roles.some((role) => userRoles.includes(role));
   };
 
   const hasAllRoles = (roles: string[]): boolean => {
-    return roles.every(role => userRoles.includes(role));
+    return roles.every((role) => userRoles.includes(role));
   };
 
   const hasAnyPermission = (perms: string[]): boolean => {
-    return perms.some(permission => permissions.includes(permission));
+    return perms.some((permission) => permissions.includes(permission));
   };
 
   const hasAllPermissions = (perms: string[]): boolean => {
-    return perms.every(permission => permissions.includes(permission));
+    return perms.every((permission) => permissions.includes(permission));
   };
 
   // Session helpers
@@ -124,18 +126,18 @@ export function useAuth(): UseAuthReturn {
     isLoading,
     error,
     isInitialized,
-    
+
     // Enhanced state
     isAdmin,
     userRoles,
     permissions,
     lastActivity,
-    
+
     // Actions
     login,
     logout,
     clearError,
-    
+
     // Security helpers
     hasRole,
     hasPermission,
@@ -143,7 +145,7 @@ export function useAuth(): UseAuthReturn {
     hasAllRoles,
     hasAnyPermission,
     hasAllPermissions,
-    
+
     // Session helpers
     isSessionExpired,
     refreshSession,
@@ -156,7 +158,7 @@ export function useAuth(): UseAuthReturn {
  * Useful for app-level loading indicators
  */
 export function useAuthLoading() {
-  return useAuthStore(state => ({
+  return useAuthStore((state) => ({
     isLoading: state.isLoading,
     isInitialized: state.isInitialized,
   }));
@@ -167,7 +169,7 @@ export function useAuthLoading() {
  * Optimized for components that only need user data
  */
 export function useUser() {
-  return useAuthStore(state => ({
+  return useAuthStore((state) => ({
     user: state.user,
     isAuthenticated: state.isAuthenticated,
     isAdmin: state.isAdmin,
@@ -180,7 +182,7 @@ export function useUser() {
  * Optimized for role-based access control
  */
 export function usePermissions() {
-  const { userRoles, permissions, isAuthenticated } = useAuthStore(state => ({
+  const { userRoles, permissions, isAuthenticated } = useAuthStore((state) => ({
     userRoles: state.userRoles,
     permissions: state.permissions,
     isAuthenticated: state.isAuthenticated,
@@ -195,11 +197,14 @@ export function usePermissions() {
   };
 
   const hasAnyRole = (roles: string[]): boolean => {
-    return isAuthenticated && roles.some(role => userRoles.includes(role));
+    return isAuthenticated && roles.some((role) => userRoles.includes(role));
   };
 
   const hasAnyPermission = (perms: string[]): boolean => {
-    return isAuthenticated && perms.some(permission => permissions.includes(permission));
+    return (
+      isAuthenticated &&
+      perms.some((permission) => permissions.includes(permission))
+    );
   };
 
   return {
@@ -215,13 +220,13 @@ export function usePermissions() {
 
 /**
  * Legacy compatibility hook
- * 
+ *
  * Provides the same interface as the old useAuth hook for
  * backward compatibility during migration.
  */
 export function useAuthLegacy() {
   const auth = useAuth();
-  
+
   return {
     user: auth.user,
     isLoading: auth.isLoading,

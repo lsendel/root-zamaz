@@ -78,7 +78,7 @@ func (h *EnhancedAdminHandler) GetUsers(c *fiber.Ctx) error {
 	if userID := c.Locals("userId"); userID != nil {
 		adminID = userID.(string)
 	}
-	
+
 	h.obs.RecordBusinessMetric("admin_users_listed", adminID, map[string]string{
 		"count": strconv.Itoa(len(result.Data)),
 	})

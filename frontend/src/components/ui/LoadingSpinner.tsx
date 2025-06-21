@@ -1,50 +1,52 @@
 /**
  * Loading Spinner Component
- * 
+ *
  * Consistent loading indicator across the application with
  * multiple size variants and accessibility support.
  */
 
-import React from 'react';
-import './LoadingSpinner.css';
+import React from "react";
+import "./LoadingSpinner.css";
 
 export interface LoadingSpinnerProps {
-  size?: 'sm' | 'md' | 'lg' | 'xl';
-  color?: 'primary' | 'secondary' | 'white' | 'current';
+  size?: "sm" | "md" | "lg" | "xl";
+  color?: "primary" | "secondary" | "white" | "current";
   text?: string;
   className?: string;
   overlay?: boolean;
-  'data-testid'?: string;
+  "data-testid"?: string;
 }
 
 const sizeClasses = {
-  sm: 'loading-spinner--sm',
-  md: 'loading-spinner--md', 
-  lg: 'loading-spinner--lg',
-  xl: 'loading-spinner--xl',
+  sm: "loading-spinner--sm",
+  md: "loading-spinner--md",
+  lg: "loading-spinner--lg",
+  xl: "loading-spinner--xl",
 } as const;
 
 const colorClasses = {
-  primary: 'loading-spinner--primary',
-  secondary: 'loading-spinner--secondary',
-  white: 'loading-spinner--white',
-  current: 'loading-spinner--current',
+  primary: "loading-spinner--primary",
+  secondary: "loading-spinner--secondary",
+  white: "loading-spinner--white",
+  current: "loading-spinner--current",
 } as const;
 
 export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
-  size = 'md',
-  color = 'primary',
+  size = "md",
+  color = "primary",
   text,
-  className = '',
+  className = "",
   overlay = false,
-  'data-testid': testId = 'loading-spinner',
+  "data-testid": testId = "loading-spinner",
 }) => {
   const spinnerClasses = [
-    'loading-spinner',
+    "loading-spinner",
     sizeClasses[size],
     colorClasses[color],
     className,
-  ].filter(Boolean).join(' ');
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   const spinner = (
     <div className={spinnerClasses} data-testid={testId}>
@@ -54,7 +56,7 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         role="progressbar"
-        aria-label={text || 'Loading'}
+        aria-label={text || "Loading"}
         aria-describedby={text ? `${testId}-text` : undefined}
       >
         <circle
@@ -70,7 +72,7 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
         />
       </svg>
       {text && (
-        <span 
+        <span
           id={`${testId}-text`}
           className="loading-spinner__text"
           aria-live="polite"
@@ -83,8 +85,8 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
 
   if (overlay) {
     return (
-      <div 
-        className="loading-spinner-overlay" 
+      <div
+        className="loading-spinner-overlay"
         data-testid={`${testId}-overlay`}
         role="progressbar"
         aria-label="Loading overlay"
@@ -98,14 +100,21 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
 };
 
 // Specialized loading components
-export const FullPageLoader: React.FC<{ text?: string }> = ({ text = 'Loading application...' }) => (
+export const FullPageLoader: React.FC<{ text?: string }> = ({
+  text = "Loading application...",
+}) => (
   <div className="loading-spinner-fullpage" data-testid="fullpage-loader">
     <LoadingSpinner size="lg" text={text} />
   </div>
 );
 
 export const InlineLoader: React.FC<{ text?: string }> = ({ text }) => (
-  <LoadingSpinner size="sm" color="current" text={text} data-testid="inline-loader" />
+  <LoadingSpinner
+    size="sm"
+    color="current"
+    text={text}
+    data-testid="inline-loader"
+  />
 );
 
 export const ButtonLoader: React.FC = () => (

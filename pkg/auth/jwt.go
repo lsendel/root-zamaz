@@ -201,19 +201,19 @@ func (j *JWTService) GenerateTokenPair(userID, email string, roles []models.Role
 	if err != nil {
 		return nil, errors.Wrap(err, errors.CodeValidation, "Invalid user ID format")
 	}
-	
+
 	// Create a User object for the existing GenerateToken method
 	user := &models.User{
 		ID:    parsedID,
 		Email: email,
 		Roles: roles,
 	}
-	
+
 	// Extract role names and permissions
 	roleNames := make([]string, len(roles))
 	var allPermissions []string
 	permissionSet := make(map[string]bool)
-	
+
 	for i, role := range roles {
 		roleNames[i] = role.Name
 		for _, perm := range role.Permissions {
@@ -224,7 +224,7 @@ func (j *JWTService) GenerateTokenPair(userID, email string, roles []models.Role
 			}
 		}
 	}
-	
+
 	return j.GenerateToken(user, roleNames, allPermissions)
 }
 

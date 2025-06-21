@@ -1,295 +1,317 @@
-import { useState, useEffect } from 'react'
-import { useAuth } from '../hooks/useAuth'
-import { adminService } from '../services'
-import { Role, Permission, UserWithRoles } from '../types/auth'
+import { useState, useEffect } from "react";
+import { useAuth } from "../hooks/useAuth";
+import { adminService } from "../services";
+import { Role, Permission, UserWithRoles } from "../types/auth";
 
 interface AdminPanelProps {
-  onClose: () => void
+  onClose: () => void;
 }
 
 export default function AdminPanel({ onClose }: AdminPanelProps) {
-  const { user, isAdmin, isLoading } = useAuth()
-  
+  const { user, isAdmin, isLoading } = useAuth();
+
   // Use consistent authentication state from useAuth hook
-  const shouldShowAdminPanel = user?.is_admin || isAdmin
-  
+  const shouldShowAdminPanel = user?.is_admin || isAdmin;
+
   // Debug logging
-  console.log('AdminPanel render:', { 
-    user: user ? { id: user.id, username: user.username, is_admin: user.is_admin } : null, 
-    isAdmin, 
-    isLoading 
-  })
-  const [activeTab, setActiveTab] = useState<'permissions' | 'roles' | 'users'>('permissions')
-  const [userPermissions, setUserPermissions] = useState<string[]>([])
-  const [roles, setRoles] = useState<Role[]>([])
-  const [permissions, setPermissions] = useState<Permission[]>([])
-  const [users, setUsers] = useState<UserWithRoles[]>([])
-  const [filteredUsers, setFilteredUsers] = useState<UserWithRoles[]>([])
-  const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  console.log("AdminPanel render:", {
+    user: user
+      ? { id: user.id, username: user.username, is_admin: user.is_admin }
+      : null,
+    isAdmin,
+    isLoading,
+  });
+  const [activeTab, setActiveTab] = useState<"permissions" | "roles" | "users">(
+    "permissions",
+  );
+  const [userPermissions, setUserPermissions] = useState<string[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [permissions, setPermissions] = useState<Permission[]>([]);
+  const [users, setUsers] = useState<UserWithRoles[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<UserWithRoles[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Role form state
-  const [newRole, setNewRole] = useState({ name: '', description: '' })
-  const [editingRole, setEditingRole] = useState<Role | null>(null)
+  const [newRole, setNewRole] = useState({ name: "", description: "" });
+  const [editingRole, setEditingRole] = useState<Role | null>(null);
 
   // User editing state
-  const [editingUser, setEditingUser] = useState<UserWithRoles | null>(null)
+  const [editingUser, setEditingUser] = useState<UserWithRoles | null>(null);
   const [userEditForm, setUserEditForm] = useState({
-    username: '',
-    email: '',
-    first_name: '',
-    last_name: '',
+    username: "",
+    email: "",
+    first_name: "",
+    last_name: "",
     is_active: true,
-    is_admin: false
-  })
+    is_admin: false,
+  });
 
   useEffect(() => {
-    if (!shouldShowAdminPanel) return
+    if (!shouldShowAdminPanel) return;
 
     const loadAdminData = async () => {
       try {
-        setLoading(true)
-        setError(null)
+        setLoading(true);
+        setError(null);
 
         // Extract permissions from user roles for display
-        const currentUserPermissions = user?.roles?.flatMap(role => 
-          role.split(':').length > 1 ? [role] : []
-        ) || []
-        setUserPermissions(currentUserPermissions)
+        const currentUserPermissions =
+          user?.roles?.flatMap((role) =>
+            role.split(":").length > 1 ? [role] : [],
+          ) || [];
+        setUserPermissions(currentUserPermissions);
 
         // Load all admin data with proper error handling
-        const [rolesResponse, permissionsResponse, usersResponse] = await Promise.all([
-          adminService.getRoles().catch((err) => {
-            console.error('Failed to load roles:', err)
-            return { data: [] }
-          }),
-          adminService.getPermissions().catch((err) => {
-            console.error('Failed to load permissions:', err)
-            return { data: [] }
-          }),
-          adminService.getUsers().catch((err) => {
-            console.error('Failed to load users:', err)
-            return { data: [] }
-          })
-        ])
+        const [rolesResponse, permissionsResponse, usersResponse] =
+          await Promise.all([
+            adminService.getRoles().catch((err) => {
+              console.error("Failed to load roles:", err);
+              return { data: [] };
+            }),
+            adminService.getPermissions().catch((err) => {
+              console.error("Failed to load permissions:", err);
+              return { data: [] };
+            }),
+            adminService.getUsers().catch((err) => {
+              console.error("Failed to load users:", err);
+              return { data: [] };
+            }),
+          ]);
 
-        const rolesData = rolesResponse.data
-        const permissionsData = permissionsResponse.data
-        const usersData = usersResponse.data
+        const rolesData = rolesResponse.data;
+        const permissionsData = permissionsResponse.data;
+        const usersData = usersResponse.data;
 
-        setRoles(rolesData)
-        setPermissions(permissionsData)
-        setUsers(usersData)
-        setFilteredUsers(usersData)
+        setRoles(rolesData);
+        setPermissions(permissionsData);
+        setUsers(usersData);
+        setFilteredUsers(usersData);
       } catch (err: any) {
-        setError(err.message || 'Failed to load admin data')
+        setError(err.message || "Failed to load admin data");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    loadAdminData()
-  }, [shouldShowAdminPanel, user])
+    loadAdminData();
+  }, [shouldShowAdminPanel, user]);
 
   // Filter users based on search term and status filter
   useEffect(() => {
-    let filtered = users
+    let filtered = users;
 
     // Apply search filter
     if (searchTerm) {
-      filtered = filtered.filter(user =>
-        user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        `${user.first_name || ''} ${user.last_name || ''}`.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+      filtered = filtered.filter(
+        (user) =>
+          user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          `${user.first_name || ""} ${user.last_name || ""}`
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase()),
+      );
     }
 
     // Apply status filter
     if (statusFilter) {
       switch (statusFilter) {
-        case 'active':
-          filtered = filtered.filter(user => user.is_active)
-          break
-        case 'inactive':
-          filtered = filtered.filter(user => !user.is_active)
-          break
-        case 'admin':
-          filtered = filtered.filter(user => user.is_admin)
-          break
+        case "active":
+          filtered = filtered.filter((user) => user.is_active);
+          break;
+        case "inactive":
+          filtered = filtered.filter((user) => !user.is_active);
+          break;
+        case "admin":
+          filtered = filtered.filter((user) => user.is_admin);
+          break;
       }
     }
 
-    setFilteredUsers(filtered)
-  }, [users, searchTerm, statusFilter])
+    setFilteredUsers(filtered);
+  }, [users, searchTerm, statusFilter]);
 
   const handleCreateRole = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!newRole.name.trim()) return
+    e.preventDefault();
+    if (!newRole.name.trim()) return;
 
     try {
-      setError(null)
-      const response = await adminService.createRole(newRole)
-      const createdRole = response.data
-      setRoles([...roles, createdRole])
-      setNewRole({ name: '', description: '' })
+      setError(null);
+      const response = await adminService.createRole(newRole);
+      const createdRole = response.data;
+      setRoles([...roles, createdRole]);
+      setNewRole({ name: "", description: "" });
     } catch (err: any) {
-      const errorMessage = err.message || 'Failed to create role'
-      console.error('Create role error:', err)
-      setError(errorMessage)
+      const errorMessage = err.message || "Failed to create role";
+      console.error("Create role error:", err);
+      setError(errorMessage);
     }
-  }
+  };
 
   const handleUpdateRole = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!editingRole) return
+    e.preventDefault();
+    if (!editingRole) return;
 
     try {
-      setError(null)
+      setError(null);
       const response = await adminService.updateRole(editingRole.id, {
         name: editingRole.name,
         description: editingRole.description,
-        is_active: editingRole.is_active
-      })
-      const updatedRole = response.data
-      setRoles(roles.map(r => r.id === updatedRole.id ? updatedRole : r))
-      setEditingRole(null)
+        is_active: editingRole.is_active,
+      });
+      const updatedRole = response.data;
+      setRoles(roles.map((r) => (r.id === updatedRole.id ? updatedRole : r)));
+      setEditingRole(null);
     } catch (err: any) {
-      const errorMessage = err.message || 'Failed to update role'
-      console.error('Update role error:', err)
-      setError(errorMessage)
+      const errorMessage = err.message || "Failed to update role";
+      console.error("Update role error:", err);
+      setError(errorMessage);
     }
-  }
+  };
 
   const handleDeleteRole = async (roleId: string) => {
-    if (!confirm('Are you sure you want to delete this role?')) return
+    if (!confirm("Are you sure you want to delete this role?")) return;
 
     try {
-      setError(null)
-      await adminService.deleteRole(roleId)
-      setRoles(roles.filter(r => r.id !== roleId))
+      setError(null);
+      await adminService.deleteRole(roleId);
+      setRoles(roles.filter((r) => r.id !== roleId));
     } catch (err: any) {
-      const errorMessage = err.message || 'Failed to delete role'
-      console.error('Delete role error:', err)
-      setError(errorMessage)
+      const errorMessage = err.message || "Failed to delete role";
+      console.error("Delete role error:", err);
+      setError(errorMessage);
     }
-  }
+  };
 
   const handleAssignRoleToUser = async (userId: number, roleId: string) => {
     try {
-      setError(null)
-      await adminService.assignRoleToUser(userId, roleId)
+      setError(null);
+      await adminService.assignRoleToUser(userId, roleId);
       // Reload users to show updated roles
-      const response = await adminService.getUsers()
-      const updatedUsers = response.data
-      setUsers(updatedUsers)
+      const response = await adminService.getUsers();
+      const updatedUsers = response.data;
+      setUsers(updatedUsers);
       // Filtering will be handled by the useEffect
     } catch (err: any) {
-      const errorMessage = err.message || 'Failed to assign role to user'
-      console.error('Assign role error:', err)
-      setError(errorMessage)
+      const errorMessage = err.message || "Failed to assign role to user";
+      console.error("Assign role error:", err);
+      setError(errorMessage);
     }
-  }
+  };
 
   const handleRemoveRoleFromUser = async (userId: number, roleId: string) => {
     try {
-      setError(null)
-      await adminService.removeRoleFromUser(userId, roleId)
+      setError(null);
+      await adminService.removeRoleFromUser(userId, roleId);
       // Reload users to show updated roles
-      const response = await adminService.getUsers()
-      const updatedUsers = response.data
-      setUsers(updatedUsers)
+      const response = await adminService.getUsers();
+      const updatedUsers = response.data;
+      setUsers(updatedUsers);
       // Filtering will be handled by the useEffect
     } catch (err: any) {
-      const errorMessage = err.message || 'Failed to remove role from user'
-      console.error('Remove role error:', err)
-      setError(errorMessage)
+      const errorMessage = err.message || "Failed to remove role from user";
+      console.error("Remove role error:", err);
+      setError(errorMessage);
     }
-  }
+  };
 
   const handleEditUser = (user: UserWithRoles) => {
-    setEditingUser(user)
+    setEditingUser(user);
     setUserEditForm({
       username: user.username,
       email: user.email,
-      first_name: user.first_name || '',
-      last_name: user.last_name || '',
+      first_name: user.first_name || "",
+      last_name: user.last_name || "",
       is_active: user.is_active,
-      is_admin: user.is_admin
-    })
-  }
+      is_admin: user.is_admin,
+    });
+  };
 
   const handleUpdateUser = async () => {
-    if (!editingUser) return
+    if (!editingUser) return;
 
     try {
-      setError(null)
-      await adminService.updateUser(editingUser.id, userEditForm)
+      setError(null);
+      await adminService.updateUser(editingUser.id, userEditForm);
       // Reload users to show updated information
-      const response = await adminService.getUsers()
-      const updatedUsers = response.data
-      setUsers(updatedUsers)
-      setEditingUser(null)
+      const response = await adminService.getUsers();
+      const updatedUsers = response.data;
+      setUsers(updatedUsers);
+      setEditingUser(null);
       setUserEditForm({
-        username: '',
-        email: '',
-        first_name: '',
-        last_name: '',
+        username: "",
+        email: "",
+        first_name: "",
+        last_name: "",
         is_active: true,
-        is_admin: false
-      })
+        is_admin: false,
+      });
     } catch (err: any) {
-      const errorMessage = err.message || 'Failed to update user'
-      console.error('Update user error:', err)
-      setError(errorMessage)
+      const errorMessage = err.message || "Failed to update user";
+      console.error("Update user error:", err);
+      setError(errorMessage);
     }
-  }
+  };
 
-  const handleToggleUserStatus = async (userId: number, currentStatus: boolean) => {
+  const handleToggleUserStatus = async (
+    userId: number,
+    currentStatus: boolean,
+  ) => {
     try {
-      setError(null)
-      await adminService.updateUser(userId, { is_active: !currentStatus })
+      setError(null);
+      await adminService.updateUser(userId, { is_active: !currentStatus });
       // Reload users to show updated status
-      const response = await adminService.getUsers()
-      const updatedUsers = response.data
-      setUsers(updatedUsers)
+      const response = await adminService.getUsers();
+      const updatedUsers = response.data;
+      setUsers(updatedUsers);
     } catch (err: any) {
-      const errorMessage = err.message || 'Failed to toggle user status'
-      console.error('Toggle user status error:', err)
-      setError(errorMessage)
+      const errorMessage = err.message || "Failed to toggle user status";
+      console.error("Toggle user status error:", err);
+      setError(errorMessage);
     }
-  }
+  };
 
-  const handleToggleAdminStatus = async (userId: number, currentStatus: boolean) => {
-    if (!confirm(`Are you sure you want to ${currentStatus ? 'remove admin privileges from' : 'grant admin privileges to'} this user?`)) return
+  const handleToggleAdminStatus = async (
+    userId: number,
+    currentStatus: boolean,
+  ) => {
+    if (
+      !confirm(
+        `Are you sure you want to ${currentStatus ? "remove admin privileges from" : "grant admin privileges to"} this user?`,
+      )
+    )
+      return;
 
     try {
-      setError(null)
-      await adminService.updateUser(userId, { is_admin: !currentStatus })
+      setError(null);
+      await adminService.updateUser(userId, { is_admin: !currentStatus });
       // Reload users to show updated admin status
-      const response = await adminService.getUsers()
-      const updatedUsers = response.data
-      setUsers(updatedUsers)
+      const response = await adminService.getUsers();
+      const updatedUsers = response.data;
+      setUsers(updatedUsers);
     } catch (err: any) {
-      const errorMessage = err.message || 'Failed to toggle admin status'
-      console.error('Toggle admin status error:', err)
-      setError(errorMessage)
+      const errorMessage = err.message || "Failed to toggle admin status";
+      console.error("Toggle admin status error:", err);
+      setError(errorMessage);
     }
-  }
+  };
 
   if (!shouldShowAdminPanel) {
     return (
       <div className="admin-panel">
         <div className="admin-panel-header">
           <h2>Access Denied</h2>
-          <button onClick={onClose} className="close-btn">×</button>
+          <button onClick={onClose} className="close-btn">
+            ×
+          </button>
         </div>
         <div className="admin-panel-content">
           <p>You do not have administrator privileges.</p>
         </div>
       </div>
-    )
+    );
   }
 
   if (loading) {
@@ -297,45 +319,52 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
       <div className="admin-panel">
         <div className="admin-panel-header">
           <h2>Admin Panel</h2>
-          <button onClick={onClose} className="close-btn">×</button>
+          <button onClick={onClose} className="close-btn">
+            ×
+          </button>
         </div>
         <div className="admin-panel-content">
           <p>Loading admin data...</p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
     <div className="admin-panel">
       <div className="admin-panel-header">
         <h2>Admin Panel</h2>
-        <button onClick={onClose} className="close-btn">×</button>
+        <button onClick={onClose} className="close-btn">
+          ×
+        </button>
       </div>
 
       {error && (
-        <div className="error-message" style={{ 
-          background: '#ff4444', 
-          color: 'white', 
-          padding: '1rem', 
-          margin: '1rem 0', 
-          borderRadius: '4px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
+        <div
+          className="error-message"
+          style={{
+            background: "#ff4444",
+            color: "white",
+            padding: "1rem",
+            margin: "1rem 0",
+            borderRadius: "4px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
           <div>
             <strong>Error:</strong> {error}
           </div>
-          <button 
+          <button
             onClick={() => setError(null)}
-            style={{ 
-              background: 'transparent', 
-              border: 'none', 
-              color: 'white', 
-              fontSize: '1.2rem',
-              cursor: 'pointer',
-              padding: '0 0.5rem'
+            style={{
+              background: "transparent",
+              border: "none",
+              color: "white",
+              fontSize: "1.2rem",
+              cursor: "pointer",
+              padding: "0 0.5rem",
             }}
             title="Dismiss error"
           >
@@ -345,37 +374,45 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
       )}
 
       <div className="admin-tabs">
-        <button 
-          className={activeTab === 'permissions' ? 'active' : ''}
-          onClick={() => setActiveTab('permissions')}
+        <button
+          className={activeTab === "permissions" ? "active" : ""}
+          onClick={() => setActiveTab("permissions")}
         >
           My Permissions
         </button>
-        <button 
-          className={activeTab === 'roles' ? 'active' : ''}
-          onClick={() => setActiveTab('roles')}
+        <button
+          className={activeTab === "roles" ? "active" : ""}
+          onClick={() => setActiveTab("roles")}
         >
           Role Management
         </button>
-        <button 
-          className={activeTab === 'users' ? 'active' : ''}
-          onClick={() => setActiveTab('users')}
+        <button
+          className={activeTab === "users" ? "active" : ""}
+          onClick={() => setActiveTab("users")}
         >
           User Management
         </button>
       </div>
 
       <div className="admin-panel-content">
-        {activeTab === 'permissions' && (
+        {activeTab === "permissions" && (
           <div className="permissions-section">
             <h3>Your Current Permissions</h3>
             <div className="user-info">
-              <p><strong>Username:</strong> {user?.username}</p>
-              <p><strong>Email:</strong> {user?.email}</p>
-              <p><strong>Roles:</strong> {user?.roles?.join(', ') || 'None'}</p>
-              <p><strong>Admin Status:</strong> {user?.is_admin ? 'Yes' : 'No'}</p>
+              <p>
+                <strong>Username:</strong> {user?.username}
+              </p>
+              <p>
+                <strong>Email:</strong> {user?.email}
+              </p>
+              <p>
+                <strong>Roles:</strong> {user?.roles?.join(", ") || "None"}
+              </p>
+              <p>
+                <strong>Admin Status:</strong> {user?.is_admin ? "Yes" : "No"}
+              </p>
             </div>
-            
+
             <h4>Available Permissions:</h4>
             {userPermissions.length > 0 ? (
               <ul className="permissions-list">
@@ -386,19 +423,30 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                 ))}
               </ul>
             ) : (
-              <p>No specific permissions found. Check your roles for inherited permissions.</p>
+              <p>
+                No specific permissions found. Check your roles for inherited
+                permissions.
+              </p>
             )}
 
             <h4>All System Permissions:</h4>
             <div className="permissions-grid">
-              {permissions.map(permission => (
+              {permissions.map((permission) => (
                 <div key={permission.id} className="permission-card">
                   <h5>{permission.name}</h5>
-                  <p><strong>Resource:</strong> {permission.resource}</p>
-                  <p><strong>Action:</strong> {permission.action}</p>
-                  <p><strong>Description:</strong> {permission.description}</p>
-                  <span className={`status ${permission.is_active ? 'active' : 'inactive'}`}>
-                    {permission.is_active ? 'Active' : 'Inactive'}
+                  <p>
+                    <strong>Resource:</strong> {permission.resource}
+                  </p>
+                  <p>
+                    <strong>Action:</strong> {permission.action}
+                  </p>
+                  <p>
+                    <strong>Description:</strong> {permission.description}
+                  </p>
+                  <span
+                    className={`status ${permission.is_active ? "active" : "inactive"}`}
+                  >
+                    {permission.is_active ? "Active" : "Inactive"}
                   </span>
                 </div>
               ))}
@@ -406,10 +454,10 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
           </div>
         )}
 
-        {activeTab === 'roles' && (
+        {activeTab === "roles" && (
           <div className="roles-section">
             <h3>Role Management</h3>
-            
+
             {/* Create new role form */}
             <div className="create-role-form">
               <h4>Create New Role</h4>
@@ -419,7 +467,9 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                   <input
                     type="text"
                     value={newRole.name}
-                    onChange={(e) => setNewRole({...newRole, name: e.target.value})}
+                    onChange={(e) =>
+                      setNewRole({ ...newRole, name: e.target.value })
+                    }
                     placeholder="Enter role name"
                     required
                   />
@@ -428,7 +478,9 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                   <label>Description:</label>
                   <textarea
                     value={newRole.description}
-                    onChange={(e) => setNewRole({...newRole, description: e.target.value})}
+                    onChange={(e) =>
+                      setNewRole({ ...newRole, description: e.target.value })
+                    }
                     placeholder="Enter role description"
                   />
                 </div>
@@ -446,7 +498,9 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                     <input
                       type="text"
                       value={editingRole.name}
-                      onChange={(e) => setEditingRole({...editingRole, name: e.target.value})}
+                      onChange={(e) =>
+                        setEditingRole({ ...editingRole, name: e.target.value })
+                      }
                       required
                     />
                   </div>
@@ -454,7 +508,12 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                     <label>Description:</label>
                     <textarea
                       value={editingRole.description}
-                      onChange={(e) => setEditingRole({...editingRole, description: e.target.value})}
+                      onChange={(e) =>
+                        setEditingRole({
+                          ...editingRole,
+                          description: e.target.value,
+                        })
+                      }
                     />
                   </div>
                   <div className="form-group">
@@ -462,14 +521,21 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                       <input
                         type="checkbox"
                         checked={editingRole.is_active}
-                        onChange={(e) => setEditingRole({...editingRole, is_active: e.target.checked})}
+                        onChange={(e) =>
+                          setEditingRole({
+                            ...editingRole,
+                            is_active: e.target.checked,
+                          })
+                        }
                       />
                       Active
                     </label>
                   </div>
                   <div className="form-actions">
                     <button type="submit">Update Role</button>
-                    <button type="button" onClick={() => setEditingRole(null)}>Cancel</button>
+                    <button type="button" onClick={() => setEditingRole(null)}>
+                      Cancel
+                    </button>
                   </div>
                 </form>
               </div>
@@ -478,18 +544,25 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
             {/* Roles list */}
             <div className="roles-list">
               <h4>Existing Roles</h4>
-              {roles.map(role => (
+              {roles.map((role) => (
                 <div key={role.id} className="role-card">
                   <div className="role-info">
                     <h5>{role.name}</h5>
                     <p>{role.description}</p>
-                    <span className={`status ${role.is_active ? 'active' : 'inactive'}`}>
-                      {role.is_active ? 'Active' : 'Inactive'}
+                    <span
+                      className={`status ${role.is_active ? "active" : "inactive"}`}
+                    >
+                      {role.is_active ? "Active" : "Inactive"}
                     </span>
                   </div>
                   <div className="role-actions">
                     <button onClick={() => setEditingRole(role)}>Edit</button>
-                    <button onClick={() => handleDeleteRole(role.id)} className="danger">Delete</button>
+                    <button
+                      onClick={() => handleDeleteRole(role.id)}
+                      className="danger"
+                    >
+                      Delete
+                    </button>
                   </div>
                 </div>
               ))}
@@ -497,10 +570,10 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
           </div>
         )}
 
-        {activeTab === 'users' && (
+        {activeTab === "users" && (
           <div className="users-section">
             <h3>User Management</h3>
-            
+
             {/* User Statistics */}
             <div className="user-stats">
               <div className="stat-card">
@@ -509,15 +582,21 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
               </div>
               <div className="stat-card">
                 <h4>Active Users</h4>
-                <span className="stat-number">{users.filter(u => u.is_active).length}</span>
+                <span className="stat-number">
+                  {users.filter((u) => u.is_active).length}
+                </span>
               </div>
               <div className="stat-card">
                 <h4>Admin Users</h4>
-                <span className="stat-number">{users.filter(u => u.is_admin).length}</span>
+                <span className="stat-number">
+                  {users.filter((u) => u.is_admin).length}
+                </span>
               </div>
               <div className="stat-card">
                 <h4>Users with Roles</h4>
-                <span className="stat-number">{users.filter(u => u.roles && u.roles.length > 0).length}</span>
+                <span className="stat-number">
+                  {users.filter((u) => u.roles && u.roles.length > 0).length}
+                </span>
               </div>
             </div>
 
@@ -530,7 +609,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="user-search"
               />
-              <select 
+              <select
                 className="status-filter"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
@@ -541,57 +620,90 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                 <option value="admin">Admins Only</option>
               </select>
             </div>
-            
+
             {/* Display filtered results count */}
             <div className="filter-results">
-              <p>Showing {filteredUsers.length} of {users.length} users</p>
+              <p>
+                Showing {filteredUsers.length} of {users.length} users
+              </p>
               {searchTerm && <p>Search: "{searchTerm}"</p>}
               {statusFilter && <p>Filter: {statusFilter}</p>}
             </div>
-            
+
             <div className="users-list">
-              {filteredUsers.map(user => (
+              {filteredUsers.map((user) => (
                 <div key={user.id} className="user-card">
                   <div className="user-info">
                     <div className="user-header">
                       <h5>{user.username}</h5>
-                      <span className={`user-badge ${user.is_admin ? 'admin' : 'user'}`}>
-                        {user.is_admin ? 'ADMIN' : 'USER'}
+                      <span
+                        className={`user-badge ${user.is_admin ? "admin" : "user"}`}
+                      >
+                        {user.is_admin ? "ADMIN" : "USER"}
                       </span>
-                      <span className={`status-badge ${user.is_active ? 'active' : 'inactive'}`}>
-                        {user.is_active ? 'ACTIVE' : 'INACTIVE'}
+                      <span
+                        className={`status-badge ${user.is_active ? "active" : "inactive"}`}
+                      >
+                        {user.is_active ? "ACTIVE" : "INACTIVE"}
                       </span>
                     </div>
-                    <p><strong>ID:</strong> {user.id}</p>
-                    <p><strong>Email:</strong> {user.email}</p>
-                    <p><strong>Name:</strong> {user.first_name || 'N/A'} {user.last_name || ''}</p>
-                    <p><strong>Created:</strong> {new Date(user.created_at).toLocaleDateString()}</p>
-                    <p><strong>Last Updated:</strong> {new Date(user.updated_at).toLocaleDateString()}</p>
-                    <p><strong>Roles:</strong> {user.roles?.map(r => r.name).join(', ') || 'None assigned'}</p>
-                    <p><strong>Role Count:</strong> {user.roles?.length || 0}</p>
+                    <p>
+                      <strong>ID:</strong> {user.id}
+                    </p>
+                    <p>
+                      <strong>Email:</strong> {user.email}
+                    </p>
+                    <p>
+                      <strong>Name:</strong> {user.first_name || "N/A"}{" "}
+                      {user.last_name || ""}
+                    </p>
+                    <p>
+                      <strong>Created:</strong>{" "}
+                      {new Date(user.created_at).toLocaleDateString()}
+                    </p>
+                    <p>
+                      <strong>Last Updated:</strong>{" "}
+                      {new Date(user.updated_at).toLocaleDateString()}
+                    </p>
+                    <p>
+                      <strong>Roles:</strong>{" "}
+                      {user.roles?.map((r) => r.name).join(", ") ||
+                        "None assigned"}
+                    </p>
+                    <p>
+                      <strong>Role Count:</strong> {user.roles?.length || 0}
+                    </p>
                   </div>
                   <div className="user-actions">
                     <div className="user-role-management">
                       <h6>Role Management:</h6>
                       <div className="role-assignments">
-                        {roles.map(role => {
-                          const hasRole = user.roles?.some(r => r.id === role.id)
+                        {roles.map((role) => {
+                          const hasRole = user.roles?.some(
+                            (r) => r.id === role.id,
+                          );
                           return (
                             <div key={role.id} className="role-assignment">
-                              <span className={`role-name ${hasRole ? 'assigned' : ''}`}>
+                              <span
+                                className={`role-name ${hasRole ? "assigned" : ""}`}
+                              >
                                 {role.name}
                               </span>
                               {hasRole ? (
-                                <button 
-                                  onClick={() => handleRemoveRoleFromUser(user.id, role.id)}
+                                <button
+                                  onClick={() =>
+                                    handleRemoveRoleFromUser(user.id, role.id)
+                                  }
                                   className="remove-role"
                                   title="Remove this role from user"
                                 >
                                   ✕ Remove
                                 </button>
                               ) : (
-                                <button 
-                                  onClick={() => handleAssignRoleToUser(user.id, role.id)}
+                                <button
+                                  onClick={() =>
+                                    handleAssignRoleToUser(user.id, role.id)
+                                  }
                                   className="assign-role"
                                   title="Assign this role to user"
                                 >
@@ -599,34 +711,38 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                                 </button>
                               )}
                             </div>
-                          )
+                          );
                         })}
                       </div>
                     </div>
-                    
+
                     <div className="user-management-actions">
                       <h6>Account Actions:</h6>
                       <div className="action-buttons">
-                        <button 
+                        <button
                           className="edit-user"
                           onClick={() => handleEditUser(user)}
                           title="Edit user details"
                         >
                           📝 Edit User
                         </button>
-                        <button 
-                          className={`toggle-status ${user.is_active ? 'deactivate' : 'activate'}`}
-                          onClick={() => handleToggleUserStatus(user.id, user.is_active)}
-                          title={`${user.is_active ? 'Deactivate' : 'Activate'} this user`}
+                        <button
+                          className={`toggle-status ${user.is_active ? "deactivate" : "activate"}`}
+                          onClick={() =>
+                            handleToggleUserStatus(user.id, user.is_active)
+                          }
+                          title={`${user.is_active ? "Deactivate" : "Activate"} this user`}
                         >
-                          {user.is_active ? '🚫 Deactivate' : '✅ Activate'}
+                          {user.is_active ? "🚫 Deactivate" : "✅ Activate"}
                         </button>
-                        <button 
-                          className={`toggle-admin ${user.is_admin ? 'remove-admin' : 'make-admin'}`}
-                          onClick={() => handleToggleAdminStatus(user.id, user.is_admin)}
-                          title={`${user.is_admin ? 'Remove admin privileges' : 'Grant admin privileges'}`}
+                        <button
+                          className={`toggle-admin ${user.is_admin ? "remove-admin" : "make-admin"}`}
+                          onClick={() =>
+                            handleToggleAdminStatus(user.id, user.is_admin)
+                          }
+                          title={`${user.is_admin ? "Remove admin privileges" : "Grant admin privileges"}`}
                         >
-                          {user.is_admin ? '👤 Remove Admin' : '👑 Make Admin'}
+                          {user.is_admin ? "👤 Remove Admin" : "👑 Make Admin"}
                         </button>
                       </div>
                     </div>
@@ -644,7 +760,7 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
           <div className="modal-content">
             <div className="modal-header">
               <h3>Edit User: {editingUser.username}</h3>
-              <button 
+              <button
                 onClick={() => setEditingUser(null)}
                 className="close-btn"
               >
@@ -658,7 +774,12 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                   id="edit-username"
                   type="text"
                   value={userEditForm.username}
-                  onChange={(e) => setUserEditForm({...userEditForm, username: e.target.value})}
+                  onChange={(e) =>
+                    setUserEditForm({
+                      ...userEditForm,
+                      username: e.target.value,
+                    })
+                  }
                   placeholder="Username"
                 />
               </div>
@@ -668,7 +789,9 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                   id="edit-email"
                   type="email"
                   value={userEditForm.email}
-                  onChange={(e) => setUserEditForm({...userEditForm, email: e.target.value})}
+                  onChange={(e) =>
+                    setUserEditForm({ ...userEditForm, email: e.target.value })
+                  }
                   placeholder="Email"
                 />
               </div>
@@ -678,7 +801,12 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                   id="edit-first-name"
                   type="text"
                   value={userEditForm.first_name}
-                  onChange={(e) => setUserEditForm({...userEditForm, first_name: e.target.value})}
+                  onChange={(e) =>
+                    setUserEditForm({
+                      ...userEditForm,
+                      first_name: e.target.value,
+                    })
+                  }
                   placeholder="First Name"
                 />
               </div>
@@ -688,7 +816,12 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                   id="edit-last-name"
                   type="text"
                   value={userEditForm.last_name}
-                  onChange={(e) => setUserEditForm({...userEditForm, last_name: e.target.value})}
+                  onChange={(e) =>
+                    setUserEditForm({
+                      ...userEditForm,
+                      last_name: e.target.value,
+                    })
+                  }
                   placeholder="Last Name"
                 />
               </div>
@@ -697,7 +830,12 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                   <input
                     type="checkbox"
                     checked={userEditForm.is_active}
-                    onChange={(e) => setUserEditForm({...userEditForm, is_active: e.target.checked})}
+                    onChange={(e) =>
+                      setUserEditForm({
+                        ...userEditForm,
+                        is_active: e.target.checked,
+                      })
+                    }
                   />
                   Active User
                 </label>
@@ -707,23 +845,25 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
                   <input
                     type="checkbox"
                     checked={userEditForm.is_admin}
-                    onChange={(e) => setUserEditForm({...userEditForm, is_admin: e.target.checked})}
+                    onChange={(e) =>
+                      setUserEditForm({
+                        ...userEditForm,
+                        is_admin: e.target.checked,
+                      })
+                    }
                   />
                   Administrator
                 </label>
               </div>
             </div>
             <div className="modal-footer">
-              <button 
+              <button
                 onClick={() => setEditingUser(null)}
                 className="cancel-btn"
               >
                 Cancel
               </button>
-              <button 
-                onClick={handleUpdateUser}
-                className="save-btn"
-              >
+              <button onClick={handleUpdateUser} className="save-btn">
                 Save Changes
               </button>
             </div>
@@ -731,5 +871,5 @@ export default function AdminPanel({ onClose }: AdminPanelProps) {
         </div>
       )}
     </div>
-  )
+  );
 }
