@@ -1,0 +1,146 @@
+/**
+ * Loading Spinner Styles
+ * 
+ * CSS for loading spinner component with smooth animations
+ * and accessibility considerations.
+ */
+
+/* Base spinner styles */
+.loading-spinner {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.loading-spinner__icon {
+  animation: spin 1s linear infinite;
+}
+
+.loading-spinner__circle {
+  animation: dash 2s ease-in-out infinite;
+}
+
+.loading-spinner__text {
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-align: center;
+}
+
+/* Size variants */
+.loading-spinner--sm .loading-spinner__icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.loading-spinner--md .loading-spinner__icon {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.loading-spinner--lg .loading-spinner__icon {
+  width: 2rem;
+  height: 2rem;
+}
+
+.loading-spinner--xl .loading-spinner__icon {
+  width: 3rem;
+  height: 3rem;
+}
+
+/* Color variants */
+.loading-spinner--primary {
+  color: #3b82f6; /* blue-500 */
+}
+
+.loading-spinner--secondary {
+  color: #6b7280; /* gray-500 */
+}
+
+.loading-spinner--white {
+  color: #ffffff;
+}
+
+.loading-spinner--current {
+  color: currentColor;
+}
+
+/* Overlay styles */
+.loading-spinner-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(2px);
+}
+
+.loading-spinner-overlay .loading-spinner {
+  background-color: white;
+  padding: 1.5rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Full page loader */
+.loading-spinner-fullpage {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #f9fafb; /* gray-50 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9998;
+}
+
+/* Animations */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes dash {
+  0% {
+    stroke-dashoffset: 31.416;
+  }
+  50% {
+    stroke-dashoffset: 7.854;
+    transform: rotate(135deg);
+  }
+  100% {
+    stroke-dashoffset: 31.416;
+    transform: rotate(450deg);
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .loading-spinner-overlay .loading-spinner {
+    background-color: #1f2937; /* gray-800 */
+    color: #f9fafb; /* gray-50 */
+  }
+  
+  .loading-spinner-fullpage {
+    background-color: #111827; /* gray-900 */
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .loading-spinner__icon,
+  .loading-spinner__circle {
+    animation-duration: 3s;
+  }
+}

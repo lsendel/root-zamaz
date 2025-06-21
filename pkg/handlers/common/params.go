@@ -3,8 +3,9 @@ package common
 
 import (
 	"fmt"
-	"github.com/gofiber/fiber/v2"
 	"strconv"
+
+	"github.com/gofiber/fiber/v2"
 )
 
 // ParseUintParam parses a URL parameter as uint with standardized error handling

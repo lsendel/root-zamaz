@@ -3,7 +3,6 @@ package discovery
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -11,7 +10,6 @@ import (
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
@@ -21,14 +19,14 @@ import (
 
 // KubernetesRegistry implements ServiceRegistry interface using Kubernetes API
 type KubernetesRegistry struct {
-	clientset    kubernetes.Interface
-	config       K8sConfig
-	services     map[string]*Service
-	watchers     map[string]chan ServiceEvent
-	mutex        sync.RWMutex
-	logger       *logrus.Logger
-	ctx          context.Context
-	cancel       context.CancelFunc
+	clientset     kubernetes.Interface
+	config        K8sConfig
+	services      map[string]*Service
+	watchers      map[string]chan ServiceEvent
+	mutex         sync.RWMutex
+	logger        *logrus.Logger
+	ctx           context.Context
+	cancel        context.CancelFunc
 	labelSelector labels.Selector
 }
 
@@ -267,9 +265,9 @@ func (k *KubernetesRegistry) Close() error {
 func (k *KubernetesRegistry) convertToK8sService(service *Service) *v1.Service {
 	k8sService := &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      service.Name,
-			Namespace: k.config.Namespace,
-			Labels:    make(map[string]string),
+			Name:        service.Name,
+			Namespace:   k.config.Namespace,
+			Labels:      make(map[string]string),
 			Annotations: make(map[string]string),
 		},
 		Spec: v1.ServiceSpec{

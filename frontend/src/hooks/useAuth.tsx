@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { User, LoginCredentials } from '../types/auth'
-import { authAPI } from '../services/api'
+import { authService } from '../services'
 
 interface AuthContextType {
   user: User | null
@@ -34,8 +34,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (token && storedUser) {
         try {
           // Verify token is still valid
-          const currentUser = await authAPI.getCurrentUser()
-          setUser(currentUser)
+          const response = await authService.getCurrentUser()
+          setUser(response.data)
         } catch (error) {
           // Token invalid, clear storage
           localStorage.removeItem('authToken')
@@ -53,13 +53,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setError(null)
       setIsLoading(true)
       
-      const response = await authAPI.login(credentials)
+      const response = await authService.login(credentials)
       
       localStorage.setItem('authToken', response.data.token)
       localStorage.setItem('user', JSON.stringify(response.data.user))
       setUser(response.data.user)
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || 'Login failed'
+      const errorMessage = error.message || 'Login failed'
       setError(errorMessage)
       throw error
     } finally {
@@ -69,7 +69,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const logout = async () => {
     try {
-      await authAPI.logout()
+      await authService.logout()
     } catch (error) {
       // Continue with logout even if API call fails
       console.error('Logout API call failed:', error)

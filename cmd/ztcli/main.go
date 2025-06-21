@@ -22,7 +22,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"mvp.local/pkg/sdk/go"
+	sdk "mvp.local/pkg/sdk/go"
 )
 
 var (

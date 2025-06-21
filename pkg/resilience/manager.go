@@ -276,8 +276,10 @@ func (m *CircuitBreakerManager) CreateObservabilityBreaker(name string, readines
 }
 
 // Global circuit breaker manager instance
-var globalManager *CircuitBreakerManager
-var globalManagerOnce sync.Once
+var (
+	globalManager     *CircuitBreakerManager
+	globalManagerOnce sync.Once
+)
 
 // GetGlobalManager returns the global circuit breaker manager
 func GetGlobalManager(obs *observability.Observability) *CircuitBreakerManager {

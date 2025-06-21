@@ -1,0 +1,608 @@
+name: 🏆 Quality Gate Pipeline (2025)
+
+# Comprehensive quality gate with modern tooling
+# Blocks merges that don't meet quality standards
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    branches: [main, develop]
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      skip_security:
+        description: 'Skip security scans (emergency only)'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  GO_VERSION: '1.23'
+  NODE_VERSION: '18'
+  PYTHON_VERSION: '3.11'
+  COVERAGE_THRESHOLD: 80
+  
+jobs:
+  # =============================================================================
+  # PRE-FLIGHT CHECKS
+  # =============================================================================
+  
+  preflight:
+    name: 🚀 Pre-flight Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      has_go_changes: ${{ steps.changes.outputs.go }}
+      has_frontend_changes: ${{ steps.changes.outputs.frontend }}
+      has_python_changes: ${{ steps.changes.outputs.python }}
+      skip_security: ${{ github.event.inputs.skip_security }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.2.2
+        with:
+          fetch-depth: 0
+      
+      - name: Detect changes
+        uses: dorny/paths-filter@v3.0.4
+        id: changes
+        with:
+          filters: |
+            go:
+              - '**/*.go'
+              - 'go.mod'
+              - 'go.sum'
+              - '.golangci.yml'
+            frontend:
+              - 'frontend/**'
+              - 'biome.json'
+              - 'package*.json'
+            python:
+              - 'sdk/python/**'
+              - '.ruff.toml'
+              - 'requirements*.txt'
+              - 'pyproject.toml'
+
+  # =============================================================================
+  # UNIFIED CODE QUALITY STAGE
+  # =============================================================================
+  
+  code-quality:
+    name: 🔍 Code Quality Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: preflight
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: "go"
+            condition: ${{ needs.preflight.outputs.has_go_changes == 'true' }}
+          - language: "frontend" 
+            condition: ${{ needs.preflight.outputs.has_frontend_changes == 'true' }}
+          - language: "python"
+            condition: ${{ needs.preflight.outputs.has_python_changes == 'true' }}
+    
+    steps:
+      - name: Checkout code
+        if: matrix.condition == 'true'
+        uses: actions/checkout@v4.2.2
+      
+      # Go Quality Checks
+      - name: Set up Go
+        if: matrix.language == 'go' && matrix.condition == 'true'
+        uses: actions/setup-go@v5.5.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      
+      - name: Install Go tools
+        if: matrix.language == 'go' && matrix.condition == 'true'
+        run: make install-go-tools
+      
+      - name: Go - Format check
+        if: matrix.language == 'go' && matrix.condition == 'true'
+        run: |
+          make format-go
+          git diff --exit-code || (echo "❌ Go code is not formatted. Run 'make format-go'" && exit 1)
+      
+      - name: Go - Lint
+        if: matrix.language == 'go' && matrix.condition == 'true'
+        run: make lint-go
+      
+      - name: Go - Type check
+        if: matrix.language == 'go' && matrix.condition == 'true'
+        run: make type-check-go
+      
+      # Frontend Quality Checks
+      - name: Set up Node.js
+        if: matrix.language == 'frontend' && matrix.condition == 'true'
+        uses: actions/setup-node@v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      - name: Install frontend dependencies
+        if: matrix.language == 'frontend' && matrix.condition == 'true'
+        run: |
+          cd frontend
+          npm ci
+          npm install -g @biomejs/biome@latest
+      
+      - name: Frontend - Format check
+        if: matrix.language == 'frontend' && matrix.condition == 'true'
+        run: |
+          make format-frontend
+          git diff --exit-code || (echo "❌ Frontend code is not formatted. Run 'make format-frontend'" && exit 1)
+      
+      - name: Frontend - Lint
+        if: matrix.language == 'frontend' && matrix.condition == 'true'
+        run: make lint-frontend
+      
+      - name: Frontend - Type check
+        if: matrix.language == 'frontend' && matrix.condition == 'true'
+        run: make type-check-frontend
+      
+      # Python Quality Checks
+      - name: Set up Python
+        if: matrix.language == 'python' && matrix.condition == 'true'
+        uses: actions/setup-python@v5.4.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+      
+      - name: Install Python tools
+        if: matrix.language == 'python' && matrix.condition == 'true'
+        run: make install-python-tools
+      
+      - name: Python - Format check
+        if: matrix.language == 'python' && matrix.condition == 'true'
+        run: |
+          make format-python
+          git diff --exit-code || (echo "❌ Python code is not formatted. Run 'make format-python'" && exit 1)
+      
+      - name: Python - Lint
+        if: matrix.language == 'python' && matrix.condition == 'true'
+        run: make lint-python
+      
+      - name: Python - Type check
+        if: matrix.language == 'python' && matrix.condition == 'true'
+        run: make type-check-python
+
+  # =============================================================================
+  # SECURITY SCANNING STAGE
+  # =============================================================================
+  
+  security-scan:
+    name: 🛡️ Security Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [preflight, code-quality]
+    if: needs.preflight.outputs.skip_security != 'true'
+    
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.2.2
+      
+      - name: Set up Go
+        if: needs.preflight.outputs.has_go_changes == 'true'
+        uses: actions/setup-go@v5.5.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      
+      - name: Set up Node.js
+        if: needs.preflight.outputs.has_frontend_changes == 'true'
+        uses: actions/setup-node@v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      - name: Set up Python
+        if: needs.preflight.outputs.has_python_changes == 'true'
+        uses: actions/setup-python@v5.4.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: Install security tools
+        run: |
+          if [[ "${{ needs.preflight.outputs.has_go_changes }}" == "true" ]]; then
+            go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+            go install golang.org/x/vuln/cmd/govulncheck@latest
+          fi
+          if [[ "${{ needs.preflight.outputs.has_python_changes }}" == "true" ]]; then
+            pip install bandit
+          fi
+      
+      - name: Run security scans
+        run: make security-scan
+      
+      - name: Upload security scan results
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3.29.0
+        with:
+          sarif_file: security-results.sarif
+          category: security-scan
+        continue-on-error: true
+
+  # =============================================================================
+  # COMPREHENSIVE TESTING STAGE
+  # =============================================================================
+  
+  test-suite:
+    name: 🧪 Test Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: [preflight, code-quality]
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: testdb
+          POSTGRES_INITDB_ARGS: "--auth-host=md5"
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        test-type: ['unit', 'integration', 'e2e']
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.2.2
+      
+      - name: Set up Go
+        if: needs.preflight.outputs.has_go_changes == 'true'
+        uses: actions/setup-go@v5.5.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      
+      - name: Set up Node.js
+        if: needs.preflight.outputs.has_frontend_changes == 'true'
+        uses: actions/setup-node@v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      - name: Install dependencies
+        run: |
+          if [[ "${{ needs.preflight.outputs.has_go_changes }}" == "true" ]]; then
+            go mod download
+          fi
+          if [[ "${{ needs.preflight.outputs.has_frontend_changes }}" == "true" ]]; then
+            cd frontend && npm ci
+          fi
+      
+      - name: Wait for services
+        run: |
+          timeout 60 bash -c 'until pg_isready -h localhost -p 5432 -U postgres; do sleep 1; done'
+          timeout 60 bash -c 'until redis-cli -h localhost -p 6379 ping; do sleep 1; done'
+      
+      - name: Run unit tests
+        if: matrix.test-type == 'unit'
+        run: make test-unit
+        env:
+          POSTGRES_URL: postgres://postgres:postgres@localhost:5432/testdb?sslmode=disable
+          REDIS_URL: redis://localhost:6379
+      
+      - name: Run integration tests
+        if: matrix.test-type == 'integration'
+        run: make test-integration
+        env:
+          POSTGRES_URL: postgres://postgres:postgres@localhost:5432/testdb?sslmode=disable
+          REDIS_URL: redis://localhost:6379
+      
+      - name: Install Playwright
+        if: matrix.test-type == 'e2e'
+        run: |
+          cd frontend
+          npx playwright install --with-deps chromium
+      
+      - name: Run E2E tests
+        if: matrix.test-type == 'e2e'
+        run: make test-e2e
+        env:
+          POSTGRES_URL: postgres://postgres:postgres@localhost:5432/testdb?sslmode=disable
+          REDIS_URL: redis://localhost:6379
+      
+      - name: Generate coverage report
+        if: matrix.test-type == 'unit'
+        run: make test-coverage
+      
+      - name: Check coverage threshold
+        if: matrix.test-type == 'unit'
+        run: |
+          if [[ "${{ needs.preflight.outputs.has_go_changes }}" == "true" ]]; then
+            coverage=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+            echo "📊 Go Coverage: $coverage%"
+            if (( $(echo "$coverage < ${{ env.COVERAGE_THRESHOLD }}" | bc -l) )); then
+              echo "❌ Go coverage $coverage% is below ${{ env.COVERAGE_THRESHOLD }}% threshold"
+              exit 1
+            fi
+          fi
+      
+      - name: Upload coverage reports
+        if: matrix.test-type == 'unit'
+        uses: codecov/codecov-action@v5.4.3
+        with:
+          files: ./coverage.out,./frontend/coverage/lcov.info
+          fail_ci_if_error: false
+          flags: ${{ matrix.test-type }}
+      
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: test-results-${{ matrix.test-type }}
+          path: |
+            coverage.out
+            test-report.json
+            frontend/coverage/
+            frontend/test-results/
+          retention-days: 7
+
+  # =============================================================================
+  # PERFORMANCE & REGRESSION TESTING
+  # =============================================================================
+  
+  performance-tests:
+    name: ⚡ Performance & Regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [preflight, test-suite]
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.2.2
+        with:
+          fetch-depth: 0  # Need full history for regression comparison
+      
+      - name: Set up Go
+        uses: actions/setup-go@v5.5.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4.4.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      
+      - name: Install dependencies
+        run: |
+          go mod download
+          cd frontend && npm ci
+      
+      - name: Run Go benchmarks
+        if: needs.preflight.outputs.has_go_changes == 'true'
+        run: |
+          go test -bench=. -benchmem -run=^$ ./... > benchmark-results.txt
+          echo "📊 Go Benchmark Results:" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          cat benchmark-results.txt >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+      
+      - name: Frontend bundle size analysis
+        if: needs.preflight.outputs.has_frontend_changes == 'true'
+        run: |
+          cd frontend
+          npm run build
+          
+          # Analyze bundle size
+          du -sh dist/* > bundle-analysis.txt
+          total_size=$(du -sh dist | cut -f1)
+          
+          echo "📦 Frontend Bundle Analysis:" >> $GITHUB_STEP_SUMMARY
+          echo "- **Total Size**: $total_size" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          cat bundle-analysis.txt >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          
+          # Check bundle size limit (250KB)
+          size_bytes=$(du -b dist | cut -f1)
+          if [ $size_bytes -gt 262144 ]; then
+            echo "⚠️ Bundle size ($total_size) exceeds 250KB limit" >> $GITHUB_STEP_SUMMARY
+          fi
+      
+      - name: Lighthouse CI (Performance)
+        if: needs.preflight.outputs.has_frontend_changes == 'true'
+        uses: treosh/lighthouse-ci-action@v12.3.0
+        with:
+          uploadArtifacts: true
+          temporaryPublicStorage: true
+          configPath: './lighthouse.config.js'
+        continue-on-error: true
+      
+      - name: API load testing
+        if: needs.preflight.outputs.has_go_changes == 'true'
+        run: |
+          # Start the API server in background
+          make build-backend
+          ./bin/server &
+          SERVER_PID=$!
+          
+          # Wait for server to start
+          sleep 5
+          
+          # Run basic load test with curl
+          echo "🚀 API Load Test Results:" >> $GITHUB_STEP_SUMMARY
+          for i in {1..100}; do
+            start_time=$(date +%s%N)
+            curl -s http://localhost:8080/health > /dev/null
+            end_time=$(date +%s%N)
+            duration=$(( (end_time - start_time) / 1000000 ))
+            if [ $duration -gt 200 ]; then
+              echo "⚠️ Request $i took ${duration}ms (>200ms threshold)"
+            fi
+          done
+          
+          # Cleanup
+          kill $SERVER_PID
+      
+      - name: Upload performance artifacts
+        if: always()
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: performance-results
+          path: |
+            benchmark-results.txt
+            bundle-analysis.txt
+            lhci_reports/
+          retention-days: 30
+
+  # =============================================================================
+  # BUILD VERIFICATION
+  # =============================================================================
+  
+  build-verification:
+    name: 🏗️ Build Verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [preflight, code-quality]
+    
+    strategy:
+      matrix:
+        platform: [linux/amd64, linux/arm64]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4.2.2
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3.11.1
+      
+      - name: Build backend
+        if: needs.preflight.outputs.has_go_changes == 'true'
+        run: make build-backend
+      
+      - name: Build frontend
+        if: needs.preflight.outputs.has_frontend_changes == 'true'
+        run: make build-frontend
+      
+      - name: Build Docker images
+        uses: docker/build-push-action@v6.18.0
+        with:
+          context: .
+          platforms: ${{ matrix.platform }}
+          push: false
+          cache-from: type=gha,scope=build-${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=build-${{ matrix.platform }}
+          tags: |
+            zamaz:latest
+            zamaz:${{ github.sha }}
+
+  # =============================================================================
+  # QUALITY GATE SUMMARY
+  # =============================================================================
+  
+  quality-gate-summary:
+    name: 📊 Quality Gate Summary
+    runs-on: ubuntu-latest
+    needs: [preflight, code-quality, security-scan, test-suite, performance-tests, build-verification]
+    if: always()
+    
+    steps:
+      - name: Generate quality report
+        run: |
+          echo "# 🏆 Quality Gate Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📋 Results Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Code Quality Results
+          if [[ "${{ needs.code-quality.result }}" == "success" ]]; then
+            echo "✅ **Code Quality**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Code Quality**: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Security Results  
+          if [[ "${{ needs.security-scan.result }}" == "success" ]]; then
+            echo "✅ **Security Scan**: Passed" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ needs.security-scan.result }}" == "skipped" ]]; then
+            echo "⏭️ **Security Scan**: Skipped" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Security Scan**: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Test Results
+          if [[ "${{ needs.test-suite.result }}" == "success" ]]; then
+            echo "✅ **Test Suite**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Test Suite**: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Performance Results
+          if [[ "${{ needs.performance-tests.result }}" == "success" ]]; then
+            echo "✅ **Performance**: Passed" >> $GITHUB_STEP_SUMMARY
+          elif [[ "${{ needs.performance-tests.result }}" == "skipped" ]]; then
+            echo "⏭️ **Performance**: Skipped (push to main)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ **Performance**: Issues detected" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Build Results
+          if [[ "${{ needs.build-verification.result }}" == "success" ]]; then
+            echo "✅ **Build**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Build**: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🎯 Quality Standards" >> $GITHUB_STEP_SUMMARY
+          echo "- **Code Coverage**: ≥${{ env.COVERAGE_THRESHOLD }}%" >> $GITHUB_STEP_SUMMARY
+          echo "- **Security**: No high/critical vulnerabilities" >> $GITHUB_STEP_SUMMARY
+          echo "- **Performance**: API <200ms, Bundle <250KB" >> $GITHUB_STEP_SUMMARY
+          echo "- **Code Style**: 100% compliance with standards" >> $GITHUB_STEP_SUMMARY
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "*Quality gate enforced by [CODE_STANDARDS.md](../blob/main/CODE_STANDARDS.md)*"
+      
+      - name: Check if quality gate passed
+        run: |
+          if [[ "${{ needs.code-quality.result }}" != "success" ]] || \
+             [[ "${{ needs.test-suite.result }}" != "success" ]] || \
+             [[ "${{ needs.build-verification.result }}" != "success" ]] || \
+             [[ "${{ needs.security-scan.result }}" == "failure" ]]; then
+            echo "❌ Quality gate failed - blocking merge"
+            exit 1
+          else
+            echo "✅ Quality gate passed - ready for merge"
+          fi

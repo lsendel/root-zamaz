@@ -9,16 +9,16 @@ import (
 type ErrorCode string
 
 const (
-	CodeValidation    ErrorCode = "VALIDATION_ERROR"
-	CodeNotFound      ErrorCode = "NOT_FOUND"
-	CodeUnauthorized  ErrorCode = "UNAUTHORIZED"
-	CodeForbidden     ErrorCode = "FORBIDDEN"
-	CodeConflict      ErrorCode = "CONFLICT"
-	CodeInternal      ErrorCode = "INTERNAL_ERROR"
-	CodeDatabase      ErrorCode = "DATABASE_ERROR"
-	CodeExternal      ErrorCode = "EXTERNAL_SERVICE_ERROR"
-	CodeRateLimit     ErrorCode = "RATE_LIMIT_EXCEEDED"
-	CodeMaintenance   ErrorCode = "MAINTENANCE_MODE"
+	CodeValidation   ErrorCode = "VALIDATION_ERROR"
+	CodeNotFound     ErrorCode = "NOT_FOUND"
+	CodeUnauthorized ErrorCode = "UNAUTHORIZED"
+	CodeForbidden    ErrorCode = "FORBIDDEN"
+	CodeConflict     ErrorCode = "CONFLICT"
+	CodeInternal     ErrorCode = "INTERNAL_ERROR"
+	CodeDatabase     ErrorCode = "DATABASE_ERROR"
+	CodeExternal     ErrorCode = "EXTERNAL_SERVICE_ERROR"
+	CodeRateLimit    ErrorCode = "RATE_LIMIT_EXCEEDED"
+	CodeMaintenance  ErrorCode = "MAINTENANCE_MODE"
 )
 
 // AppError represents a standardized application error

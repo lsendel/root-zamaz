@@ -3,8 +3,6 @@ package discovery
 import (
 	"context"
 	"fmt"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -31,7 +29,7 @@ func NewConsulRegistry(config ConsulConfig, logger *logrus.Logger) (*ConsulRegis
 	consulConfig.Datacenter = config.Datacenter
 	consulConfig.Token = config.Token
 	consulConfig.Scheme = config.Scheme
-	
+
 	if config.Namespace != "" {
 		consulConfig.Namespace = config.Namespace
 	}
@@ -185,7 +183,7 @@ func (c *ConsulRegistry) Watch(ctx context.Context, serviceName string) (<-chan 
 	go c.watchService(ctx, serviceName, eventChan)
 
 	c.logger.WithField("service_name", serviceName).Info("Started watching service")
-	
+
 	return eventChan, nil
 }
 
@@ -224,7 +222,7 @@ func (c *ConsulRegistry) buildHealthCheck(service *Service) *api.AgentServiceChe
 	// Check if service has health check metadata
 	healthHTTP, hasHTTP := service.GetMeta("health_check_http")
 	healthTCP, hasTCP := service.GetMeta("health_check_tcp")
-	
+
 	var check *api.AgentServiceCheck
 
 	if hasHTTP {
@@ -306,7 +304,7 @@ func (c *ConsulRegistry) watchService(ctx context.Context, serviceName string, e
 	defer close(eventChan)
 
 	var lastIndex uint64
-	
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -316,15 +314,14 @@ func (c *ConsulRegistry) watchService(ctx context.Context, serviceName string, e
 		default:
 			// Watch for service changes
 			services, meta, err := c.client.Health().Service(
-				serviceName, 
-				"", 
-				false, 
+				serviceName,
+				"",
+				false,
 				&api.QueryOptions{
 					WaitIndex: lastIndex,
 					WaitTime:  time.Minute,
 				},
 			)
-
 			if err != nil {
 				eventChan <- ServiceEvent{
 					Type:  EventError,

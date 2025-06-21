@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -129,7 +130,7 @@ func (m *MultiRegistry) Register(ctx context.Context, service *Service) error {
 // Deregister removes a service from all registries
 func (m *MultiRegistry) Deregister(ctx context.Context, serviceID string) error {
 	var lastError error
-	
+
 	for name, registry := range m.registries {
 		if err := registry.Deregister(ctx, serviceID); err != nil {
 			m.logger.WithError(err).WithField("registry", name).Error("Failed to deregister service")

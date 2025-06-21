@@ -10,19 +10,19 @@ import (
 type ServiceRegistry interface {
 	// Register a service with the registry
 	Register(ctx context.Context, service *Service) error
-	
+
 	// Deregister a service from the registry
 	Deregister(ctx context.Context, serviceID string) error
-	
+
 	// Discover services by name
 	Discover(ctx context.Context, serviceName string) ([]*Service, error)
-	
+
 	// Watch for service changes
 	Watch(ctx context.Context, serviceName string) (<-chan ServiceEvent, error)
-	
+
 	// Health check the registry connection
 	Health() error
-	
+
 	// Close the registry connection
 	Close() error
 }
@@ -54,9 +54,9 @@ const (
 
 // ServiceEvent represents a change in service state
 type ServiceEvent struct {
-	Type     EventType `json:"type"`
-	Service  *Service  `json:"service"`
-	Error    error     `json:"error,omitempty"`
+	Type     EventType         `json:"type"`
+	Service  *Service          `json:"service"`
+	Error    error             `json:"error,omitempty"`
 	Metadata map[string]string `json:"metadata,omitempty"`
 }
 

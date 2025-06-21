@@ -268,7 +268,7 @@ func (m *MemoryRegistry) GetServiceStats() map[string]interface{} {
 
 	for _, service := range m.services {
 		healthCounts[service.Health]++
-		
+
 		if service.Namespace != "" {
 			namespaceCounts[service.Namespace]++
 		}
@@ -279,11 +279,11 @@ func (m *MemoryRegistry) GetServiceStats() map[string]interface{} {
 	}
 
 	return map[string]interface{}{
-		"total_services":    len(m.services),
-		"health_counts":     healthCounts,
-		"tag_counts":        tagCounts,
-		"namespace_counts":  namespaceCounts,
-		"active_watchers":   len(m.watchers),
+		"total_services":   len(m.services),
+		"health_counts":    healthCounts,
+		"tag_counts":       tagCounts,
+		"namespace_counts": namespaceCounts,
+		"active_watchers":  len(m.watchers),
 	}
 }
 

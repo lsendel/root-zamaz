@@ -195,3 +195,31 @@ func getErrorMessage(err validator.FieldError) string {
 		return fmt.Sprintf("%s is invalid", err.Field())
 	}
 }
+
+// Global validator instance
+var globalValidator = NewValidator()
+
+// ValidateStruct validates a struct using the global validator instance
+func ValidateStruct(s interface{}) error {
+	return globalValidator.ValidateStruct(s)
+}
+
+// ExtractValidationErrors extracts validation errors from a validation error
+func ExtractValidationErrors(err error) []ValidationError {
+	if err == nil {
+		return nil
+	}
+
+	// Check if it's a validation error with details
+	if validationErr, ok := err.(*errors.ValidationError); ok {
+		if details := validationErr.Details; details != nil {
+			if errorsSlice, exists := details["errors"]; exists {
+				if validationErrors, ok := errorsSlice.([]ValidationError); ok {
+					return validationErrors
+				}
+			}
+		}
+	}
+
+	return nil
+}

@@ -24,7 +24,7 @@ __email__ = "team@mvp.com"
 
 __all__ = [
     "ZeroTrustClient",
-    "ZeroTrustAPIError", 
+    "ZeroTrustAPIError",
     "ZeroTrustUtils",
     "AuthenticationRequest",
     "TokenValidationRequest",

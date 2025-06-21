@@ -60,7 +60,7 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	"go.opentelemetry.io/otel/semconv/v1.17.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 	"go.opentelemetry.io/otel/trace"
 )
 
@@ -113,6 +113,15 @@ type Observability struct {
 
 	// mp is the meter provider for lifecycle management
 	mp *sdkmetric.MeterProvider
+
+	// errorCounter tracks application errors
+	errorCounter metric.Int64Counter
+
+	// businessMetricsCounter tracks business events
+	businessMetricsCounter metric.Int64Counter
+
+	// securityEventsCounter tracks security events
+	securityEventsCounter metric.Int64Counter
 }
 
 // New creates a new Observability instance with the provided configuration.
@@ -218,6 +227,33 @@ func New(cfg Config) (*Observability, error) {
 
 	meter := otel.Meter(cfg.ServiceName)
 
+	// Initialize error counter
+	errorCounter, err := meter.Int64Counter(
+		"application_errors_total",
+		metric.WithDescription("Total number of application errors"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create error counter: %w", err)
+	}
+
+	// Initialize business metrics counter
+	businessMetricsCounter, err := meter.Int64Counter(
+		"business_events_total",
+		metric.WithDescription("Total number of business events"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create business metrics counter: %w", err)
+	}
+
+	// Initialize security events counter
+	securityEventsCounter, err := meter.Int64Counter(
+		"security_events_total",
+		metric.WithDescription("Total number of security events"),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create security events counter: %w", err)
+	}
+
 	// Set up metrics server
 	mux := http.NewServeMux()
 	mux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
@@ -232,13 +268,16 @@ func New(cfg Config) (*Observability, error) {
 	}
 
 	return &Observability{
-		Logger:        logger,
-		Tracer:        tracer,
-		Meter:         meter,
-		Registry:      registry,
-		MetricsServer: metricsServer,
-		tp:            tp,
-		mp:            mp,
+		Logger:                 logger,
+		Tracer:                 tracer,
+		Meter:                  meter,
+		Registry:               registry,
+		MetricsServer:          metricsServer,
+		tp:                     tp,
+		mp:                     mp,
+		errorCounter:           errorCounter,
+		businessMetricsCounter: businessMetricsCounter,
+		securityEventsCounter:  securityEventsCounter,
 	}, nil
 }
 
@@ -388,4 +427,110 @@ func (o *Observability) CreateSpan(ctx context.Context, name string, attributes 
 	ctx, span := o.Tracer.Start(ctx, name)
 	span.SetAttributes(attributes...)
 	return ctx, span
+}
+
+// RecordErrorMetric records an application error with contextual information.
+// This method increments the error counter with attributes for error type,
+// HTTP path, and HTTP method to enable detailed error analysis and alerting.
+//
+// Parameters:
+//
+//	err - The error that occurred
+//	path - The HTTP path where the error occurred
+//	method - The HTTP method that was being processed
+//
+// The method extracts error type information and records it as a metric
+// with labels for path, method, and error type for detailed observability.
+//
+// Example:
+//
+//	obs.RecordErrorMetric(err, "/api/users", "GET")
+//
+// This will increment the application_errors_total metric with labels
+// for the specific endpoint and error type.
+func (o *Observability) RecordErrorMetric(err error, path, method string) {
+	if err == nil {
+		return
+	}
+
+	// Extract error type for better categorization
+	errorType := "unknown"
+	if err != nil {
+		errorType = fmt.Sprintf("%T", err)
+	}
+
+	// Create context for the metric recording
+	ctx := context.Background()
+
+	// Record the error with contextual attributes
+	o.errorCounter.Add(ctx, 1,
+		metric.WithAttributes(
+			attribute.String("path", path),
+			attribute.String("method", method),
+			attribute.String("error_type", errorType),
+			attribute.String("error_message", err.Error()),
+		),
+	)
+}
+
+// RecordBusinessMetric records a business event with contextual information.
+// This method increments the business metrics counter with attributes for event type,
+// user information, and additional context to enable business analytics.
+//
+// Parameters:
+//   - eventType - The type of business event (e.g., "user_login", "role_created")
+//   - userID - The ID of the user associated with the event
+//   - metadata - Additional contextual information about the event
+//
+// Example:
+//   obs.RecordBusinessMetric("user_login", "user-123", map[string]string{
+//       "role": "admin",
+//       "source": "web",
+//   })
+func (o *Observability) RecordBusinessMetric(eventType, userID string, metadata map[string]string) {
+	ctx := context.Background()
+	
+	attrs := []attribute.KeyValue{
+		attribute.String("event_type", eventType),
+		attribute.String("user_id", userID),
+	}
+	
+	// Add metadata as attributes
+	for key, value := range metadata {
+		attrs = append(attrs, attribute.String(key, value))
+	}
+	
+	o.businessMetricsCounter.Add(ctx, 1, metric.WithAttributes(attrs...))
+}
+
+// RecordSecurityEvent records a security event with contextual information.
+// This method increments the security events counter with attributes for event type,
+// severity level, and additional context to enable security monitoring and alerting.
+//
+// Parameters:
+//   - eventType - The type of security event (e.g., "failed_login", "suspicious_activity")
+//   - severity - The severity level of the event (e.g., "low", "medium", "high", "critical")
+//   - userID - The ID of the user associated with the event (if applicable)
+//   - metadata - Additional contextual information about the event
+//
+// Example:
+//   obs.RecordSecurityEvent("failed_login", "medium", "user-123", map[string]string{
+//       "ip_address": "192.168.1.100",
+//       "user_agent": "Mozilla/5.0...",
+//   })
+func (o *Observability) RecordSecurityEvent(eventType, severity, userID string, metadata map[string]string) {
+	ctx := context.Background()
+	
+	attrs := []attribute.KeyValue{
+		attribute.String("event_type", eventType),
+		attribute.String("severity", severity),
+		attribute.String("user_id", userID),
+	}
+	
+	// Add metadata as attributes
+	for key, value := range metadata {
+		attrs = append(attrs, attribute.String(key, value))
+	}
+	
+	o.securityEventsCounter.Add(ctx, 1, metric.WithAttributes(attrs...))
 }

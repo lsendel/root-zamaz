@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 
 	"mvp.local/pkg/config"
@@ -82,6 +83,7 @@ type JWTService struct {
 // JWTServiceInterface defines the contract for JWT operations
 type JWTServiceInterface interface {
 	GenerateToken(user *models.User, roles []string, permissions []string) (*LoginResponse, error)
+	GenerateTokenPair(userID, email string, roles []models.Role) (*LoginResponse, error)
 	GenerateRefreshToken(userID string) (string, error)
 	ValidateToken(tokenString string) (*JWTClaims, error)
 	ValidateRefreshToken(tokenString string) (string, error)
@@ -192,6 +194,40 @@ func (j *JWTService) GenerateToken(user *models.User, roles []string, permission
 	}, nil
 }
 
+// GenerateTokenPair generates a JWT token pair (access + refresh) for a user
+func (j *JWTService) GenerateTokenPair(userID, email string, roles []models.Role) (*LoginResponse, error) {
+	// Parse UUID
+	parsedID, err := uuid.Parse(userID)
+	if err != nil {
+		return nil, errors.Wrap(err, errors.CodeValidation, "Invalid user ID format")
+	}
+	
+	// Create a User object for the existing GenerateToken method
+	user := &models.User{
+		ID:    parsedID,
+		Email: email,
+		Roles: roles,
+	}
+	
+	// Extract role names and permissions
+	roleNames := make([]string, len(roles))
+	var allPermissions []string
+	permissionSet := make(map[string]bool)
+	
+	for i, role := range roles {
+		roleNames[i] = role.Name
+		for _, perm := range role.Permissions {
+			permKey := perm.Resource + ":" + perm.Action
+			if !permissionSet[permKey] {
+				allPermissions = append(allPermissions, permKey)
+				permissionSet[permKey] = true
+			}
+		}
+	}
+	
+	return j.GenerateToken(user, roleNames, allPermissions)
+}
+
 // GenerateRefreshToken generates a new JWT refresh token
 func (j *JWTService) GenerateRefreshToken(userID string) (string, error) {
 	expiresAt := time.Now().Add(j.refreshExpiry)
@@ -237,7 +273,6 @@ func (j *JWTService) ValidateToken(tokenString string) (*JWTClaims, error) {
 
 		return nil, fmt.Errorf("no valid signing key found")
 	})
-
 	if err != nil {
 		// JWT v5 simplified error handling - check error message patterns
 		errMsg := err.Error()
@@ -274,7 +309,6 @@ func (j *JWTService) ValidateRefreshToken(tokenString string) (string, error) {
 		}
 		return j.refreshSecret, nil
 	})
-
 	if err != nil {
 		return "", errors.Wrap(err, errors.CodeUnauthorized, "Invalid refresh token")
 	}

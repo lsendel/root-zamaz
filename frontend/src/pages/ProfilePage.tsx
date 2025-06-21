@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useAuthStore } from '../stores/auth-store'
-import { authApi } from '../services/api'
+import { authService } from '../services'
 import { useUIStore } from '../stores/ui-store'
 import { User } from '../types/auth'
 
@@ -35,23 +35,9 @@ export default function ProfilePage() {
     try {
       setLoading(true)
       
-      // Use the auth API to update current user profile
-      // Note: This would need a PUT /auth/me endpoint or similar
-      const response = await fetch('/api/auth/me', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${useAuthStore.getState().token}`
-        },
-        body: JSON.stringify(profileForm)
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to update profile')
-      }
-
-      const updatedUser = await response.json()
-      setUser(updatedUser)
+      // Use the auth service to update current user profile
+      const response = await authService.updateProfile(profileForm)
+      setUser(response.data)
       setIsEditing(false)
       
       addNotification({

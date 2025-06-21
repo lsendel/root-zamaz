@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/casbin/casbin/v2"
@@ -38,6 +39,7 @@ type AuthorizationInterface interface {
 	GetPermissionsForRole(role string) ([][]string, error)
 	GetUserPermissions(userID string) ([]string, error)
 	CheckPermission(userID string, resource, action string) error
+	HasPermission(userID string, permission string) bool
 	LoadPolicy() error
 	SavePolicy() error
 	InvalidateUserCache(userID string) error
@@ -393,6 +395,22 @@ func (a *AuthorizationService) CheckPermission(userID string, resource, action s
 	}
 
 	return nil
+}
+
+// HasPermission checks if a user has a specific permission (convenience method)
+func (a *AuthorizationService) HasPermission(userID string, permission string) bool {
+	// Parse permission string (format: "resource:action")
+	parts := strings.Split(permission, ":")
+	if len(parts) != 2 {
+		return false
+	}
+	
+	allowed, err := a.Enforce(userID, parts[0], parts[1])
+	if err != nil {
+		return false
+	}
+	
+	return allowed
 }
 
 // GetUserPermissions returns all permissions for a user (through their roles) with caching support

@@ -206,21 +206,311 @@ test-wiki: ## 📚 Test wiki integration
 	@printf "$(BLUE)📚 Testing wiki integration...$(RESET)\n"
 	@./scripts/test-wiki-integration.sh
 
-lint: ## 🔍 Run linting
-	@printf "$(BLUE)🔍 Running linting...$(RESET)\n"
-	@npm run lint
+# =============================================================================
+# 🔍 CODE QUALITY & LINTING (2025 Best Practices)
+# =============================================================================
 
-lint-fix: ## 🔧 Fix linting issues
-	@printf "$(BLUE)🔧 Fixing linting issues...$(RESET)\n"
-	@npm run lint:fix
+.PHONY: lint lint-fix lint-go lint-frontend lint-python lint-go-fix lint-frontend-fix lint-python-fix
+.PHONY: format format-check format-go format-frontend format-python security-scan type-check
+.PHONY: quality-check quality-fix pre-commit-install pre-commit-run quality-ci install-tools
 
-type-check: ## 🏷️ Run type checking
-	@printf "$(BLUE)🏷️ Running type checking...$(RESET)\n"
-	@npm run type-check
+lint: ## 🔍 Run all linting (Go, JS/TS, Python)
+	@printf "$(GREEN)🔍 Running comprehensive linting...$(RESET)\n"
+	@$(MAKE) lint-go
+	@$(MAKE) lint-frontend
+	@$(MAKE) lint-python
+	@printf "$(GREEN)✅ All linting completed$(RESET)\n"
 
-security-audit: ## 🔒 Run security audit
-	@printf "$(BLUE)🔒 Running security audit...$(RESET)\n"
-	@npm audit
+lint-fix: ## 🔧 Fix all linting issues (Go, JS/TS, Python)
+	@printf "$(GREEN)🔧 Auto-fixing linting issues...$(RESET)\n"
+	@$(MAKE) lint-go-fix
+	@$(MAKE) lint-frontend-fix
+	@$(MAKE) lint-python-fix
+	@printf "$(GREEN)✅ All auto-fixes completed$(RESET)\n"
+
+# Go linting with golangci-lint
+lint-go: ## 🔍 Run Go linting
+	@printf "$(BLUE)🔍 Running Go linting...$(RESET)\n"
+	@if command -v golangci-lint >/dev/null 2>&1; then \
+		golangci-lint run --config .golangci.yml; \
+	else \
+		printf "$(YELLOW)⚠️  golangci-lint not installed. Installing...$(RESET)\n"; \
+		go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.61.0; \
+		golangci-lint run --config .golangci.yml; \
+	fi
+
+lint-go-fix: ## 🔧 Fix Go linting issues
+	@printf "$(BLUE)🔧 Fixing Go linting issues...$(RESET)\n"
+	@if command -v golangci-lint >/dev/null 2>&1; then \
+		golangci-lint run --config .golangci.yml --fix; \
+	else \
+		printf "$(YELLOW)⚠️  golangci-lint not installed. Installing...$(RESET)\n"; \
+		go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.61.0; \
+		golangci-lint run --config .golangci.yml --fix; \
+	fi
+
+# Frontend linting with Biome
+lint-frontend: ## 🔍 Run frontend linting (JS/TS)
+	@printf "$(BLUE)🔍 Running frontend linting...$(RESET)\n"
+	@if command -v biome >/dev/null 2>&1; then \
+		biome check frontend/src; \
+	else \
+		printf "$(YELLOW)⚠️  Biome not installed. Using npm fallback...$(RESET)\n"; \
+		npm run lint --prefix frontend; \
+	fi
+
+lint-frontend-fix: ## 🔧 Fix frontend linting issues
+	@printf "$(BLUE)🔧 Fixing frontend linting issues...$(RESET)\n"
+	@if command -v biome >/dev/null 2>&1; then \
+		biome check --apply frontend/src; \
+	else \
+		printf "$(YELLOW)⚠️  Biome not installed. Using npm fallback...$(RESET)\n"; \
+		npm run lint:fix --prefix frontend; \
+	fi
+
+# Python linting with Ruff
+lint-python: ## 🔍 Run Python linting
+	@printf "$(BLUE)🔍 Running Python linting...$(RESET)\n"
+	@if [ -d "sdk/python" ]; then \
+		if command -v ruff >/dev/null 2>&1; then \
+			ruff check sdk/python; \
+		else \
+			printf "$(YELLOW)⚠️  Ruff not installed. Installing...$(RESET)\n"; \
+			pip install ruff; \
+			ruff check sdk/python; \
+		fi; \
+	else \
+		printf "$(YELLOW)⚠️  No Python SDK found, skipping Python linting$(RESET)\n"; \
+	fi
+
+lint-python-fix: ## 🔧 Fix Python linting issues
+	@printf "$(BLUE)🔧 Fixing Python linting issues...$(RESET)\n"
+	@if [ -d "sdk/python" ]; then \
+		if command -v ruff >/dev/null 2>&1; then \
+			ruff check --fix sdk/python; \
+			ruff format sdk/python; \
+		else \
+			printf "$(YELLOW)⚠️  Ruff not installed. Installing...$(RESET)\n"; \
+			pip install ruff; \
+			ruff check --fix sdk/python; \
+			ruff format sdk/python; \
+		fi; \
+	else \
+		printf "$(YELLOW)⚠️  No Python SDK found, skipping Python linting$(RESET)\n"; \
+	fi
+
+# =============================================================================
+# 🎨 CODE FORMATTING
+# =============================================================================
+
+format: ## 🎨 Format all code (Go, JS/TS, Python)
+	@printf "$(GREEN)🎨 Formatting all code...$(RESET)\n"
+	@$(MAKE) format-go
+	@$(MAKE) format-frontend
+	@$(MAKE) format-python
+	@printf "$(GREEN)✅ All formatting completed$(RESET)\n"
+
+format-check: ## 🔍 Check code formatting
+	@printf "$(BLUE)🔍 Checking code formatting...$(RESET)\n"
+	@gofmt -l . | grep -v vendor | grep -v node_modules | head -10
+	@if command -v biome >/dev/null 2>&1; then biome check --formatter-enabled=true frontend/src; fi
+	@if [ -d "sdk/python" ] && command -v ruff >/dev/null 2>&1; then ruff format --check sdk/python; fi
+
+format-go: ## 🎨 Format Go code
+	@printf "$(BLUE)🎨 Formatting Go code...$(RESET)\n"
+	@if command -v gofumpt >/dev/null 2>&1; then \
+		gofumpt -w .; \
+	else \
+		gofmt -w .; \
+	fi
+	@if command -v goimports >/dev/null 2>&1; then \
+		goimports -w .; \
+	fi
+
+format-frontend: ## 🎨 Format frontend code
+	@printf "$(BLUE)🎨 Formatting frontend code...$(RESET)\n"
+	@if command -v biome >/dev/null 2>&1; then \
+		biome format --write frontend/src; \
+	else \
+		printf "$(YELLOW)⚠️  Biome not installed. Using prettier fallback...$(RESET)\n"; \
+		cd frontend && npx prettier --write "src/**/*.{ts,tsx,js,jsx}"; \
+	fi
+
+format-python: ## 🎨 Format Python code
+	@printf "$(BLUE)🎨 Formatting Python code...$(RESET)\n"
+	@if [ -d "sdk/python" ]; then \
+		if command -v ruff >/dev/null 2>&1; then \
+			ruff format sdk/python; \
+		else \
+			printf "$(YELLOW)⚠️  Ruff not installed. Installing...$(RESET)\n"; \
+			pip install ruff; \
+			ruff format sdk/python; \
+		fi; \
+	else \
+		printf "$(YELLOW)⚠️  No Python SDK found, skipping Python formatting$(RESET)\n"; \
+	fi
+
+# =============================================================================
+# 🛡️ SECURITY & TYPE CHECKING
+# =============================================================================
+
+security-scan: ## 🛡️ Run comprehensive security scans
+	@printf "$(GREEN)🛡️ Running security scans...$(RESET)\n"
+	@$(MAKE) security-go
+	@$(MAKE) security-frontend
+	@$(MAKE) security-python
+	@$(MAKE) security-containers
+	@printf "$(GREEN)✅ Security scans completed$(RESET)\n"
+
+security-go: ## 🛡️ Run Go security scan
+	@printf "$(BLUE)🛡️ Scanning Go code for vulnerabilities...$(RESET)\n"
+	@if command -v gosec >/dev/null 2>&1; then \
+		gosec ./...; \
+	else \
+		printf "$(YELLOW)⚠️  gosec not installed. Installing...$(RESET)\n"; \
+		go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest; \
+		gosec ./...; \
+	fi
+	@if command -v govulncheck >/dev/null 2>&1; then \
+		govulncheck ./...; \
+	else \
+		printf "$(YELLOW)⚠️  govulncheck not installed. Installing...$(RESET)\n"; \
+		go install golang.org/x/vuln/cmd/govulncheck@latest; \
+		govulncheck ./...; \
+	fi
+
+security-frontend: ## 🛡️ Run frontend security audit
+	@printf "$(BLUE)🛡️ Auditing frontend dependencies...$(RESET)\n"
+	@cd frontend && npm audit --audit-level=moderate
+
+security-python: ## 🛡️ Run Python security scan
+	@printf "$(BLUE)🛡️ Scanning Python code for vulnerabilities...$(RESET)\n"
+	@if [ -d "sdk/python" ]; then \
+		if command -v bandit >/dev/null 2>&1; then \
+			bandit -r sdk/python -f json -o bandit-report.json; \
+		else \
+			printf "$(YELLOW)⚠️  bandit not installed. Installing...$(RESET)\n"; \
+			pip install bandit; \
+			bandit -r sdk/python -f json -o bandit-report.json; \
+		fi; \
+	else \
+		printf "$(YELLOW)⚠️  No Python SDK found, skipping Python security scan$(RESET)\n"; \
+	fi
+
+security-containers: ## 🛡️ Scan container images for vulnerabilities
+	@printf "$(BLUE)🛡️ Scanning container images...$(RESET)\n"
+	@if command -v trivy >/dev/null 2>&1; then \
+		trivy fs .; \
+	else \
+		printf "$(YELLOW)⚠️  Trivy not installed. Skipping container scan$(RESET)\n"; \
+	fi
+
+type-check: ## 🏷️ Run type checking for all languages
+	@printf "$(GREEN)🏷️ Running type checking...$(RESET)\n"
+	@$(MAKE) type-check-go
+	@$(MAKE) type-check-frontend
+	@$(MAKE) type-check-python
+	@printf "$(GREEN)✅ Type checking completed$(RESET)\n"
+
+type-check-go: ## 🏷️ Run Go type checking
+	@printf "$(BLUE)🏷️ Type checking Go code...$(RESET)\n"
+	@go vet ./...
+
+type-check-frontend: ## 🏷️ Run frontend type checking
+	@printf "$(BLUE)🏷️ Type checking frontend code...$(RESET)\n"
+	@cd $(FRONTEND_DIR) && npm run type-check
+
+type-check-python: ## 🏷️ Run Python type checking
+	@printf "$(BLUE)🏷️ Type checking Python code...$(RESET)\n"
+	@if [ -d "sdk/python" ]; then \
+		if command -v mypy >/dev/null 2>&1; then \
+			mypy sdk/python --strict --ignore-missing-imports; \
+		else \
+			printf "$(YELLOW)⚠️  mypy not installed. Installing...$(RESET)\n"; \
+			pip install mypy; \
+			mypy sdk/python --strict --ignore-missing-imports; \
+		fi; \
+	else \
+		printf "$(YELLOW)⚠️  No Python SDK found, skipping Python type checking$(RESET)\n"; \
+	fi
+
+# =============================================================================
+# 🔄 PRE-COMMIT & UNIFIED QUALITY
+# =============================================================================
+
+pre-commit-install: ## 🔄 Install pre-commit hooks
+	@printf "$(GREEN)🔄 Installing pre-commit hooks...$(RESET)\n"
+	@if command -v pre-commit >/dev/null 2>&1; then \
+		pre-commit install; \
+		pre-commit install --hook-type commit-msg; \
+	else \
+		printf "$(YELLOW)⚠️  pre-commit not installed. Installing...$(RESET)\n"; \
+		pip install pre-commit; \
+		pre-commit install; \
+		pre-commit install --hook-type commit-msg; \
+	fi
+
+pre-commit-run: ## 🔄 Run pre-commit hooks on all files
+	@printf "$(BLUE)🔄 Running pre-commit hooks...$(RESET)\n"
+	@if command -v pre-commit >/dev/null 2>&1; then \
+		pre-commit run --all-files; \
+	else \
+		printf "$(YELLOW)⚠️  pre-commit not installed. Run 'make pre-commit-install' first$(RESET)\n"; \
+	fi
+
+quality-check: ## 🏆 Run comprehensive quality checks
+	@printf "$(GREEN)🏆 Running comprehensive quality checks...$(RESET)\n"
+	@$(MAKE) lint
+	@$(MAKE) type-check
+	@$(MAKE) security-scan
+	@$(MAKE) format-check
+	@printf "$(GREEN)✅ All quality checks completed$(RESET)\n"
+
+quality-fix: ## 🔧 Auto-fix all quality issues
+	@printf "$(GREEN)🔧 Auto-fixing all quality issues...$(RESET)\n"
+	@$(MAKE) format
+	@$(MAKE) lint-fix
+	@printf "$(GREEN)✅ All auto-fixes completed$(RESET)\n"
+
+quality-ci: ## 🤖 Quality checks for CI (fail-fast)
+	@printf "$(GREEN)🤖 Running CI quality checks...$(RESET)\n"
+	@set -e; \
+	$(MAKE) format-check; \
+	$(MAKE) lint; \
+	$(MAKE) type-check; \
+	$(MAKE) security-scan
+	@printf "$(GREEN)✅ CI quality checks passed$(RESET)\n"
+
+# =============================================================================
+# 🛠️ TOOL INSTALLATION
+# =============================================================================
+
+install-tools: ## 🛠️ Install all development tools
+	@printf "$(GREEN)🛠️ Installing all development tools...$(RESET)\n"
+	@$(MAKE) install-go-tools
+	@$(MAKE) install-js-tools
+	@$(MAKE) install-python-tools
+	@printf "$(GREEN)✅ All tools installed$(RESET)\n"
+
+install-go-tools: ## 🛠️ Install Go development tools
+	@printf "$(BLUE)🛠️ Installing Go tools...$(RESET)\n"
+	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.61.0
+	@go install mvdan.cc/gofumpt@latest
+	@go install golang.org/x/tools/cmd/goimports@latest
+	@go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+	@go install golang.org/x/vuln/cmd/govulncheck@latest
+
+install-js-tools: ## 🛠️ Install JavaScript/TypeScript tools
+	@printf "$(BLUE)🛠️ Installing JS/TS tools...$(RESET)\n"
+	@if command -v npm >/dev/null 2>&1; then \
+		npm install -g @biomejs/biome@latest; \
+	else \
+		printf "$(YELLOW)⚠️  npm not found$(RESET)\n"; \
+	fi
+
+install-python-tools: ## 🛠️ Install Python development tools
+	@printf "$(BLUE)🛠️ Installing Python tools...$(RESET)\n"
+	@pip install -U ruff mypy bandit pre-commit
 
 # =============================================================================
 # 🔨 BUILD & DEPLOYMENT

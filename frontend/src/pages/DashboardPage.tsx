@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-import { deviceAPI, healthAPI } from '../services/api'
+import { deviceService, healthService } from '../services'
 import { DeviceAttestation } from '../types/auth'
 import AdminPanel from '../components/AdminPanel'
 
@@ -18,8 +18,8 @@ export default function DashboardPage() {
       try {
         // Load devices
         try {
-          const devicesData = await deviceAPI.getDevices()
-          setDevices(devicesData || []) // Handle null response
+          const devicesResponse = await deviceService.getDevices()
+          setDevices(devicesResponse.data || []) // Handle null response
         } catch (error) {
           console.log('Devices API error:', error)
           setDevices([]) // Set empty array if API fails
@@ -27,8 +27,8 @@ export default function DashboardPage() {
 
         // Load system health
         try {
-          const healthData = await healthAPI.getSystemHealth()
-          setSystemHealth(healthData)
+          const healthResponse = await healthService.getSystemHealth()
+          setSystemHealth(healthResponse.data)
         } catch (error) {
           console.log('Health API error:', error)
           setSystemHealth(null) // Set null if API fails

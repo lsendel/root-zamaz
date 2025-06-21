@@ -55,7 +55,6 @@ func NewAuthMiddleware(
 // RequireAuth middleware that requires valid JWT authentication
 func (a *AuthMiddleware) RequireAuth() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-
 		// Extract token from header
 		authHeader := c.Get("Authorization")
 		tokenString, err := ExtractTokenFromHeader(authHeader)

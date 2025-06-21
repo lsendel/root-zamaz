@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { authApi } from '../../services/api'
+import { authService } from '../../services'
 import { useAuthStore } from '../../stores/auth-store'
 import { useUIStore } from '../../stores/ui-store'
 
@@ -18,7 +18,10 @@ export const useLogin = () => {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: authApi.login,
+    mutationFn: async (credentials: any) => {
+      const response = await authService.login(credentials)
+      return response
+    },
     onSuccess: (response) => {
       const { user, token } = response.data
       setUser(user)
@@ -37,7 +40,7 @@ export const useLogin = () => {
       addNotification({
         type: 'error',
         title: 'Login Failed',
-        message: error.response?.data?.message || 'Invalid credentials'
+        message: error.message || 'Invalid credentials'
       })
     }
   })
@@ -48,7 +51,10 @@ export const useRegister = () => {
   const addNotification = useUIStore(state => state.addNotification)
 
   return useMutation({
-    mutationFn: authApi.register,
+    mutationFn: async (credentials: any) => {
+      const response = await authService.register(credentials)
+      return response
+    },
     onSuccess: () => {
       addNotification({
         type: 'success',
@@ -60,7 +66,7 @@ export const useRegister = () => {
       addNotification({
         type: 'error',
         title: 'Registration Failed',
-        message: error.response?.data?.message || 'Registration failed'
+        message: error.message || 'Registration failed'
       })
     }
   })
@@ -73,7 +79,10 @@ export const useLogout = () => {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: authApi.logout,
+    mutationFn: async () => {
+      const response = await authService.logout()
+      return response
+    },
     onSuccess: () => {
       logout()
       queryClient.clear() // Clear all cached data
@@ -99,12 +108,15 @@ export const useCurrentUser = () => {
 
   return useQuery({
     queryKey: authKeys.user(),
-    queryFn: authApi.getCurrentUser,
+    queryFn: async () => {
+      const response = await authService.getCurrentUser()
+      return response.data
+    },
     enabled: isAuthenticated && !!token,
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: (failureCount, error: any) => {
       // Don't retry on auth errors
-      if (error.response?.status === 401) {
+      if (error.code === 'UNAUTHORIZED') {
         return false
       }
       return failureCount < 3
@@ -120,7 +132,10 @@ export const useRefreshToken = () => {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: authApi.refreshToken,
+    mutationFn: async () => {
+      const response = await authService.refreshToken()
+      return response
+    },
     onSuccess: (response) => {
       const { user, token } = response.data
       setUser(user)

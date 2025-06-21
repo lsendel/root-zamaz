@@ -167,7 +167,6 @@ func (sm *SessionManager) CreateSession(ctx context.Context, userID string, sess
 		[]string{userSessionsKey, sessionKeyPrefix},
 		string(sessionJSON), sessionID, sm.config.MaxSessions, int(sm.config.DefaultExpiration.Seconds()),
 	).Result()
-
 	if err != nil {
 		return nil, errors.Wrap(err, errors.CodeInternal, "Failed to create session atomically")
 	}

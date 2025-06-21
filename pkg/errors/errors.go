@@ -138,12 +138,21 @@ func Validation(message string) *AppError {
 	return NewAppError(CodeValidation, message)
 }
 
+// ValidationError represents a validation error with details
+type ValidationError struct {
+	*AppError
+	Details map[string]interface{}
+}
+
 // ValidationWithDetails creates a validation error with context details
-func ValidationWithDetails(message string, details map[string]interface{}) *AppError {
-	return &AppError{
-		Code:    CodeValidation,
-		Message: message,
-		Context: details,
+func ValidationWithDetails(message string, details map[string]interface{}) *ValidationError {
+	return &ValidationError{
+		AppError: &AppError{
+			Code:    CodeValidation,
+			Message: message,
+			Context: details,
+		},
+		Details: details,
 	}
 }
 
@@ -217,4 +226,41 @@ func GetContext(err error) map[string]interface{} {
 		return appErr.Context
 	}
 	return nil
+}
+
+// NewDatabaseError creates a database-specific error
+func NewDatabaseError(operation, entity string, cause error) *AppError {
+	return &AppError{
+		Code:    CodeInternal,
+		Message: fmt.Sprintf("Database operation failed: %s %s", operation, entity),
+		Cause:   cause,
+		Context: map[string]interface{}{
+			"operation": operation,
+			"entity":    entity,
+		},
+	}
+}
+
+// NewExternalError creates an external service error
+func NewExternalError(service string, statusCode int, cause error) *AppError {
+	return &AppError{
+		Code:    CodeUnavailable,
+		Message: fmt.Sprintf("External service error: %s", service),
+		Cause:   cause,
+		Context: map[string]interface{}{
+			"service":     service,
+			"status_code": statusCode,
+		},
+	}
+}
+
+// NewNotFoundError creates a not found error
+func NewNotFoundError(resource string) *AppError {
+	return &AppError{
+		Code:    CodeNotFound,
+		Message: fmt.Sprintf("Resource not found: %s", resource),
+		Context: map[string]interface{}{
+			"resource": resource,
+		},
+	}
 }

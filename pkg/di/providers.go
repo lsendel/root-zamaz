@@ -5,6 +5,7 @@ package di
 import (
 	"context"
 	"database/sql"
+
 	_ "github.com/lib/pq"
 
 	"go.opentelemetry.io/otel/trace"

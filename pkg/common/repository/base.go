@@ -6,16 +6,16 @@ import (
 	"time"
 
 	"gorm.io/gorm"
-	"github.com/lsendel/root-zamaz/pkg/common/errors"
+	"mvp.local/pkg/common/errors"
 )
 
 // PaginationParams represents pagination parameters
 type PaginationParams struct {
-	Page     int                    `json:"page" validate:"min=1"`
-	Limit    int                    `json:"limit" validate:"min=1,max=100"`
-	Sort     string                 `json:"sort"`
-	Order    string                 `json:"order" validate:"oneof=asc desc"`
-	Filters  map[string]interface{} `json:"filters"`
+	Page    int                    `json:"page" validate:"min=1"`
+	Limit   int                    `json:"limit" validate:"min=1,max=100"`
+	Sort    string                 `json:"sort"`
+	Order   string                 `json:"order" validate:"oneof=asc desc"`
+	Filters map[string]interface{} `json:"filters"`
 }
 
 // PaginatedResult represents a paginated result set
@@ -54,12 +54,12 @@ func (r *BaseRepository[T]) Create(ctx context.Context, entity *T) error {
 // GetByID retrieves an entity by ID with optional preloads
 func (r *BaseRepository[T]) GetByID(ctx context.Context, id string, preloads ...string) (*T, error) {
 	var entity T
-	
+
 	query := r.db.WithContext(ctx)
 	for _, preload := range preloads {
 		query = query.Preload(preload)
 	}
-	
+
 	err := query.First(&entity, "id = ?", id).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -67,19 +67,19 @@ func (r *BaseRepository[T]) GetByID(ctx context.Context, id string, preloads ...
 		}
 		return nil, errors.NewDatabaseError("get_by_id", r.tableName, err)
 	}
-	
+
 	return &entity, nil
 }
 
 // GetByField retrieves an entity by a specific field
 func (r *BaseRepository[T]) GetByField(ctx context.Context, field, value string, preloads ...string) (*T, error) {
 	var entity T
-	
+
 	query := r.db.WithContext(ctx)
 	for _, preload := range preloads {
 		query = query.Preload(preload)
 	}
-	
+
 	err := query.Where(fmt.Sprintf("%s = ?", field), value).First(&entity).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -87,7 +87,7 @@ func (r *BaseRepository[T]) GetByField(ctx context.Context, field, value string,
 		}
 		return nil, errors.NewDatabaseError("get_by_field", r.tableName, err)
 	}
-	
+
 	return &entity, nil
 }
 
@@ -95,16 +95,16 @@ func (r *BaseRepository[T]) GetByField(ctx context.Context, field, value string,
 func (r *BaseRepository[T]) Update(ctx context.Context, id string, updates map[string]interface{}) error {
 	// Add updated_at timestamp
 	updates["updated_at"] = time.Now()
-	
+
 	result := r.db.WithContext(ctx).Model(new(T)).Where("id = ?", id).Updates(updates)
 	if result.Error != nil {
 		return errors.NewDatabaseError("update", r.tableName, result.Error)
 	}
-	
+
 	if result.RowsAffected == 0 {
 		return errors.NewNotFoundError(r.tableName)
 	}
-	
+
 	return nil
 }
 
@@ -114,11 +114,11 @@ func (r *BaseRepository[T]) SoftDelete(ctx context.Context, id string) error {
 	if result.Error != nil {
 		return errors.NewDatabaseError("soft_delete", r.tableName, result.Error)
 	}
-	
+
 	if result.RowsAffected == 0 {
 		return errors.NewNotFoundError(r.tableName)
 	}
-	
+
 	return nil
 }
 
@@ -128,11 +128,11 @@ func (r *BaseRepository[T]) HardDelete(ctx context.Context, id string) error {
 	if result.Error != nil {
 		return errors.NewDatabaseError("hard_delete", r.tableName, result.Error)
 	}
-	
+
 	if result.RowsAffected == 0 {
 		return errors.NewNotFoundError(r.tableName)
 	}
-	
+
 	return nil
 }
 
@@ -140,27 +140,27 @@ func (r *BaseRepository[T]) HardDelete(ctx context.Context, id string) error {
 func (r *BaseRepository[T]) List(ctx context.Context, params PaginationParams, preloads ...string) (*PaginatedResult[T], error) {
 	var entities []T
 	var total int64
-	
+
 	// Build base query
 	query := r.db.WithContext(ctx).Model(new(T))
-	
+
 	// Apply filters
 	if params.Filters != nil {
 		for field, value := range params.Filters {
 			query = query.Where(fmt.Sprintf("%s = ?", field), value)
 		}
 	}
-	
+
 	// Count total records
 	if err := query.Count(&total).Error; err != nil {
 		return nil, errors.NewDatabaseError("count", r.tableName, err)
 	}
-	
+
 	// Apply preloads
 	for _, preload := range preloads {
 		query = query.Preload(preload)
 	}
-	
+
 	// Apply sorting
 	if params.Sort != "" {
 		order := "ASC"
@@ -169,19 +169,19 @@ func (r *BaseRepository[T]) List(ctx context.Context, params PaginationParams, p
 		}
 		query = query.Order(fmt.Sprintf("%s %s", params.Sort, order))
 	}
-	
+
 	// Apply pagination
 	offset := (params.Page - 1) * params.Limit
 	query = query.Offset(offset).Limit(params.Limit)
-	
+
 	// Execute query
 	if err := query.Find(&entities).Error; err != nil {
 		return nil, errors.NewDatabaseError("list", r.tableName, err)
 	}
-	
+
 	// Calculate total pages
 	totalPages := int((total + int64(params.Limit) - 1) / int64(params.Limit))
-	
+
 	return &PaginatedResult[T]{
 		Data:       entities,
 		Total:      total,
@@ -198,7 +198,7 @@ func (r *BaseRepository[T]) Exists(ctx context.Context, id string) (bool, error)
 	if err != nil {
 		return false, errors.NewDatabaseError("exists", r.tableName, err)
 	}
-	
+
 	return count > 0, nil
 }
 
@@ -209,7 +209,7 @@ func (r *BaseRepository[T]) ExistsByField(ctx context.Context, field, value stri
 	if err != nil {
 		return false, errors.NewDatabaseError("exists_by_field", r.tableName, err)
 	}
-	
+
 	return count > 0, nil
 }
 
@@ -218,23 +218,23 @@ func (r *BaseRepository[T]) BatchCreate(ctx context.Context, entities []T, batch
 	if len(entities) == 0 {
 		return nil
 	}
-	
+
 	if batchSize <= 0 {
 		batchSize = 100 // Default batch size
 	}
-	
+
 	for i := 0; i < len(entities); i += batchSize {
 		end := i + batchSize
 		if end > len(entities) {
 			end = len(entities)
 		}
-		
+
 		batch := entities[i:end]
 		if err := r.db.WithContext(ctx).Create(&batch).Error; err != nil {
 			return errors.NewDatabaseError("batch_create", r.tableName, err)
 		}
 	}
-	
+
 	return nil
 }
 

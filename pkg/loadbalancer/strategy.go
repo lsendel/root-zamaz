@@ -10,60 +10,60 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/mvp-zero-trust-auth/pkg/discovery"
+	"mvp.local/pkg/discovery"
 )
 
 // LoadBalancer defines the interface for load balancing strategies
 type LoadBalancer interface {
 	// Select chooses a service instance based on the strategy
 	Select(services []*discovery.Service, request *Request) (*discovery.Service, error)
-	
+
 	// UpdateHealth updates the health status of a service instance
 	UpdateHealth(serviceID string, health discovery.HealthStatus)
-	
+
 	// GetStats returns statistics about the load balancer
 	GetStats() map[string]interface{}
-	
+
 	// Reset resets the load balancer state
 	Reset()
 }
 
 // Request represents an incoming request with metadata for load balancing decisions
 type Request struct {
-	ID          string            `json:"id"`
-	Method      string            `json:"method"`
-	Path        string            `json:"path"`
-	Headers     map[string]string `json:"headers"`
-	ClientIP    string            `json:"client_ip"`
-	UserID      string            `json:"user_id,omitempty"`
-	SessionID   string            `json:"session_id,omitempty"`
-	Metadata    map[string]string `json:"metadata,omitempty"`
-	Timestamp   time.Time         `json:"timestamp"`
+	ID        string            `json:"id"`
+	Method    string            `json:"method"`
+	Path      string            `json:"path"`
+	Headers   map[string]string `json:"headers"`
+	ClientIP  string            `json:"client_ip"`
+	UserID    string            `json:"user_id,omitempty"`
+	SessionID string            `json:"session_id,omitempty"`
+	Metadata  map[string]string `json:"metadata,omitempty"`
+	Timestamp time.Time         `json:"timestamp"`
 }
 
 // Strategy represents different load balancing strategies
 type Strategy string
 
 const (
-	StrategyRoundRobin       Strategy = "round_robin"
+	StrategyRoundRobin         Strategy = "round_robin"
 	StrategyWeightedRoundRobin Strategy = "weighted_round_robin"
-	StrategyLeastConnections Strategy = "least_connections"
-	StrategyRandom           Strategy = "random"
-	StrategyWeightedRandom   Strategy = "weighted_random"
-	StrategyConsistentHash   Strategy = "consistent_hash"
-	StrategyIPHash           Strategy = "ip_hash"
-	StrategyLeastResponseTime Strategy = "least_response_time"
+	StrategyLeastConnections   Strategy = "least_connections"
+	StrategyRandom             Strategy = "random"
+	StrategyWeightedRandom     Strategy = "weighted_random"
+	StrategyConsistentHash     Strategy = "consistent_hash"
+	StrategyIPHash             Strategy = "ip_hash"
+	StrategyLeastResponseTime  Strategy = "least_response_time"
 )
 
 // Config holds load balancer configuration
 type Config struct {
-	Strategy              Strategy      `env:"LB_STRATEGY" default:"round_robin"`
-	HealthyOnly           bool          `env:"LB_HEALTHY_ONLY" default:"true"`
-	MaxRetries            int           `env:"LB_MAX_RETRIES" default:"3"`
-	RetryDelay            time.Duration `env:"LB_RETRY_DELAY" default:"100ms"`
-	CircuitBreakerEnabled bool          `env:"LB_CIRCUIT_BREAKER" default:"true"`
-	CircuitBreakerThreshold int         `env:"LB_CB_THRESHOLD" default:"5"`
-	CircuitBreakerTimeout time.Duration `env:"LB_CB_TIMEOUT" default:"30s"`
+	Strategy                Strategy      `env:"LB_STRATEGY" default:"round_robin"`
+	HealthyOnly             bool          `env:"LB_HEALTHY_ONLY" default:"true"`
+	MaxRetries              int           `env:"LB_MAX_RETRIES" default:"3"`
+	RetryDelay              time.Duration `env:"LB_RETRY_DELAY" default:"100ms"`
+	CircuitBreakerEnabled   bool          `env:"LB_CIRCUIT_BREAKER" default:"true"`
+	CircuitBreakerThreshold int           `env:"LB_CB_THRESHOLD" default:"5"`
+	CircuitBreakerTimeout   time.Duration `env:"LB_CB_TIMEOUT" default:"30s"`
 }
 
 // RoundRobinBalancer implements round-robin load balancing
@@ -106,15 +106,15 @@ func (r *RoundRobinBalancer) UpdateHealth(serviceID string, health discovery.Hea
 func (r *RoundRobinBalancer) GetStats() map[string]interface{} {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
-	
+
 	stats := make(map[string]interface{})
 	stats["strategy"] = "round_robin"
 	stats["selections"] = make(map[string]int64)
-	
+
 	for serviceID, count := range r.stats {
 		stats["selections"].(map[string]int64)[serviceID] = count
 	}
-	
+
 	return stats
 }
 
@@ -139,7 +139,7 @@ type WeightedRoundRobinBalancer struct {
 func NewWeightedRoundRobinBalancer(weights map[string]int) *WeightedRoundRobinBalancer {
 	current := make(map[string]int)
 	total := 0
-	
+
 	for serviceID, weight := range weights {
 		current[serviceID] = 0
 		total += weight
@@ -196,17 +196,17 @@ func (w *WeightedRoundRobinBalancer) UpdateHealth(serviceID string, health disco
 func (w *WeightedRoundRobinBalancer) GetStats() map[string]interface{} {
 	w.mutex.RLock()
 	defer w.mutex.RUnlock()
-	
+
 	stats := make(map[string]interface{})
 	stats["strategy"] = "weighted_round_robin"
 	stats["weights"] = w.weights
 	stats["current"] = w.current
 	stats["selections"] = make(map[string]int64)
-	
+
 	for serviceID, count := range w.stats {
 		stats["selections"].(map[string]int64)[serviceID] = count
 	}
-	
+
 	return stats
 }
 
@@ -214,7 +214,7 @@ func (w *WeightedRoundRobinBalancer) GetStats() map[string]interface{} {
 func (w *WeightedRoundRobinBalancer) Reset() {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
-	
+
 	for serviceID := range w.current {
 		w.current[serviceID] = 0
 	}
@@ -261,15 +261,15 @@ func (r *RandomBalancer) UpdateHealth(serviceID string, health discovery.HealthS
 func (r *RandomBalancer) GetStats() map[string]interface{} {
 	r.mutex.RLock()
 	defer r.mutex.RUnlock()
-	
+
 	stats := make(map[string]interface{})
 	stats["strategy"] = "random"
 	stats["selections"] = make(map[string]int64)
-	
+
 	for serviceID, count := range r.stats {
 		stats["selections"].(map[string]int64)[serviceID] = count
 	}
-	
+
 	return stats
 }
 
@@ -319,7 +319,7 @@ func (c *ConsistentHashBalancer) Select(services []*discovery.Service, request *
 
 	hash := c.hashKey(key)
 	serviceID := c.getService(hash)
-	
+
 	// Find the actual service
 	var selected *discovery.Service
 	for _, service := range healthyServices {
@@ -345,17 +345,17 @@ func (c *ConsistentHashBalancer) UpdateHealth(serviceID string, health discovery
 func (c *ConsistentHashBalancer) GetStats() map[string]interface{} {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
-	
+
 	stats := make(map[string]interface{})
 	stats["strategy"] = "consistent_hash"
 	stats["replicas"] = c.replicas
 	stats["ring_size"] = len(c.hash)
 	stats["selections"] = make(map[string]int64)
-	
+
 	for serviceID, count := range c.stats {
 		stats["selections"].(map[string]int64)[serviceID] = count
 	}
-	
+
 	return stats
 }
 
@@ -371,7 +371,7 @@ func (c *ConsistentHashBalancer) Reset() {
 // updateHashRing rebuilds the hash ring with current services
 func (c *ConsistentHashBalancer) updateHashRing(services []*discovery.Service) {
 	c.hash = make(map[uint32]string)
-	
+
 	for _, service := range services {
 		for i := 0; i < c.replicas; i++ {
 			key := fmt.Sprintf("%s:%d", service.ID, i)
@@ -379,7 +379,7 @@ func (c *ConsistentHashBalancer) updateHashRing(services []*discovery.Service) {
 			c.hash[hash] = service.ID
 		}
 	}
-	
+
 	// Sort keys for binary search
 	c.sortedKeys = make([]uint32, 0, len(c.hash))
 	for k := range c.hash {
@@ -400,17 +400,17 @@ func (c *ConsistentHashBalancer) getService(hash uint32) string {
 	if len(c.sortedKeys) == 0 {
 		return ""
 	}
-	
+
 	// Binary search for the first key >= hash
 	idx := sort.Search(len(c.sortedKeys), func(i int) bool {
 		return c.sortedKeys[i] >= hash
 	})
-	
+
 	// Wrap around if necessary
 	if idx == len(c.sortedKeys) {
 		idx = 0
 	}
-	
+
 	return c.hash[c.sortedKeys[idx]]
 }
 
@@ -438,13 +438,13 @@ func (i *IPHashBalancer) Select(services []*discovery.Service, request *Request)
 	hasher := sha256.New()
 	hasher.Write([]byte(request.ClientIP))
 	hash := hasher.Sum(nil)
-	
+
 	// Convert hash to index
 	hashValue := uint64(0)
 	for _, b := range hash[:8] { // Use first 8 bytes
 		hashValue = hashValue*256 + uint64(b)
 	}
-	
+
 	index := hashValue % uint64(len(healthyServices))
 	selected := healthyServices[index]
 
@@ -464,15 +464,15 @@ func (i *IPHashBalancer) UpdateHealth(serviceID string, health discovery.HealthS
 func (i *IPHashBalancer) GetStats() map[string]interface{} {
 	i.mutex.RLock()
 	defer i.mutex.RUnlock()
-	
+
 	stats := make(map[string]interface{})
 	stats["strategy"] = "ip_hash"
 	stats["selections"] = make(map[string]int64)
-	
+
 	for serviceID, count := range i.stats {
 		stats["selections"].(map[string]int64)[serviceID] = count
 	}
-	
+
 	return stats
 }
 

@@ -5,12 +5,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 	"mvp.local/pkg/models"
 	"mvp.local/pkg/observability"
-	"time"
 )
 
 // Service provides audit logging functionality with compliance integration

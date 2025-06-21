@@ -3,9 +3,10 @@ package auth
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/golang-jwt/jwt/v5"
 	"mvp.local/pkg/models"
-	"time"
 )
 
 // buildBaseRegisteredClaims creates common JWT registered claims

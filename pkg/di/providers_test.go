@@ -125,7 +125,6 @@ func TestMessagingServiceProvider(t *testing.T) {
 		// Register messaging service
 		msgProvider := &MessagingServiceProvider{}
 		err = msgProvider.Register(container)
-
 		if err != nil {
 			t.Skipf("NATS not available, skipping test: %v", err)
 		}
@@ -178,7 +177,6 @@ func TestDatabaseServiceProvider(t *testing.T) {
 		// Register database service
 		dbProvider := &DatabaseServiceProvider{}
 		err := dbProvider.Register(container)
-
 		if err != nil {
 			t.Skipf("Database not available, skipping test: %v", err)
 		}

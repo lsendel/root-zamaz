@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
-import { authApi } from '../services/api'
+import { authService } from '../services'
 import type { User } from '../types/auth'
 
 interface AuthState {
@@ -37,7 +37,7 @@ export const useAuthStore = create<AuthState>()((
           try {
             set({ isLoading: true, error: null })
             
-            const response = await authApi.login({ username, password })
+            const response = await authService.login({ username, password })
             const { user, token } = response.data
             
             set({
@@ -53,7 +53,7 @@ export const useAuthStore = create<AuthState>()((
               token: null,
               isAuthenticated: false,
               isLoading: false,
-              error: error.response?.data?.message || 'Login failed'
+              error: error.message || 'Login failed'
             })
             throw error
           }
@@ -78,7 +78,7 @@ export const useAuthStore = create<AuthState>()((
               throw new Error('No token available')
             }
 
-            const response = await authApi.refreshToken()
+            const response = await authService.refreshToken()
             const { token: newToken, user } = response.data
             
             set({

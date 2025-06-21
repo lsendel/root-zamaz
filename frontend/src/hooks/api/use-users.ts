@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { adminAPI } from '../../services/api'
+import { adminService } from '../../services'
 import { useUIStore } from '../../stores/ui-store'
 import type { User, UserWithRoles } from '../../types/auth'
 
@@ -16,7 +16,10 @@ export const userKeys = {
 export const useUsers = () => {
   return useQuery({
     queryKey: userKeys.lists(),
-    queryFn: adminAPI.getUsers,
+    queryFn: async () => {
+      const response = await adminService.getUsers()
+      return response.data
+    },
     staleTime: 2 * 60 * 1000, // 2 minutes
   })
 }
@@ -26,7 +29,10 @@ export const useUser = (id: number) => {
 
   return useQuery({
     queryKey: userKeys.detail(id),
-    queryFn: () => adminAPI.getUserById(id),
+    queryFn: async () => {
+      const response = await adminService.getUserById(id)
+      return response.data
+    },
     enabled: !!id,
     staleTime: 5 * 60 * 1000, // 5 minutes
   })
@@ -38,8 +44,10 @@ export const useUpdateUser = () => {
   const addNotification = useUIStore(state => state.addNotification)
 
   return useMutation({
-    mutationFn: ({ id, user }: { id: number; user: Partial<User> }) => 
-      adminAPI.updateUser(id, user),
+    mutationFn: async ({ id, user }: { id: number; user: Partial<User> }) => {
+      const response = await adminService.updateUser(id, user)
+      return response.data
+    },
     onMutate: async ({ id, user }) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: userKeys.detail(id) })
@@ -89,7 +97,7 @@ export const useUpdateUser = () => {
       addNotification({
         type: 'error',
         title: 'Update Failed',
-        message: error.response?.data?.message || 'Failed to update user'
+        message: error.message || 'Failed to update user'
       })
     },
     onSettled: (_, __, { id }) => {
@@ -106,8 +114,11 @@ export const useDeleteUser = () => {
   const addNotification = useUIStore(state => state.addNotification)
 
   return useMutation({
-    mutationFn: adminAPI.deleteUser,
-    onMutate: async () => {
+    mutationFn: async (id: number) => {
+      const response = await adminService.deleteUser(id)
+      return response.data
+    },
+    onMutate: async (id: number) => {
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: userKeys.lists() })
 
@@ -118,7 +129,7 @@ export const useDeleteUser = () => {
       if (previousUsers) {
         queryClient.setQueryData(
           userKeys.lists(),
-          previousUsers.filter(user => user.id !== id.toString())
+          previousUsers.filter(user => user.id !== id)
         )
       }
 
@@ -140,7 +151,7 @@ export const useDeleteUser = () => {
       addNotification({
         type: 'error',
         title: 'Delete Failed',
-        message: error.response?.data?.message || 'Failed to delete user'
+        message: error.message || 'Failed to delete user'
       })
     },
     onSettled: () => {
@@ -156,8 +167,10 @@ export const useAssignRole = () => {
   const addNotification = useUIStore(state => state.addNotification)
 
   return useMutation({
-    mutationFn: ({ userId, roleId }: { userId: number; roleId: number }) =>
-      adminAPI.assignRoleToUser(userId, roleId),
+    mutationFn: async ({ userId, roleId }: { userId: number; roleId: string }) => {
+      const response = await adminService.assignRoleToUser(userId, roleId)
+      return response.data
+    },
     onSuccess: (_, { userId }) => {
       // Invalidate user data to refetch with new role
       queryClient.invalidateQueries({ queryKey: userKeys.detail(userId) })
@@ -173,7 +186,7 @@ export const useAssignRole = () => {
       addNotification({
         type: 'error',
         title: 'Assignment Failed',
-        message: error.response?.data?.message || 'Failed to assign role'
+        message: error.message || 'Failed to assign role'
       })
     }
   })
@@ -185,8 +198,10 @@ export const useRemoveRole = () => {
   const addNotification = useUIStore(state => state.addNotification)
 
   return useMutation({
-    mutationFn: ({ userId, roleId }: { userId: number; roleId: number }) =>
-      adminAPI.removeRoleFromUser(userId, roleId),
+    mutationFn: async ({ userId, roleId }: { userId: number; roleId: number }) => {
+      const response = await adminService.removeRoleFromUser(userId, roleId)
+      return response.data
+    },
     onSuccess: (_, { userId }) => {
       // Invalidate user data to refetch without the role
       queryClient.invalidateQueries({ queryKey: userKeys.detail(userId) })
@@ -202,7 +217,7 @@ export const useRemoveRole = () => {
       addNotification({
         type: 'error',
         title: 'Removal Failed',
-        message: error.response?.data?.message || 'Failed to remove role'
+        message: error.message || 'Failed to remove role'
       })
     }
   })

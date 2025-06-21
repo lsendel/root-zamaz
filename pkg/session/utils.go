@@ -2,10 +2,11 @@
 package session
 
 import (
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 	"mvp.local/pkg/config"
 	"mvp.local/pkg/observability"
-	"time"
 )
 
 // SessionCreator provides utilities for creating user sessions

@@ -24,6 +24,7 @@ type LockoutService struct {
 type LockoutServiceInterface interface {
 	// Account lockout methods
 	CheckAccountLockout(username string) (*LockoutStatus, error)
+	IsAccountLocked(username string) bool
 	RecordFailedAttempt(username, ipAddress, userAgent, requestID, reason string) error
 	RecordSuccessfulAttempt(username, ipAddress, userAgent, requestID string) error
 	UnlockAccount(username string) error
@@ -153,6 +154,15 @@ func (s *LockoutService) CheckAccountLockout(username string) (*LockoutStatus, e
 	}
 
 	return status, nil
+}
+
+// IsAccountLocked is a convenience method to check if an account is locked
+func (s *LockoutService) IsAccountLocked(username string) bool {
+	status, err := s.CheckAccountLockout(username)
+	if err != nil {
+		return false
+	}
+	return status.IsLocked
 }
 
 // RecordFailedAttempt records a failed login attempt and applies lockout if necessary
@@ -328,7 +338,6 @@ func (s *LockoutService) CheckIPLockout(ipAddress string) (*IPLockoutStatus, err
 	err := s.db.Model(&models.LoginAttempt{}).
 		Where("ip_address = ? AND success = false AND created_at > ?", ipAddress, since).
 		Count(&count).Error
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to count IP attempts: %w", err)
 	}

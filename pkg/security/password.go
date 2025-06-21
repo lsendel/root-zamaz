@@ -5,6 +5,7 @@ import (
 	"strings"
 	"unicode"
 
+	"golang.org/x/crypto/bcrypt"
 	"mvp.local/pkg/errors"
 )
 
@@ -184,9 +185,11 @@ func hasSequentialChars(password string) bool {
 	}
 
 	// Check for common sequential patterns
-	sequential := []string{"123", "234", "345", "456", "567", "678", "789", "890",
+	sequential := []string{
+		"123", "234", "345", "456", "567", "678", "789", "890",
 		"abc", "bcd", "cde", "def", "efg", "fgh", "ghi", "hij", "ijk", "jkl", "klm", "lmn", "mno", "nop", "opq", "pqr", "qrs", "rst", "stu", "tuv", "uvw", "vwx", "wxy", "xyz",
-		"qwe", "wer", "ert", "rty", "tyu", "yui", "uio", "iop", "asd", "sdf", "dfg", "fgh", "ghj", "hjk", "jkl", "zxc", "xcv", "cvb", "vbn", "bnm"}
+		"qwe", "wer", "ert", "rty", "tyu", "yui", "uio", "iop", "asd", "sdf", "dfg", "fgh", "ghj", "hjk", "jkl", "zxc", "xcv", "cvb", "vbn", "bnm",
+	}
 
 	lowerPassword := strings.ToLower(password)
 	for _, seq := range sequential {
@@ -284,6 +287,7 @@ func reverse(s string) string {
 // PasswordPolicyInterface defines the contract for password validation
 type PasswordPolicyInterface interface {
 	ValidatePassword(password string, userInfo ...string) error
+	VerifyPassword(password, hash string) bool
 	GetPasswordRequirements() map[string]interface{}
 }
 
@@ -332,4 +336,10 @@ func (pv *PasswordValidator) GetPasswordRequirements() map[string]interface{} {
 		"forbid_common":     pv.policy.ForbidCommon,
 		"forbid_user_info":  pv.policy.ForbidUserInfo,
 	}
+}
+
+// VerifyPassword compares a plain password with a hashed password
+func (pv *PasswordValidator) VerifyPassword(password, hash string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	return err == nil
 }

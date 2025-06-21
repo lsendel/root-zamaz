@@ -437,7 +437,7 @@ func (cg *CodeGenerator) generateRustClient() error {
 // writeFile writes the generated content to a file
 func (cg *CodeGenerator) writeFile(filename, templateStr string, data map[string]interface{}) error {
 	// Ensure output directory exists
-	if err := os.MkdirAll(cg.config.OutputDir, 0755); err != nil {
+	if err := os.MkdirAll(cg.config.OutputDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 
@@ -455,7 +455,7 @@ func (cg *CodeGenerator) writeFile(filename, templateStr string, data map[string
 
 	// Write to file
 	outputPath := filepath.Join(cg.config.OutputDir, filename)
-	if err := os.WriteFile(outputPath, buf.Bytes(), 0644); err != nil {
+	if err := os.WriteFile(outputPath, buf.Bytes(), 0o644); err != nil {
 		return fmt.Errorf("failed to write file: %w", err)
 	}
 
@@ -541,7 +541,7 @@ CORS_ORIGINS=*
 		return fmt.Errorf("failed to execute env template: %w", err)
 	}
 
-	if err := os.WriteFile(outputPath, buf.Bytes(), 0644); err != nil {
+	if err := os.WriteFile(outputPath, buf.Bytes(), 0o644); err != nil {
 		return fmt.Errorf("failed to write env file: %w", err)
 	}
 
@@ -638,7 +638,7 @@ networks:
 		return fmt.Errorf("failed to execute compose template: %w", err)
 	}
 
-	if err := os.WriteFile(outputPath, buf.Bytes(), 0644); err != nil {
+	if err := os.WriteFile(outputPath, buf.Bytes(), 0o644); err != nil {
 		return fmt.Errorf("failed to write compose file: %w", err)
 	}
 
