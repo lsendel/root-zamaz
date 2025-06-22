@@ -1,71 +1,44 @@
-# Production Kustomization for Zero Trust Authentication System
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
+metadata:
+  name: zero-trust-production
+
 namespace: zero-trust-prod
 
-# Base resources from development/staging
-bases:
-  - ../../k8s/base
-
-# Production-specific resources
 resources:
-  - namespace.yaml
-  - secrets/external-secrets.yaml
-  - monitoring/prometheus-servicemonitor.yaml
-  - monitoring/grafana-dashboard.yaml
-  - security/network-policies.yaml
-  - security/pod-security-policies.yaml
+- ../../base
+- secrets/vault-secret-store.yaml
+- monitoring/prometheus-servicemonitor.yaml
+- monitoring/grafana-dashboard.yaml
+- backup/backup-strategy.yaml
+- capacity-planning.yaml
+- security/network-policies.yaml
+- security/security-scanning.yaml
 
-# Production configuration patches
-patchesStrategicMerge:
-  - patches/keycloak-production.yaml
-  - patches/opa-production.yaml
-  - patches/spire-production.yaml
-  - patches/backend-production.yaml
-  - patches/frontend-production.yaml
-
-# Production ConfigMaps
-configMapGenerator:
-  - name: production-config
-    literals:
-      - ENVIRONMENT=production
-      - LOG_LEVEL=info
-      - ENABLE_METRICS=true
-      - ENABLE_TRACING=true
-      - TRUST_LEVEL_ENFORCEMENT=strict
-      - AUDIT_LOG_ENABLED=true
-      - COMPLIANCE_MODE=true
-
-# Production replicas and resources
-replicas:
-  - name: keycloak
-    count: 3
-  - name: opa
-    count: 3
-  - name: backend-api
-    count: 5
-  - name: frontend
-    count: 3
-
-# Production images with specific tags
-images:
-  - name: keycloak/keycloak
-    newTag: "23.0.3"
-  - name: openpolicyagent/opa
-    newTag: "0.58.0-envoy"
-  - name: zero-trust/backend
-    newTag: "v1.0.0"
-  - name: zero-trust/frontend
-    newTag: "v1.0.0"
-
-# Labels for all resources
 commonLabels:
-  app.kubernetes.io/part-of: zero-trust-auth
-  app.kubernetes.io/managed-by: kustomize
   environment: production
+  app.kubernetes.io/part-of: zero-trust-auth
 
-# Annotations for all resources
-commonAnnotations:
-  zero-trust.io/version: "v1.0.0"
-  zero-trust.io/team: "platform-security"
+replicas:
+- name: keycloak
+  count: 3
+- name: opa
+  count: 3
+- name: backend-api
+  count: 5
+
+configMapGenerator:
+- name: production-config
+  literals:
+  - ENVIRONMENT=production
+  - LOG_LEVEL=info
+  - METRICS_ENABLED=true
+
+images:
+- name: keycloak
+  newTag: 23.0.4
+- name: openpolicyagent/opa
+  newTag: 0.58.0-envoy
+- name: zero-trust-backend
+  newTag: v1.0.0

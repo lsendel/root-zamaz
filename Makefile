@@ -187,6 +187,11 @@ test-help: ## 🧪 Show testing and quality help
 	@printf "  $(GREEN)make test-compliance$(RESET)  📋 Compliance policies (GDPR, SOX, HIPAA)\n"
 	@printf "  $(GREEN)make test-integration-opa$(RESET) 🏛️ OPA policy integration\n"
 	@printf "  $(GREEN)make test-unit-go$(RESET)     🧪 Go unit tests\n\n"
+	@printf "$(BOLD)Production Testing (Week 5):$(RESET)\n"
+	@printf "  $(GREEN)make test-e2e-production$(RESET) 🏭 Week 5 production functionality tests\n"
+	@printf "  $(GREEN)make test-production-config$(RESET) ⚙️ Production configuration validation\n"
+	@printf "  $(GREEN)make test-security-policies$(RESET) 🛡️ Security policies and network validation\n"
+	@printf "  $(GREEN)make test-monitoring-setup$(RESET) 📊 Monitoring and alerting validation\n\n"
 	@printf "$(BOLD)Performance Testing:$(RESET)\n"
 	@printf "  $(GREEN)make test-performance$(RESET) ⚡ Performance and load tests\n"
 	@printf "  $(GREEN)make test-sustained-load$(RESET) 🔥 Sustained load tests (5 min)\n\n"
@@ -215,6 +220,10 @@ test-integration: ## 🔗 Run integration tests
 test-e2e: ## 🎭 Run end-to-end tests
 	@printf "$(BLUE)🎭 Running E2E tests...$(RESET)\n"
 	@npm run test:e2e
+
+test-e2e-production: ## 🏭 Run Week 5 production functionality E2E tests
+	@printf "$(BLUE)🏭 Running Week 5 production E2E tests...$(RESET)\n"
+	@npx playwright test tests/e2e/week5-production.spec.js
 
 test-coverage: ## 📊 Generate test coverage report
 	@printf "$(BLUE)📊 Generating coverage report...$(RESET)\n"
@@ -272,6 +281,31 @@ test-with-services: ## 🚀 Run tests with all services (requires services runni
 test-without-services: ## 🏃 Run tests without external services (offline mode)
 	@printf "$(BLUE)🏃 Running tests in offline mode...$(RESET)\n"
 	@SKIP_IF_SERVICES_DOWN=true go test -v ./tests/...
+
+# Week 5: Production Testing Commands
+test-production-config: ## ⚙️ Validate production configuration
+	@printf "$(BLUE)⚙️ Validating production configuration...$(RESET)\n"
+	@kubectl apply --dry-run=client -k deployments/production/
+	@printf "$(GREEN)✅ Production configuration valid$(RESET)\n"
+
+test-security-policies: ## 🛡️ Validate security policies and network configuration
+	@printf "$(BLUE)🛡️ Validating security policies...$(RESET)\n"
+	@kubectl apply --dry-run=client -f deployments/production/security/
+	@printf "$(GREEN)✅ Security policies valid$(RESET)\n"
+
+test-monitoring-setup: ## 📊 Validate monitoring and alerting configuration
+	@printf "$(BLUE)📊 Validating monitoring setup...$(RESET)\n"
+	@kubectl apply --dry-run=client -f deployments/production/monitoring/
+	@printf "$(GREEN)✅ Monitoring configuration valid$(RESET)\n"
+
+test-load-k6: ## 🔥 Run K6 load tests
+	@printf "$(BLUE)🔥 Running K6 load tests...$(RESET)\n"
+	@if command -v k6 >/dev/null 2>&1; then \
+		k6 run tests/load/k6-load-test.js; \
+	else \
+		printf "$(YELLOW)⚠️  K6 not installed. Installing via Docker...$(RESET)\n"; \
+		docker run --rm -v $(PWD)/tests/load:/tests grafana/k6:latest run /tests/k6-load-test.js; \
+	fi
 
 # =============================================================================
 # 🔍 CODE QUALITY & LINTING (2025 Best Practices)
