@@ -164,8 +164,10 @@ func (j *JWTService) GenerateToken(user *models.User, roles []string, permission
 	expiresAt := now.Add(j.expiryDuration)
 
 	// Default device ID and trust level if not provided
+	// For backward compatibility, use medium trust level when no factors are provided
+	// New code should use GenerateTokenWithTrust for proper trust calculation
 	deviceID := ""
-	trustLevel := 50
+	trustLevel := int(TrustLevelMedium) // 50 - Known device, no attestation
 
 	claims := j.buildAccessTokenClaims(user, roles, permissions, deviceID, trustLevel, expiresAt)
 

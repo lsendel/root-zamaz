@@ -1,0 +1,89 @@
+# OPA Configuration for Zero Trust Authorization
+# Part of Framework Integration Plan - Week 3
+
+# Services configuration
+services:
+  authz:
+    url: http://opa-bundle-server/bundles
+    credentials:
+      bearer:
+        token: "opa-bundle-token"
+
+# Bundle configuration for policy distribution
+bundles:
+  authz:
+    service: authz
+    resource: "zero-trust-policies.tar.gz"
+    polling:
+      min_delay_seconds: 10
+      max_delay_seconds: 20
+    signing:
+      keyid: "global_key"
+      scope: "write"
+
+# Decision logging configuration
+decision_logs:
+  console: true
+  reporting:
+    min_delay_seconds: 5
+    max_delay_seconds: 10
+  mask_decision: false
+  
+  # PostgreSQL decision log storage
+  postgres:
+    service: postgres
+    reporting:
+      min_delay_seconds: 10
+      max_delay_seconds: 30
+
+# Status reporting
+status:
+  console: true
+  service: authz
+
+# Plugin configuration
+plugins:
+  # Envoy External Authorization
+  envoy_ext_authz_grpc:
+    addr: :9191
+    enable_reflection: true
+    
+  # Custom plugin for Keycloak integration
+  keycloak_integration:
+    keycloak_url: "http://keycloak:8080"
+    realm: "zero-trust"
+    client_id: "zero-trust-api"
+    
+  # Custom plugin for SPIRE integration  
+  spire_integration:
+    spire_socket: "/opt/spire/sockets/agent.sock"
+    trust_domain: "zero-trust.dev"
+
+# Default decision
+default_decision: "/zero_trust/authz/allow"
+
+# Default authorization query
+default_authorization_decision: "/zero_trust/authz"
+
+# Server configuration
+server:
+  encoding:
+    gzip:
+      compression_level: 6
+
+# Storage configuration
+storage:
+  disk:
+    directory: "/data"
+  
+# Caching configuration  
+caching:
+  inter_query_builtin_cache:
+    max_size_bytes: 10485760  # 10MB
+    
+# Distributed tracing
+distributed_tracing:
+  type: grpc
+  address: jaeger:14250
+  service_name: "opa-authz"
+  sample_percentage: 10

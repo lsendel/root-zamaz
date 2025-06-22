@@ -62,14 +62,15 @@ type SignatureValidation struct {
 
 // SignatureValidator verifies signed requests with enhanced security features
 type SignatureValidator struct {
-	Keys         map[string][]byte
-	Headers      []string
-	MaxClockSkew time.Duration
-	ReplayWindow time.Duration
-	obs          *observability.Observability
-	cache        cache.Cache
+	Keys           map[string][]byte
+	Headers        []string
+	MaxClockSkew   time.Duration
+	ReplayWindow   time.Duration
+	obs            *observability.Observability
+	cache          cache.Cache
+	replayProtector *ReplayProtector
 
-	// In-memory replay protection (fallback when cache is unavailable)
+	// Deprecated: Use replayProtector instead
 	mu   sync.RWMutex
 	seen map[string]time.Time
 }
@@ -254,15 +255,22 @@ func NewSignatureValidator(keys map[string][]byte, headers []string, v Signature
 
 // NewSignatureValidatorWithCache creates a validator with caching support for replay protection
 func NewSignatureValidatorWithCache(keys map[string][]byte, headers []string, v SignatureValidation, obs *observability.Observability, cache cache.Cache) *SignatureValidator {
-	return &SignatureValidator{
+	validator := &SignatureValidator{
 		Keys:         keys,
 		Headers:      headers,
 		MaxClockSkew: v.MaxClockSkew,
 		ReplayWindow: v.ReplayWindow,
 		obs:          obs,
 		cache:        cache,
-		seen:         make(map[string]time.Time),
+		seen:         make(map[string]time.Time), // Kept for backward compatibility
 	}
+	
+	// Create replay protector with automatic cleanup
+	if v.ReplayWindow > 0 {
+		validator.replayProtector = NewReplayProtector(cache, v.ReplayWindow, obs)
+	}
+	
+	return validator
 }
 
 // Validate checks the signature on the request with enhanced security
@@ -374,7 +382,7 @@ func (v *SignatureValidator) validateTimestamp(tsStr string) error {
 	return nil
 }
 
-// checkReplayAttack checks for replay attacks using cache or in-memory storage
+// checkReplayAttack checks for replay attacks using the replay protector
 func (v *SignatureValidator) checkReplayAttack(signature, nonce string) error {
 	if v.ReplayWindow <= 0 {
 		return nil // Replay protection disabled
@@ -383,6 +391,20 @@ func (v *SignatureValidator) checkReplayAttack(signature, nonce string) error {
 	// Create unique key for this request (signature + nonce combination)
 	replayKey := fmt.Sprintf("%s:%s", signature, nonce)
 
+	// Use replay protector if available (preferred)
+	if v.replayProtector != nil {
+		ctx := context.Background()
+		return v.replayProtector.CheckAndStore(ctx, replayKey)
+	}
+
+	// Fallback to legacy implementation for backward compatibility
+	// This path should rarely be used in practice
+	return v.checkReplayAttackLegacy(replayKey)
+}
+
+// checkReplayAttackLegacy is the legacy replay protection implementation
+// Deprecated: Use replayProtector instead
+func (v *SignatureValidator) checkReplayAttackLegacy(replayKey string) error {
 	// Try cache-based replay protection first
 	if v.cache != nil {
 		ctx := context.Background()

@@ -46,6 +46,13 @@ WIKI_SYNC_ENABLED ?= true
 WIKI_BRANCH ?= main
 WIKI_SUBDIRECTORY ?= Documentation
 
+# Keycloak Configuration
+KEYCLOAK_URL ?= http://localhost:8080
+KEYCLOAK_REALM ?= zero-trust
+KEYCLOAK_CLIENT_ID ?= zero-trust-app
+KEYCLOAK_ADMIN_USER ?= admin
+KEYCLOAK_ADMIN_PASSWORD ?= admin123
+
 # Colors
 BLUE := \033[34m
 GREEN := \033[32m
@@ -79,6 +86,8 @@ help: ## 📖 Show this help (most common commands at top)
 	@printf "  $(BLUE)make test-help$(RESET)       Testing and quality commands\n"
 	@printf "  $(BLUE)make docs-help$(RESET)       Documentation commands\n"
 	@printf "  $(BLUE)make docker-help$(RESET)     Docker and deployment commands\n"
+	@printf "  $(BLUE)make keycloak-help$(RESET)   Keycloak authentication setup\n"
+	@printf "  $(BLUE)make opa-help$(RESET)        Open Policy Agent authorization\n"
 	@printf "  $(BLUE)make db-help$(RESET)         Database management commands\n"
 	@printf "  $(BLUE)make matrix-help$(RESET)     Matrix testing across versions\n"
 	@printf "  $(BLUE)make show-env$(RESET)        Show current environment config\n"
@@ -165,13 +174,26 @@ dev-logs: ## 📜 View service logs
 test-help: ## 🧪 Show testing and quality help
 	@printf "\n$(BOLD)$(BLUE)Testing & Quality$(RESET)\n"
 	@printf "$(BLUE)==================$(RESET)\n\n"
-	@printf "$(BOLD)Testing:$(RESET)\n"
+	@printf "$(BOLD)Basic Testing:$(RESET)\n"
 	@printf "  $(GREEN)make test-all$(RESET)         🧪 Run all tests\n"
 	@printf "  $(GREEN)make test-unit$(RESET)        🔬 Run unit tests only\n"
 	@printf "  $(GREEN)make test-integration$(RESET) 🔗 Run integration tests\n"
 	@printf "  $(GREEN)make test-e2e$(RESET)         🎭 Run end-to-end tests\n"
 	@printf "  $(GREEN)make test-coverage$(RESET)    📊 Generate coverage report\n"
 	@printf "  $(GREEN)make test-watch$(RESET)       👀 Run tests in watch mode\n\n"
+	@printf "$(BOLD)Framework Integration Testing (Week 4):$(RESET)\n"
+	@printf "  $(GREEN)make test-e2e-integration$(RESET) 🔗 Complete E2E integration (Keycloak+SPIRE+OPA)\n"
+	@printf "  $(GREEN)make test-workload$(RESET)    🤖 Workload communication tests\n"
+	@printf "  $(GREEN)make test-compliance$(RESET)  📋 Compliance policies (GDPR, SOX, HIPAA)\n"
+	@printf "  $(GREEN)make test-integration-opa$(RESET) 🏛️ OPA policy integration\n"
+	@printf "  $(GREEN)make test-unit-go$(RESET)     🧪 Go unit tests\n\n"
+	@printf "$(BOLD)Performance Testing:$(RESET)\n"
+	@printf "  $(GREEN)make test-performance$(RESET) ⚡ Performance and load tests\n"
+	@printf "  $(GREEN)make test-sustained-load$(RESET) 🔥 Sustained load tests (5 min)\n\n"
+	@printf "$(BOLD)Test Modes:$(RESET)\n"
+	@printf "  $(GREEN)make test-quick$(RESET)       ⚡ Quick test suite (unit + basic)\n"
+	@printf "  $(GREEN)make test-with-services$(RESET) 🚀 Full test suite (requires services)\n"
+	@printf "  $(GREEN)make test-without-services$(RESET) 🏃 Offline mode (no external deps)\n\n"
 	@printf "$(BOLD)Quality:$(RESET)\n"
 	@printf "  $(GREEN)make lint$(RESET)             🔍 Run linting\n"
 	@printf "  $(GREEN)make lint-fix$(RESET)         🔧 Fix linting issues\n"
@@ -205,6 +227,51 @@ test-watch: ## 👀 Run tests in watch mode
 test-wiki: ## 📚 Test wiki integration
 	@printf "$(BLUE)📚 Testing wiki integration...$(RESET)\n"
 	@./scripts/test-wiki-integration.sh
+
+# Week 4: Framework Integration Testing
+test-e2e-integration: ## 🔗 Run complete E2E integration tests (Keycloak + SPIRE + OPA)
+	@printf "$(BLUE)🔗 Running E2E integration tests...$(RESET)\n"
+	@go test -v ./tests/e2e -run TestZeroTrustE2E
+
+test-workload: ## 🤖 Test workload communication and SPIRE integration
+	@printf "$(BLUE)🤖 Running workload communication tests...$(RESET)\n"
+	@go test -v ./tests/e2e -run TestWorkloadCommunication
+
+test-compliance: ## 📋 Test compliance policies (GDPR, SOX, HIPAA, PCI)
+	@printf "$(BLUE)📋 Running compliance policy tests...$(RESET)\n"
+	@go test -v ./tests/e2e -run TestCompliancePolicies
+
+test-performance: ## ⚡ Run performance and load tests
+	@printf "$(BLUE)⚡ Running performance tests...$(RESET)\n"
+	@go test -v ./tests/performance -timeout 10m
+
+test-integration-opa: ## 🏛️ Test OPA policy integration
+	@printf "$(BLUE)🏛️ Running OPA integration tests...$(RESET)\n"
+	@go test -v ./tests/integration
+
+test-sustained-load: ## 🔥 Run sustained load tests (5 minutes)
+	@printf "$(BLUE)🔥 Running sustained load tests...$(RESET)\n"
+	@go test -v ./tests/performance -run TestSustainedLoadTesting -timeout 20m
+
+test-unit-go: ## 🧪 Run Go unit tests
+	@printf "$(BLUE)🧪 Running Go unit tests...$(RESET)\n"
+	@go test -v ./tests/unit/...
+
+test-quick: ## ⚡ Run quick test suite (unit + basic integration)
+	@printf "$(BLUE)⚡ Running quick test suite...$(RESET)\n"
+	@go test -short -v ./tests/...
+
+test-with-services: ## 🚀 Run tests with all services (requires services running)
+	@printf "$(BLUE)🚀 Running tests with all services...$(RESET)\n"
+	@$(MAKE) test-unit-go
+	@$(MAKE) test-integration-opa
+	@$(MAKE) test-e2e-integration
+	@$(MAKE) test-workload
+	@$(MAKE) test-compliance
+
+test-without-services: ## 🏃 Run tests without external services (offline mode)
+	@printf "$(BLUE)🏃 Running tests in offline mode...$(RESET)\n"
+	@SKIP_IF_SERVICES_DOWN=true go test -v ./tests/...
 
 # =============================================================================
 # 🔍 CODE QUALITY & LINTING (2025 Best Practices)
@@ -625,6 +692,244 @@ docker-up: dev-up ## 🚀 Start services with Docker Compose
 docker-down: dev-down ## 🛑 Stop Docker services  
 docker-logs: dev-logs ## 📜 View Docker service logs
 docker-build: build-docker ## 🔨 Build Docker images
+
+# =============================================================================
+# 🔐 KEYCLOAK AUTHENTICATION INTEGRATION
+# =============================================================================
+
+.PHONY: keycloak-help keycloak-up keycloak-down keycloak-logs keycloak-test keycloak-setup keycloak-status
+
+keycloak-help: ## 🔐 Show Keycloak integration help
+	@printf "\n$(BOLD)$(BLUE)Keycloak Authentication Integration$(RESET)\n"
+	@printf "$(BLUE)====================================$(RESET)\n\n"
+	@printf "$(BOLD)Service Management:$(RESET)\n"
+	@printf "  $(GREEN)make keycloak-up$(RESET)      🚀 Start Keycloak + dependencies\n"
+	@printf "  $(GREEN)make keycloak-down$(RESET)    🛑 Stop Keycloak services\n"
+	@printf "  $(GREEN)make keycloak-logs$(RESET)    📜 View Keycloak logs\n"
+	@printf "  $(GREEN)make keycloak-status$(RESET)  📊 Check Keycloak service status\n\n"
+	@printf "$(BOLD)Setup & Testing:$(RESET)\n"
+	@printf "  $(GREEN)make keycloak-setup$(RESET)   ⚙️  Initialize Keycloak with Zero Trust realm\n"
+	@printf "  $(GREEN)make keycloak-test$(RESET)    🧪 Run Keycloak integration tests\n\n"
+	@printf "$(BOLD)Service URLs:$(RESET)\n"
+	@printf "  Keycloak Admin: $(KEYCLOAK_URL)\n"
+	@printf "  Realm: $(KEYCLOAK_REALM)\n"
+	@printf "  Client ID: $(KEYCLOAK_CLIENT_ID)\n"
+	@printf "  Admin User: $(KEYCLOAK_ADMIN_USER)\n\n"
+	@printf "$(BOLD)First Time Setup:$(RESET)\n"
+	@printf "  1. Copy .env.keycloak.template to .env.keycloak\n"
+	@printf "  2. Update secrets in .env.keycloak\n"
+	@printf "  3. Run: make keycloak-up\n"
+	@printf "  4. Run: make keycloak-setup\n"
+	@printf "  5. Run: make keycloak-test\n\n"
+
+keycloak-up: ## 🚀 Start Keycloak with PostgreSQL and Redis
+	@printf "$(BLUE)🚀 Starting Keycloak authentication stack...$(RESET)\n"
+	@if [ ! -f .env.keycloak ]; then \
+		printf "$(YELLOW)⚠️  .env.keycloak not found, copying from template...$(RESET)\n"; \
+		cp .env.keycloak.template .env.keycloak; \
+		printf "$(YELLOW)📝 Please update .env.keycloak with your actual secrets$(RESET)\n"; \
+	fi
+	@docker-compose -f docker-compose.keycloak.yml --env-file .env.keycloak up -d
+	@printf "$(GREEN)✅ Keycloak stack started!$(RESET)\n"
+	@printf "$(BLUE)📋 Waiting for services to be ready...$(RESET)\n"
+	@sleep 10
+	@make keycloak-status
+
+keycloak-down: ## 🛑 Stop Keycloak services
+	@printf "$(BLUE)🛑 Stopping Keycloak authentication stack...$(RESET)\n"
+	@docker-compose -f docker-compose.keycloak.yml down
+	@printf "$(GREEN)✅ Keycloak stack stopped!$(RESET)\n"
+
+keycloak-logs: ## 📜 View Keycloak service logs
+	@printf "$(BLUE)📜 Viewing Keycloak logs (Ctrl+C to exit)...$(RESET)\n"
+	@docker-compose -f docker-compose.keycloak.yml logs -f
+
+keycloak-status: ## 📊 Check Keycloak service status
+	@printf "$(BLUE)📊 Checking Keycloak service status...$(RESET)\n"
+	@printf "\n$(BOLD)Container Status:$(RESET)\n"
+	@docker-compose -f docker-compose.keycloak.yml ps
+	@printf "\n$(BOLD)Health Checks:$(RESET)\n"
+	@printf "Keycloak: "
+	@if curl -sf $(KEYCLOAK_URL)/health/ready >/dev/null 2>&1; then \
+		printf "$(GREEN)✅ Ready$(RESET)\n"; \
+	else \
+		printf "$(RED)❌ Not Ready$(RESET)\n"; \
+	fi
+	@printf "PostgreSQL: "
+	@if docker exec zero-trust-keycloak-db pg_isready -U postgres >/dev/null 2>&1; then \
+		printf "$(GREEN)✅ Ready$(RESET)\n"; \
+	else \
+		printf "$(RED)❌ Not Ready$(RESET)\n"; \
+	fi
+	@printf "Redis: "
+	@if docker exec zero-trust-redis-sessions redis-cli -a $${REDIS_PASSWORD:-redis123} ping >/dev/null 2>&1; then \
+		printf "$(GREEN)✅ Ready$(RESET)\n"; \
+	else \
+		printf "$(RED)❌ Not Ready$(RESET)\n"; \
+	fi
+
+keycloak-setup: ## ⚙️ Initialize Keycloak with Zero Trust realm
+	@printf "$(BLUE)⚙️ Setting up Keycloak Zero Trust configuration...$(RESET)\n"
+	@printf "$(YELLOW)📋 Realm configuration is automatically imported on startup$(RESET)\n"
+	@printf "$(BLUE)🔍 Verifying realm setup...$(RESET)\n"
+	@sleep 5
+	@if curl -sf "$(KEYCLOAK_URL)/realms/$(KEYCLOAK_REALM)" >/dev/null 2>&1; then \
+		printf "$(GREEN)✅ Zero Trust realm is active!$(RESET)\n"; \
+		printf "$(BLUE)🌐 Admin Console: $(KEYCLOAK_URL)/admin$(RESET)\n"; \
+		printf "$(BLUE)👤 Admin User: $(KEYCLOAK_ADMIN_USER)$(RESET)\n"; \
+		printf "$(BLUE)🔗 Realm URL: $(KEYCLOAK_URL)/realms/$(KEYCLOAK_REALM)$(RESET)\n"; \
+	else \
+		printf "$(RED)❌ Realm setup failed or still initializing$(RESET)\n"; \
+		printf "$(YELLOW)💡 Try: make keycloak-logs to check for errors$(RESET)\n"; \
+	fi
+
+keycloak-test: ## 🧪 Run Keycloak integration tests
+	@printf "$(BLUE)🧪 Running Keycloak integration tests...$(RESET)\n"
+	@printf "$(YELLOW)📋 Ensuring Keycloak is ready...$(RESET)\n"
+	@make keycloak-status
+	@printf "\n$(BLUE)🔬 Running integration test suite...$(RESET)\n"
+	@if [ -f .env.keycloak ]; then \
+		export $$(cat .env.keycloak | grep -v '^#' | xargs) && \
+		go test -v ./tests/integration -run TestKeycloak -timeout 30s; \
+	else \
+		printf "$(RED)❌ .env.keycloak not found. Run: make keycloak-up first$(RESET)\n"; \
+		exit 1; \
+	fi
+
+# =============================================================================
+# 🛡️ OPEN POLICY AGENT (OPA) AUTHORIZATION
+# =============================================================================
+
+.PHONY: opa-help opa-up opa-down opa-logs opa-test opa-policies opa-status opa-full-stack
+
+opa-help: ## 🛡️ Show Open Policy Agent help
+	@printf "\n$(BOLD)$(BLUE)Open Policy Agent (OPA) Authorization$(RESET)\n"
+	@printf "$(BLUE)======================================$(RESET)\n\n"
+	@printf "$(BOLD)Service Management:$(RESET)\n"
+	@printf "  $(GREEN)make opa-up$(RESET)           🚀 Start OPA + dependencies\n"
+	@printf "  $(GREEN)make opa-down$(RESET)         🛑 Stop OPA services\n"
+	@printf "  $(GREEN)make opa-logs$(RESET)         📜 View OPA logs\n"
+	@printf "  $(GREEN)make opa-status$(RESET)       📊 Check OPA service status\n\n"
+	@printf "$(BOLD)Policy & Testing:$(RESET)\n"
+	@printf "  $(GREEN)make opa-policies$(RESET)     📋 Validate and test policies\n"
+	@printf "  $(GREEN)make opa-test$(RESET)         🧪 Run OPA integration tests\n\n"
+	@printf "$(BOLD)Full Stack:$(RESET)\n"
+	@printf "  $(GREEN)make opa-full-stack$(RESET)   🎯 Start complete Zero Trust stack\n\n"
+	@printf "$(BOLD)Service URLs:$(RESET)\n"
+	@printf "  OPA API: http://localhost:8181\n"
+	@printf "  OPA Diagnostics: http://localhost:8282\n"
+	@printf "  PostgreSQL: localhost:5435\n"
+	@printf "  Redis: localhost:6381\n\n"
+	@printf "$(BOLD)First Time Setup:$(RESET)\n"
+	@printf "  1. Ensure Keycloak is running: make keycloak-up\n"
+	@printf "  2. Start OPA stack: make opa-up\n"
+	@printf "  3. Validate policies: make opa-policies\n"
+	@printf "  4. Run tests: make opa-test\n\n"
+
+opa-up: ## 🚀 Start OPA with PostgreSQL and Redis
+	@printf "$(BLUE)🚀 Starting OPA authorization stack...$(RESET)\n"
+	@if [ ! -f .env.opa ]; then \
+		printf "$(YELLOW)⚠️  .env.opa not found, using defaults...$(RESET)\n"; \
+	fi
+	@docker-compose -f docker-compose.opa.yml up -d
+	@printf "$(GREEN)✅ OPA stack started!$(RESET)\n"
+	@printf "$(BLUE)📋 Waiting for services to be ready...$(RESET)\n"
+	@sleep 15
+	@make opa-status
+
+opa-down: ## 🛑 Stop OPA services
+	@printf "$(BLUE)🛑 Stopping OPA authorization stack...$(RESET)\n"
+	@docker-compose -f docker-compose.opa.yml down
+	@printf "$(GREEN)✅ OPA stack stopped!$(RESET)\n"
+
+opa-logs: ## 📜 View OPA service logs
+	@printf "$(BLUE)📜 Viewing OPA logs (Ctrl+C to exit)...$(RESET)\n"
+	@docker-compose -f docker-compose.opa.yml logs -f
+
+opa-status: ## 📊 Check OPA service status
+	@printf "$(BLUE)📊 Checking OPA service status...$(RESET)\n"
+	@printf "\n$(BOLD)Container Status:$(RESET)\n"
+	@docker-compose -f docker-compose.opa.yml ps
+	@printf "\n$(BOLD)Health Checks:$(RESET)\n"
+	@printf "OPA API: "
+	@if curl -sf http://localhost:8181/health >/dev/null 2>&1; then \
+		printf "$(GREEN)✅ Ready$(RESET)\n"; \
+	else \
+		printf "$(RED)❌ Not Ready$(RESET)\n"; \
+	fi
+	@printf "OPA Diagnostics: "
+	@if curl -sf http://localhost:8282/health >/dev/null 2>&1; then \
+		printf "$(GREEN)✅ Ready$(RESET)\n"; \
+	else \
+		printf "$(RED)❌ Not Ready$(RESET)\n"; \
+	fi
+	@printf "PostgreSQL: "
+	@if docker exec zero-trust-opa-db pg_isready -U opa >/dev/null 2>&1; then \
+		printf "$(GREEN)✅ Ready$(RESET)\n"; \
+	else \
+		printf "$(RED)❌ Not Ready$(RESET)\n"; \
+	fi
+	@printf "Redis: "
+	@if docker exec zero-trust-opa-redis redis-cli -a opa123 ping >/dev/null 2>&1; then \
+		printf "$(GREEN)✅ Ready$(RESET)\n"; \
+	else \
+		printf "$(RED)❌ Not Ready$(RESET)\n"; \
+	fi
+
+opa-policies: ## 📋 Validate and test OPA policies
+	@printf "$(BLUE)📋 Validating OPA policies...$(RESET)\n"
+	@printf "$(YELLOW)🔍 Checking policy syntax...$(RESET)\n"
+	@if command -v opa >/dev/null 2>&1; then \
+		opa fmt --diff deployments/opa/policies/; \
+		opa test deployments/opa/policies/; \
+	else \
+		printf "$(YELLOW)⚠️  OPA CLI not installed, using Docker...$(RESET)\n"; \
+		docker run --rm -v $(PWD)/deployments/opa/policies:/policies openpolicyagent/opa:latest fmt --diff /policies; \
+		docker run --rm -v $(PWD)/deployments/opa/policies:/policies openpolicyagent/opa:latest test /policies; \
+	fi
+	@printf "$(GREEN)✅ Policy validation complete!$(RESET)\n"
+
+opa-test: ## 🧪 Run OPA integration tests
+	@printf "$(BLUE)🧪 Running OPA integration tests...$(RESET)\n"
+	@printf "$(YELLOW)📋 Ensuring OPA is ready...$(RESET)\n"
+	@make opa-status
+	@printf "\n$(BLUE)🔬 Running integration test suite...$(RESET)\n"
+	@if [ -f .env.opa ]; then \
+		export $$(cat .env.opa | grep -v '^#' | xargs) && \
+		go test -v ./tests/integration -run TestOPA -timeout 60s; \
+	else \
+		OPA_URL=http://localhost:8181 \
+		OPA_DB_URL=postgres://opa:opa123@localhost:5435/opa_decisions?sslmode=disable \
+		go test -v ./tests/integration -run TestOPA -timeout 60s; \
+	fi
+
+opa-full-stack: ## 🎯 Start complete Zero Trust stack (Keycloak + OPA + SPIRE)
+	@printf "$(BLUE)🎯 Starting complete Zero Trust authentication stack...$(RESET)\n"
+	@printf "$(YELLOW)1/3 Starting Keycloak...$(RESET)\n"
+	@make keycloak-up
+	@printf "$(YELLOW)2/3 Starting OPA...$(RESET)\n"
+	@make opa-up
+	@printf "$(YELLOW)3/3 Checking overall health...$(RESET)\n"
+	@sleep 10
+	@printf "\n$(BOLD)$(GREEN)🎉 Complete Zero Trust Stack Status:$(RESET)\n"
+	@printf "$(BLUE)Keycloak (Identity):$(RESET) "
+	@if curl -sf http://localhost:8080/health/ready >/dev/null 2>&1; then \
+		printf "$(GREEN)✅ Ready$(RESET)\n"; \
+	else \
+		printf "$(RED)❌ Not Ready$(RESET)\n"; \
+	fi
+	@printf "$(BLUE)OPA (Authorization):$(RESET) "
+	@if curl -sf http://localhost:8181/health >/dev/null 2>&1; then \
+		printf "$(GREEN)✅ Ready$(RESET)\n"; \
+	else \
+		printf "$(RED)❌ Not Ready$(RESET)\n"; \
+	fi
+	@printf "\n$(BOLD)Zero Trust Stack URLs:$(RESET)\n"
+	@printf "  🔐 Keycloak Admin: http://localhost:8080/admin\n"
+	@printf "  🛡️  OPA Policies: http://localhost:8181/v1/policies\n"
+	@printf "  📊 OPA Data: http://localhost:8181/v1/data\n"
+	@printf "  🔍 OPA Query: http://localhost:8181/v1/query\n"
+	@printf "\n$(GREEN)✅ Zero Trust authentication stack is ready!$(RESET)\n"
 
 # =============================================================================
 # 🗄️ DATABASE MANAGEMENT

@@ -16,13 +16,16 @@ import (
 	"mvp.local/pkg/cache"
 	"mvp.local/pkg/errors"
 	"mvp.local/pkg/models"
+	"mvp.local/pkg/observability"
 )
 
 // AuthorizationService handles RBAC authorization using Casbin
 type AuthorizationService struct {
-	enforcer *casbin.Enforcer
-	db       *gorm.DB
-	cache    cache.Cache
+	enforcer     *casbin.Enforcer
+	db           *gorm.DB
+	cache        cache.Cache
+	obs          *observability.Observability
+	secureErrors *SecureErrorHandler
 }
 
 // AuthorizationInterface defines the contract for authorization operations
@@ -56,6 +59,14 @@ const (
 // NewAuthorizationService creates a new authorization service
 func NewAuthorizationService() *AuthorizationService {
 	return &AuthorizationService{}
+}
+
+// NewAuthorizationServiceWithObservability creates a new authorization service with observability
+func NewAuthorizationServiceWithObservability(obs *observability.Observability) *AuthorizationService {
+	return &AuthorizationService{
+		obs:          obs,
+		secureErrors: NewSecureErrorHandler(obs),
+	}
 }
 
 // SetCache sets the cache instance for the authorization service
@@ -391,7 +402,37 @@ func (a *AuthorizationService) CheckPermission(userID string, resource, action s
 	}
 
 	if !allowed {
-		return errors.Forbidden(fmt.Sprintf("User %s does not have permission to %s %s", userID, action, resource))
+		// Log detailed information internally while returning generic error
+		if a.obs != nil {
+			a.obs.Logger.Warn().
+				Str("user_id", userID).
+				Str("resource", resource).
+				Str("action", action).
+				Msg("Permission denied for user")
+		}
+		
+		// Return generic error message without exposing internal details
+		return errors.Forbidden("Permission denied for the requested operation")
+	}
+
+	return nil
+}
+
+// CheckPermissionWithContext is a secure context-aware permission check
+func (a *AuthorizationService) CheckPermissionWithContext(ctx context.Context, userID string, resource, action string) error {
+	allowed, err := a.Enforce(userID, resource, action)
+	if err != nil {
+		return err
+	}
+
+	if !allowed {
+		// Use secure error handler if available
+		if a.secureErrors != nil {
+			return a.secureErrors.PermissionDeniedError(ctx, userID, action, resource)
+		}
+		
+		// Fallback to regular CheckPermission behavior
+		return a.CheckPermission(userID, resource, action)
 	}
 
 	return nil

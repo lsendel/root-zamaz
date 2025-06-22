@@ -1,0 +1,141 @@
+# Zero Trust Authentication Stack - Open Policy Agent (OPA)
+# Part of Framework Integration Plan - Week 3
+version: '3.8'
+
+services:
+  # Open Policy Agent - Policy Engine
+  opa:
+    image: openpolicyagent/opa:0.58.0-envoy
+    container_name: zero-trust-opa
+    command: [
+      "run",
+      "--server",
+      "--config-file=/config/config.yaml",
+      "--addr=0.0.0.0:8181",
+      "--diagnostic-addr=0.0.0.0:8282",
+      "--set=plugins.envoy_ext_authz_grpc.addr=:9191",
+      "--set=plugins.envoy_ext_authz_grpc.enable_reflection=true",
+      "--set=decision_logs.console=true",
+      "/policies"
+    ]
+    volumes:
+      - ./deployments/opa/config/config.yaml:/config/config.yaml:ro
+      - ./deployments/opa/policies:/policies:ro
+      - ./deployments/opa/data:/data:ro
+      - opa_decision_logs:/var/log/opa
+    environment:
+      OPA_LOG_LEVEL: ${OPA_LOG_LEVEL:-info}
+      OPA_LOG_FORMAT: ${OPA_LOG_FORMAT:-json}
+    ports:
+      - "8181:8181"   # OPA API server
+      - "8282:8282"   # OPA diagnostics
+      - "9191:9191"   # Envoy External Authorization gRPC
+    networks:
+      - zero-trust-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8181/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # OPA Bundle Server (for policy distribution)
+  opa-bundle-server:
+    image: nginx:alpine
+    container_name: zero-trust-opa-bundle
+    volumes:
+      - ./deployments/opa/bundles:/usr/share/nginx/html/bundles:ro
+      - ./deployments/opa/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "8080:80"
+    networks:
+      - zero-trust-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # PostgreSQL for OPA decision logs (optional)
+  opa-postgres:
+    image: postgres:15
+    container_name: zero-trust-opa-db
+    environment:
+      POSTGRES_USER: opa
+      POSTGRES_PASSWORD: ${OPA_DB_PASSWORD:-opa123}
+      POSTGRES_DB: opa_decisions
+    volumes:
+      - opa_postgres_data:/var/lib/postgresql/data
+      - ./deployments/opa/sql/init-opa-db.sql:/docker-entrypoint-initdb.d/01-init-opa.sql
+    networks:
+      - zero-trust-network
+    ports:
+      - "5435:5432"  # Different port to avoid conflicts
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U opa"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for OPA caching
+  opa-redis:
+    image: redis:7-alpine
+    container_name: zero-trust-opa-redis
+    command: redis-server --requirepass ${OPA_REDIS_PASSWORD:-opa123}
+    environment:
+      REDIS_PASSWORD: ${OPA_REDIS_PASSWORD:-opa123}
+    ports:
+      - "6381:6379"  # Different port to avoid conflicts
+    volumes:
+      - opa_redis_data:/data
+    networks:
+      - zero-trust-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${OPA_REDIS_PASSWORD:-opa123}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # OPA Gatekeeper (for Kubernetes policy enforcement)
+  opa-gatekeeper:
+    image: openpolicyagent/gatekeeper:v3.14.0
+    container_name: zero-trust-opa-gatekeeper
+    command: [
+      "/manager",
+      "--port=8443",
+      "--logtostderr",
+      "--exempt-namespace=opa-system",
+      "--operation=webhook"
+    ]
+    volumes:
+      - ./deployments/opa/gatekeeper:/etc/gatekeeper:ro
+      - opa_gatekeeper_data:/tmp
+    environment:
+      POD_NAMESPACE: opa-system
+      POD_NAME: gatekeeper-controller-manager
+    ports:
+      - "8443:8443"   # Webhook server
+      - "8888:8888"   # Metrics
+      - "9090:9090"   # Health probes
+    networks:
+      - zero-trust-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9090/readyz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+networks:
+  zero-trust-network:
+    external: true
+    name: zero-trust-network
+
+volumes:
+  opa_postgres_data:
+    name: zero-trust-opa-postgres-data
+  opa_redis_data:
+    name: zero-trust-opa-redis-data
+  opa_decision_logs:
+    name: zero-trust-opa-decision-logs
+  opa_gatekeeper_data:
+    name: zero-trust-opa-gatekeeper-data

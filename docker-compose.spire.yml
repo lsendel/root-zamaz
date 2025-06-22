@@ -1,0 +1,154 @@
+# Zero Trust Authentication Stack - SPIRE/SPIFFE Workload Identity
+# Part of Framework Integration Plan - Week 2
+version: '3.8'
+
+services:
+  # PostgreSQL database for SPIRE server
+  spire-postgres:
+    image: postgres:15
+    container_name: zero-trust-spire-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
+      POSTGRES_DB: postgres
+    volumes:
+      - spire_postgres_data:/var/lib/postgresql/data
+      - ./deployments/spire/sql/init-spire-db.sql:/docker-entrypoint-initdb.d/01-init-spire.sql
+    networks:
+      - zero-trust-network
+    ports:
+      - "5434:5432"  # Different port to avoid conflicts
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # SPIRE Server
+  spire-server:
+    image: ghcr.io/spiffe/spire-server:1.8.7
+    container_name: zero-trust-spire-server
+    command: [
+      "/opt/spire/bin/spire-server", "run",
+      "-config", "/opt/spire/conf/server/server.conf"
+    ]
+    volumes:
+      - ./deployments/spire/server/server.conf:/opt/spire/conf/server/server.conf
+      - ./deployments/spire/certs:/opt/spire/conf:ro
+      - spire_server_data:/opt/spire/data/server
+      - spire_server_sockets:/opt/spire/sockets
+    environment:
+      SPIRE_DB_PASSWORD: ${SPIRE_DB_PASSWORD:-spire123}
+    ports:
+      - "8081:8081"   # SPIRE server API
+      - "8080:8080"   # Health checks
+      - "9988:9988"   # Prometheus metrics
+    depends_on:
+      spire-postgres:
+        condition: service_healthy
+    networks:
+      - zero-trust-network
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/spire/bin/spire-server healthcheck -socketPath /opt/spire/sockets/api.sock"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # SPIRE Agent
+  spire-agent:
+    image: ghcr.io/spiffe/spire-agent:1.8.7
+    container_name: zero-trust-spire-agent
+    command: [
+      "/opt/spire/bin/spire-agent", "run",
+      "-config", "/opt/spire/conf/agent/agent.conf"
+    ]
+    volumes:
+      - ./deployments/spire/agent/agent.conf:/opt/spire/conf/agent/agent.conf
+      - ./deployments/spire/certs:/opt/spire/conf:ro
+      - spire_agent_data:/opt/spire/data/agent
+      - spire_agent_sockets:/opt/spire/sockets
+      - /var/run/docker.sock:/var/run/docker.sock:ro  # For Docker workload attestation
+    ports:
+      - "8082:8080"   # Health checks
+      - "9989:9989"   # Prometheus metrics
+    depends_on:
+      spire-server:
+        condition: service_healthy
+    networks:
+      - zero-trust-network
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/spire/bin/spire-agent healthcheck -socketPath /opt/spire/sockets/agent.sock"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # SPIRE OIDC Discovery Provider (for JWT-SVID validation)
+  spire-oidc:
+    image: ghcr.io/spiffe/oidc-discovery-provider:1.8.7
+    container_name: zero-trust-spire-oidc
+    command: [
+      "/usr/bin/oidc-discovery-provider",
+      "-config", "/opt/spire-oidc/conf/oidc-discovery-provider.conf"
+    ]
+    volumes:
+      - ./deployments/spire/oidc/oidc-discovery-provider.conf:/opt/spire-oidc/conf/oidc-discovery-provider.conf
+      - spire_oidc_data:/opt/spire-oidc/data
+      - spire_server_sockets:/opt/spire/sockets:ro
+    ports:
+      - "8083:8080"   # OIDC discovery endpoint
+    depends_on:
+      spire-server:
+        condition: service_healthy
+    networks:
+      - zero-trust-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/.well-known/openid_configuration || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # SPIRE Controller Manager (for Kubernetes integration)
+  spire-controller:
+    image: ghcr.io/spiffe/spire-controller-manager:0.4.0
+    container_name: zero-trust-spire-controller
+    command: [
+      "/manager",
+      "--config=/etc/spire-controller-manager/spire-controller-manager.yaml"
+    ]
+    volumes:
+      - ./deployments/spire/controller/spire-controller-manager.yaml:/etc/spire-controller-manager/spire-controller-manager.yaml
+      - spire_controller_data:/var/lib/spire-controller-manager
+    environment:
+      ENABLE_WEBHOOKS: "true"
+      WEBHOOK_CERT_DIR: "/tmp/k8s-webhook-server/serving-certs"
+    ports:
+      - "9443:9443"   # Webhook server
+      - "8084:8080"   # Metrics and health
+    depends_on:
+      spire-server:
+        condition: service_healthy
+    networks:
+      - zero-trust-network
+
+networks:
+  zero-trust-network:
+    external: true
+    name: zero-trust-network
+
+volumes:
+  spire_postgres_data:
+    name: zero-trust-spire-postgres-data
+  spire_server_data:
+    name: zero-trust-spire-server-data
+  spire_agent_data:
+    name: zero-trust-spire-agent-data
+  spire_oidc_data:
+    name: zero-trust-spire-oidc-data
+  spire_controller_data:
+    name: zero-trust-spire-controller-data
+  spire_server_sockets:
+    name: zero-trust-spire-server-sockets
+  spire_agent_sockets:
+    name: zero-trust-spire-agent-sockets
