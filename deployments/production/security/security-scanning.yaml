@@ -1,0 +1,373 @@
+# Security Scanning Configuration for Zero Trust Authentication System
+# Implements multiple layers of security scanning and compliance checks
+
+# Falco DaemonSet for runtime security monitoring
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: falco
+  namespace: zero-trust-prod
+spec:
+  selector:
+    matchLabels:
+      app: falco
+  template:
+    metadata:
+      labels:
+        app: falco
+    spec:
+      serviceAccountName: falco
+      hostNetwork: true
+      hostPID: true
+      containers:
+      - name: falco
+        image: falcosecurity/falco:0.35.1
+        securityContext:
+          privileged: true
+        args:
+        - /usr/bin/falco
+        - --cri
+        - /run/containerd/containerd.sock
+        - -K
+        - /var/run/secrets/kubernetes.io/serviceaccount/token
+        - -k
+        - https://$(KUBERNETES_SERVICE_HOST)
+        - -pk
+        volumeMounts:
+        - name: docker-socket
+          mountPath: /host/var/run/docker.sock
+          readOnly: true
+        - name: containerd-socket
+          mountPath: /run/containerd/containerd.sock
+          readOnly: true
+        - name: proc-fs
+          mountPath: /host/proc
+          readOnly: true
+        - name: boot-fs
+          mountPath: /host/boot
+          readOnly: true
+        - name: lib-modules
+          mountPath: /host/lib/modules
+          readOnly: true
+        - name: usr-fs
+          mountPath: /host/usr
+          readOnly: true
+        - name: etc-fs
+          mountPath: /host/etc
+          readOnly: true
+        - name: config
+          mountPath: /etc/falco
+      volumes:
+      - name: docker-socket
+        hostPath:
+          path: /var/run/docker.sock
+      - name: containerd-socket
+        hostPath:
+          path: /run/containerd/containerd.sock
+      - name: proc-fs
+        hostPath:
+          path: /proc
+      - name: boot-fs
+        hostPath:
+          path: /boot
+      - name: lib-modules
+        hostPath:
+          path: /lib/modules
+      - name: usr-fs
+        hostPath:
+          path: /usr
+      - name: etc-fs
+        hostPath:
+          path: /etc
+      - name: config
+        configMap:
+          name: falco-config
+
+# Falco ConfigMap with Zero Trust specific rules
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: falco-config
+  namespace: zero-trust-prod
+data:
+  falco.yaml: |
+    rules_file:
+      - /etc/falco/falco_rules.yaml
+      - /etc/falco/falco_rules.local.yaml
+      - /etc/falco/zero_trust_rules.yaml
+    
+    json_output: true
+    json_include_output_property: true
+    
+    log_stderr: true
+    log_syslog: false
+    log_level: info
+    
+    priority: warning
+    
+    outputs:
+      rate: 1
+      max_burst: 1000
+    
+    syslog_output:
+      enabled: false
+    
+    program_output:
+      enabled: true
+      program: "jq '{text: .output}' | curl -d @- -X POST https://slack.webhook.url"
+  
+  zero_trust_rules.yaml: |
+    - rule: Unauthorized Process in Auth Container
+      desc: Detect unauthorized process execution in authentication containers
+      condition: >
+        container and container.name contains "auth" and
+        proc.name != "java" and proc.name != "node" and 
+        proc.name != "go" and proc.name != "sh" and
+        not proc.name in (shell_binaries)
+      output: >
+        Unauthorized process in auth container
+        (user=%user.name command=%proc.cmdline container=%container.name)
+      priority: WARNING
+      tags: [container, process, authentication]
+    
+    - rule: Suspicious Network Connection from Auth Service
+      desc: Detect unexpected network connections from authentication services
+      condition: >
+        container and container.name in (keycloak, opa, backend-api) and
+        outbound and not fd.snet in (allowed_subnets) and
+        not fd.sport in (443, 5432, 6379, 8080, 8181)
+      output: >
+        Suspicious network connection from auth service
+        (container=%container.name connection=%fd.name)
+      priority: WARNING
+      tags: [network, authentication]
+    
+    - rule: Config File Modified
+      desc: Detect modifications to configuration files
+      condition: >
+        container and write and 
+        (fd.name endswith ".yaml" or fd.name endswith ".yml" or
+         fd.name endswith ".json" or fd.name endswith ".conf")
+      output: >
+        Configuration file modified
+        (user=%user.name file=%fd.name container=%container.name)
+      priority: WARNING
+      tags: [filesystem, configuration]
+    
+    - rule: Sensitive File Access
+      desc: Detect access to sensitive files
+      condition: >
+        container and open_read and
+        (fd.name contains "/etc/passwd" or
+         fd.name contains "/etc/shadow" or
+         fd.name contains "private" or
+         fd.name contains "secret")
+      output: >
+        Sensitive file accessed
+        (user=%user.name file=%fd.name container=%container.name)
+      priority: WARNING
+      tags: [filesystem, secrets]
+
+# Trivy Operator for vulnerability scanning
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: trivy-operator-config
+  namespace: zero-trust-prod
+data:
+  trivy.severity: "CRITICAL,HIGH,MEDIUM"
+  trivy.ignoreUnfixed: "false"
+  trivy.timeout: "5m"
+  compliance.failEntriesLimit: "10"
+
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: trivy-scan
+  namespace: zero-trust-prod
+spec:
+  schedule: "0 */6 * * *"  # Every 6 hours
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: trivy-scanner
+          containers:
+          - name: trivy
+            image: aquasec/trivy:0.45.0
+            command:
+            - sh
+            - -c
+            - |
+              # Scan all images in the namespace
+              kubectl get pods -n zero-trust-prod -o json | \
+              jq -r '.items[].spec.containers[].image' | \
+              sort -u | while read image; do
+                echo "Scanning $image"
+                trivy image --severity CRITICAL,HIGH --no-progress "$image"
+              done
+              
+              # Generate compliance report
+              trivy k8s --report summary cluster
+          restartPolicy: OnFailure
+
+# OPA Gatekeeper for policy enforcement
+---
+apiVersion: templates.gatekeeper.sh/v1beta1
+kind: ConstraintTemplate
+metadata:
+  name: zerotrustsecurity
+spec:
+  crd:
+    spec:
+      names:
+        kind: ZeroTrustSecurity
+      validation:
+        openAPIV3Schema:
+          type: object
+          properties:
+            requiredLabels:
+              type: array
+              items:
+                type: string
+            allowedRegistries:
+              type: array
+              items:
+                type: string
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package zerotrustsecurity
+        
+        violation[{"msg": msg}] {
+          required := input.parameters.requiredLabels[_]
+          not input.review.object.metadata.labels[required]
+          msg := sprintf("Missing required label: %v", [required])
+        }
+        
+        violation[{"msg": msg}] {
+          image := input.review.object.spec.containers[_].image
+          not any_allowed_registry(image)
+          msg := sprintf("Image from unauthorized registry: %v", [image])
+        }
+        
+        any_allowed_registry(image) {
+          allowed := input.parameters.allowedRegistries[_]
+          startswith(image, allowed)
+        }
+
+---
+apiVersion: zero-trust.io/v1beta1
+kind: ZeroTrustSecurity
+metadata:
+  name: production-security
+spec:
+  match:
+    kinds:
+    - apiGroups: ["apps"]
+      kinds: ["Deployment", "StatefulSet", "DaemonSet"]
+    namespaces: ["zero-trust-prod"]
+  parameters:
+    requiredLabels:
+      - "app.kubernetes.io/name"
+      - "app.kubernetes.io/version"
+      - "security.zero-trust.io/scan-status"
+    allowedRegistries:
+      - "your-registry.io/"
+      - "quay.io/keycloak/"
+      - "docker.io/openpolicyagent/"
+
+# Security scanning results aggregator
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: security-scan-aggregator
+  namespace: zero-trust-prod
+data:
+  aggregate-scans.sh: |
+    #!/bin/bash
+    
+    # Aggregate security scan results
+    echo "Zero Trust Security Scan Report - $(date)"
+    echo "========================================"
+    
+    # Container vulnerabilities
+    echo -e "\n## Container Vulnerabilities"
+    kubectl get vulnerabilityreports -n zero-trust-prod -o json | \
+    jq -r '.items[] | select(.report.summary.criticalCount > 0 or .report.summary.highCount > 0) | 
+    "\(.metadata.name): CRITICAL=\(.report.summary.criticalCount) HIGH=\(.report.summary.highCount)"'
+    
+    # Configuration issues
+    echo -e "\n## Configuration Issues"
+    kubectl get configauditreports -n zero-trust-prod -o json | \
+    jq -r '.items[] | select(.report.summary.criticalCount > 0 or .report.summary.highCount > 0) |
+    "\(.metadata.name): CRITICAL=\(.report.summary.criticalCount) HIGH=\(.report.summary.highCount)"'
+    
+    # RBAC issues
+    echo -e "\n## RBAC Issues"
+    kubectl get rbacassessmentreports -n zero-trust-prod -o json | \
+    jq -r '.items[] | select(.report.summary.criticalCount > 0) |
+    "\(.metadata.name): Issues=\(.report.summary.criticalCount)"'
+    
+    # Network policies coverage
+    echo -e "\n## Network Policy Coverage"
+    total_pods=$(kubectl get pods -n zero-trust-prod --no-headers | wc -l)
+    covered_pods=$(kubectl get pods -n zero-trust-prod -o json | \
+    jq -r '.items[] | select(.metadata.labels | keys | any(. == "app")) | .metadata.name' | wc -l)
+    echo "Coverage: $covered_pods/$total_pods pods"
+    
+    # Compliance status
+    echo -e "\n## Compliance Status"
+    echo "CIS Kubernetes Benchmark: $(kubectl get clustercompliancereport cis-k8s -o json | jq -r '.status.summary.passCount')/$(kubectl get clustercompliancereport cis-k8s -o json | jq -r '.status.summary.totalCount') passed"
+
+# SIEM integration for security events
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: siem-forwarder
+  namespace: zero-trust-prod
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush         5
+        Log_Level     info
+        Daemon        off
+
+    [INPUT]
+        Name              tail
+        Path              /var/log/containers/*zero-trust*.log
+        Parser            docker
+        Tag               k8s.*
+        Refresh_Interval  5
+        Skip_Long_Lines   On
+
+    [FILTER]
+        Name                kubernetes
+        Match               k8s.*
+        Kube_URL            https://kubernetes.default.svc:443
+        Kube_CA_File        /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        Kube_Token_File     /var/run/secrets/kubernetes.io/serviceaccount/token
+        Merge_Log           On
+        K8S-Logging.Parser  On
+        K8S-Logging.Exclude On
+
+    [FILTER]
+        Name    grep
+        Match   *
+        Regex   log (error|fail|denied|unauthorized|forbidden|attack|suspicious)
+
+    [OUTPUT]
+        Name        http
+        Match       *
+        Host        siem.company.com
+        Port        443
+        URI         /api/v1/events
+        Format      json
+        tls         On
+        tls.verify  On

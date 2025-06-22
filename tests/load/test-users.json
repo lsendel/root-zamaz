@@ -1,0 +1,72 @@
+[
+  {
+    "username": "low-trust-user-1",
+    "password": "TestPassword123!",
+    "email": "low1@loadtest.local",
+    "trustLevel": 25,
+    "roles": ["user"]
+  },
+  {
+    "username": "low-trust-user-2",
+    "password": "TestPassword123!",
+    "email": "low2@loadtest.local",
+    "trustLevel": 25,
+    "roles": ["user"]
+  },
+  {
+    "username": "medium-trust-user-1",
+    "password": "TestPassword123!",
+    "email": "medium1@loadtest.local",
+    "trustLevel": 50,
+    "roles": ["user", "analyst"]
+  },
+  {
+    "username": "medium-trust-user-2",
+    "password": "TestPassword123!",
+    "email": "medium2@loadtest.local",
+    "trustLevel": 50,
+    "roles": ["user", "developer"]
+  },
+  {
+    "username": "high-trust-user-1",
+    "password": "TestPassword123!",
+    "email": "high1@loadtest.local",
+    "trustLevel": 75,
+    "roles": ["user", "admin"]
+  },
+  {
+    "username": "high-trust-user-2",
+    "password": "TestPassword123!",
+    "email": "high2@loadtest.local",
+    "trustLevel": 75,
+    "roles": ["user", "manager", "admin"]
+  },
+  {
+    "username": "full-trust-user-1",
+    "password": "TestPassword123!",
+    "email": "full1@loadtest.local",
+    "trustLevel": 100,
+    "roles": ["user", "finance", "admin"]
+  },
+  {
+    "username": "full-trust-user-2",
+    "password": "TestPassword123!",
+    "email": "full2@loadtest.local",
+    "trustLevel": 100,
+    "roles": ["user", "security", "admin"]
+  },
+  {
+    "username": "medical-user-1",
+    "password": "TestPassword123!",
+    "email": "medical1@loadtest.local",
+    "trustLevel": 75,
+    "roles": ["user", "medical"]
+  },
+  {
+    "username": "compliance-user-1",
+    "password": "TestPassword123!",
+    "email": "compliance1@loadtest.local",
+    "trustLevel": 90,
+    "roles": ["user", "compliance", "auditor"]
+  }
+]

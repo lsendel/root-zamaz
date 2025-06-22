@@ -1,0 +1,198 @@
+# ServiceMonitor for Prometheus to scrape Zero Trust services
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: zero-trust-metrics
+  namespace: zero-trust-prod
+  labels:
+    app: zero-trust
+    prometheus: kube-prometheus
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/part-of: zero-trust-auth
+  endpoints:
+  # Keycloak metrics
+  - port: metrics
+    path: /metrics
+    interval: 30s
+    targetPort: 9090
+    relabelings:
+    - sourceLabels: [__meta_kubernetes_pod_name]
+      targetLabel: pod
+    - sourceLabels: [__meta_kubernetes_service_name]
+      targetLabel: service
+  # OPA metrics
+  - port: metrics
+    path: /metrics
+    interval: 30s
+    targetPort: 8182
+  # Backend API metrics
+  - port: metrics
+    path: /metrics
+    interval: 30s
+    targetPort: 9100
+---
+# Prometheus Rules for alerting
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: zero-trust-alerts
+  namespace: zero-trust-prod
+  labels:
+    app: zero-trust
+    prometheus: kube-prometheus
+spec:
+  groups:
+  - name: zero-trust-authentication
+    interval: 30s
+    rules:
+    # High Error Rate Alert
+    - alert: HighAuthenticationErrorRate
+      expr: |
+        (
+          sum(rate(http_requests_total{job="zero-trust-backend",status=~"5.."}[5m]))
+          /
+          sum(rate(http_requests_total{job="zero-trust-backend"}[5m]))
+        ) > 0.05
+      for: 5m
+      labels:
+        severity: critical
+        team: platform-security
+      annotations:
+        summary: "High authentication error rate detected"
+        description: "Error rate is {{ $value | humanizePercentage }} for the last 5 minutes"
+        runbook_url: "https://wiki.company.com/runbooks/zero-trust-auth-errors"
+    
+    # Low Trust Level Authentication Spike
+    - alert: LowTrustAuthenticationSpike
+      expr: |
+        sum(rate(authentication_trust_level_total{trust_level="0"}[5m])) > 100
+      for: 2m
+      labels:
+        severity: warning
+        team: platform-security
+      annotations:
+        summary: "Spike in zero trust level authentications"
+        description: "{{ $value }} zero trust authentications per second"
+    
+    # OPA Decision Latency
+    - alert: OPAPolicyEvaluationSlow
+      expr: |
+        histogram_quantile(0.95, rate(opa_decision_duration_seconds_bucket[5m])) > 0.2
+      for: 5m
+      labels:
+        severity: warning
+        team: platform-security
+      annotations:
+        summary: "OPA policy evaluation is slow"
+        description: "95th percentile latency is {{ $value }}s"
+    
+    # Keycloak Availability
+    - alert: KeycloakDown
+      expr: up{job="keycloak"} == 0
+      for: 1m
+      labels:
+        severity: critical
+        team: platform-security
+      annotations:
+        summary: "Keycloak instance is down"
+        description: "Keycloak {{ $labels.instance }} is not responding"
+    
+    # Certificate Expiration
+    - alert: TLSCertificateExpiringSoon
+      expr: |
+        (x509_cert_expiry - time()) / 86400 < 30
+      for: 1h
+      labels:
+        severity: warning
+        team: platform-security
+      annotations:
+        summary: "TLS certificate expiring soon"
+        description: "Certificate {{ $labels.subject }} expires in {{ $value }} days"
+    
+    # Failed Login Attempts
+    - alert: HighFailedLoginRate
+      expr: |
+        sum(rate(authentication_failed_total[5m])) > 50
+      for: 2m
+      labels:
+        severity: warning
+        team: platform-security
+      annotations:
+        summary: "High rate of failed login attempts"
+        description: "{{ $value }} failed logins per second"
+    
+    # Database Connection Pool
+    - alert: DatabaseConnectionPoolExhausted
+      expr: |
+        (
+          database_connections_active / database_connections_max
+        ) > 0.9
+      for: 5m
+      labels:
+        severity: warning
+        team: platform-security
+      annotations:
+        summary: "Database connection pool near exhaustion"
+        description: "{{ $value | humanizePercentage }} of connections in use"
+  
+  - name: zero-trust-compliance
+    interval: 60s
+    rules:
+    # Audit Log Failures
+    - alert: AuditLogWriteFailures
+      expr: |
+        sum(rate(audit_log_write_failures_total[5m])) > 0
+      for: 2m
+      labels:
+        severity: critical
+        team: platform-security
+        compliance: required
+      annotations:
+        summary: "Audit log write failures detected"
+        description: "{{ $value }} audit log write failures per second"
+    
+    # Compliance Policy Violations
+    - alert: CompliancePolicyViolation
+      expr: |
+        sum(increase(compliance_violations_total[1h])) > 0
+      for: 1m
+      labels:
+        severity: critical
+        team: platform-security
+        compliance: required
+      annotations:
+        summary: "Compliance policy violation detected"
+        description: "{{ $value }} violations in the last hour for {{ $labels.policy }}"
+    
+  - name: zero-trust-performance
+    interval: 30s
+    rules:
+    # API Response Time
+    - alert: APIResponseTimeSLO
+      expr: |
+        histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job="zero-trust-backend"}[5m])) > 0.5
+      for: 5m
+      labels:
+        severity: warning
+        team: platform-security
+        slo: true
+      annotations:
+        summary: "API response time SLO violation"
+        description: "95th percentile response time is {{ $value }}s"
+    
+    # Memory Usage
+    - alert: HighMemoryUsage
+      expr: |
+        (
+          container_memory_working_set_bytes{pod=~"zero-trust-.*"}
+          / container_spec_memory_limit_bytes
+        ) > 0.8
+      for: 5m
+      labels:
+        severity: warning
+        team: platform-security
+      annotations:
+        summary: "High memory usage detected"
+        description: "Pod {{ $labels.pod }} memory usage is {{ $value | humanizePercentage }}"

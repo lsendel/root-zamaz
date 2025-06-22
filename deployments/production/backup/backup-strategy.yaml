@@ -1,0 +1,286 @@
+# Backup Strategy for Zero Trust Authentication System
+# Uses Velero for Kubernetes backup and restore
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: zero-trust-daily-backup
+  namespace: velero
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM
+  template:
+    ttl: 720h0m0s  # 30 days retention
+    includedNamespaces:
+    - zero-trust-prod
+    includedResources:
+    - "*"
+    excludedResources:
+    - events
+    - events.events.k8s.io
+    storageLocation: default
+    volumeSnapshotLocations:
+    - default
+    hooks:
+      resources:
+      - name: keycloak-db-backup
+        includedNamespaces:
+        - zero-trust-prod
+        labelSelector:
+          matchLabels:
+            app: keycloak-postgresql
+        pre:
+        - exec:
+            container: postgresql
+            command:
+            - /bin/bash
+            - -c
+            - |
+              PGPASSWORD=$POSTGRES_PASSWORD pg_dump -U $POSTGRES_USER -d $POSTGRES_DB > /backup/keycloak-$(date +%Y%m%d-%H%M%S).sql
+            onError: Fail
+            timeout: 10m
+      - name: opa-db-backup
+        includedNamespaces:
+        - zero-trust-prod
+        labelSelector:
+          matchLabels:
+            app: opa-postgresql
+        pre:
+        - exec:
+            container: postgresql
+            command:
+            - /bin/bash
+            - -c
+            - |
+              PGPASSWORD=$POSTGRES_PASSWORD pg_dump -U $POSTGRES_USER -d $POSTGRES_DB > /backup/opa-$(date +%Y%m%d-%H%M%S).sql
+            onError: Fail
+            timeout: 10m
+---
+# Weekly full backup
+apiVersion: velero.io/v1
+kind: Schedule
+metadata:
+  name: zero-trust-weekly-full-backup
+  namespace: velero
+spec:
+  schedule: "0 3 * * 0"  # Weekly on Sunday at 3 AM
+  template:
+    ttl: 2160h0m0s  # 90 days retention
+    includedNamespaces:
+    - zero-trust-prod
+    - zero-trust-secrets  # Include secrets namespace
+    includedResources:
+    - "*"
+    storageLocation: default
+    volumeSnapshotLocations:
+    - default
+    metadata:
+      labels:
+        backup-type: full
+        retention: long-term
+---
+# Backup location configuration
+apiVersion: velero.io/v1
+kind: BackupStorageLocation
+metadata:
+  name: default
+  namespace: velero
+spec:
+  provider: aws  # Can be aws, gcp, azure, etc.
+  objectStorage:
+    bucket: zero-trust-backups
+    prefix: production
+  config:
+    region: us-east-1
+    s3ForcePathStyle: "false"
+    s3Url: ""
+  credential:
+    name: cloud-credentials
+    key: cloud
+  default: true
+---
+# Volume snapshot location
+apiVersion: velero.io/v1
+kind: VolumeSnapshotLocation
+metadata:
+  name: default
+  namespace: velero
+spec:
+  provider: aws
+  config:
+    region: us-east-1
+---
+# Disaster Recovery CronJob for testing backups
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: backup-validation
+  namespace: zero-trust-prod
+spec:
+  schedule: "0 4 * * 1"  # Weekly on Monday at 4 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: backup-validator
+          containers:
+          - name: validator
+            image: zero-trust/backup-validator:latest
+            command:
+            - /bin/bash
+            - -c
+            - |
+              #!/bin/bash
+              set -e
+              
+              # Get latest backup
+              LATEST_BACKUP=$(velero backup get --output json | jq -r '.items[0].metadata.name')
+              echo "Testing restore of backup: $LATEST_BACKUP"
+              
+              # Create test namespace
+              kubectl create namespace zero-trust-dr-test || true
+              
+              # Restore to test namespace
+              velero restore create test-restore-$(date +%Y%m%d) \
+                --from-backup $LATEST_BACKUP \
+                --namespace-mappings zero-trust-prod:zero-trust-dr-test
+              
+              # Wait for restore to complete
+              sleep 60
+              
+              # Validate restored resources
+              kubectl get all -n zero-trust-dr-test
+              
+              # Test database connections
+              kubectl exec -n zero-trust-dr-test deployment/keycloak -c keycloak -- \
+                curl -f http://localhost:8080/health || exit 1
+              
+              # Cleanup test namespace
+              kubectl delete namespace zero-trust-dr-test
+              
+              echo "Backup validation successful"
+          restartPolicy: OnFailure
+---
+# ConfigMap for backup procedures
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backup-procedures
+  namespace: zero-trust-prod
+data:
+  README.md: |
+    # Zero Trust Authentication Backup & Recovery Procedures
+
+    ## Backup Schedule
+    - **Daily Backups**: 2:00 AM UTC (30-day retention)
+    - **Weekly Full Backups**: Sunday 3:00 AM UTC (90-day retention)
+    - **Backup Validation**: Monday 4:00 AM UTC
+
+    ## What's Backed Up
+    1. **Kubernetes Resources**
+       - All deployments, services, configmaps, secrets
+       - Persistent Volume Claims and data
+       - Network policies and RBAC
+
+    2. **Databases**
+       - Keycloak PostgreSQL (full dump)
+       - OPA PostgreSQL (decision logs)
+       - Redis snapshots
+
+    3. **Configuration**
+       - Keycloak realm exports
+       - OPA policies and bundles
+       - SPIRE configuration
+
+    ## Recovery Procedures
+
+    ### 1. Full Disaster Recovery
+    ```bash
+    # List available backups
+    velero backup get
+
+    # Restore latest backup
+    velero restore create --from-backup zero-trust-daily-backup-20240120
+
+    # Monitor restore progress
+    velero restore describe zero-trust-daily-backup-20240120 --details
+    ```
+
+    ### 2. Partial Recovery (Single Service)
+    ```bash
+    # Restore only Keycloak
+    velero restore create --from-backup zero-trust-daily-backup-20240120 \
+      --include-resources deployment,service,configmap \
+      --selector app=keycloak
+    ```
+
+    ### 3. Database Recovery
+    ```bash
+    # Restore Keycloak database
+    kubectl exec -it keycloak-postgresql-0 -- psql -U postgres -c "DROP DATABASE keycloak;"
+    kubectl exec -it keycloak-postgresql-0 -- psql -U postgres -c "CREATE DATABASE keycloak;"
+    kubectl exec -i keycloak-postgresql-0 -- psql -U postgres keycloak < keycloak-backup.sql
+    ```
+
+    ## RTO/RPO Targets
+    - **RTO (Recovery Time Objective)**: 1 hour
+    - **RPO (Recovery Point Objective)**: 24 hours
+
+    ## Testing Schedule
+    - Monthly DR drills (first Monday)
+    - Quarterly full recovery test
+    - Annual multi-region failover test
+
+  restore-runbook.sh: |
+    #!/bin/bash
+    # Disaster Recovery Runbook
+    
+    set -e
+    
+    echo "Zero Trust Authentication Disaster Recovery"
+    echo "=========================================="
+    
+    # Check prerequisites
+    command -v velero >/dev/null 2>&1 || { echo "Velero CLI required"; exit 1; }
+    command -v kubectl >/dev/null 2>&1 || { echo "kubectl required"; exit 1; }
+    
+    # List available backups
+    echo "Available backups:"
+    velero backup get
+    
+    # Select backup
+    read -p "Enter backup name to restore: " BACKUP_NAME
+    
+    # Confirm action
+    read -p "This will restore $BACKUP_NAME. Continue? (y/N) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        exit 1
+    fi
+    
+    # Create restore
+    RESTORE_NAME="dr-restore-$(date +%Y%m%d-%H%M%S)"
+    echo "Creating restore: $RESTORE_NAME"
+    velero restore create $RESTORE_NAME --from-backup $BACKUP_NAME
+    
+    # Monitor progress
+    echo "Monitoring restore progress..."
+    velero restore describe $RESTORE_NAME --details
+    
+    # Wait for completion
+    while true; do
+        STATUS=$(velero restore get $RESTORE_NAME -o json | jq -r '.status.phase')
+        if [[ "$STATUS" == "Completed" ]]; then
+            echo "Restore completed successfully"
+            break
+        elif [[ "$STATUS" == "Failed" ]]; then
+            echo "Restore failed!"
+            exit 1
+        fi
+        sleep 10
+    done
+    
+    # Verify services
+    echo "Verifying services..."
+    kubectl get pods -n zero-trust-prod
+    kubectl get svc -n zero-trust-prod
+    
+    echo "Disaster recovery complete!"
