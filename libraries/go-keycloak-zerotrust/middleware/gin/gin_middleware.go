@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/yourorg/go-keycloak-zerotrust/pkg/middleware/common"
 	"github.com/yourorg/go-keycloak-zerotrust/pkg/types"
 )
 
@@ -17,6 +18,15 @@ import (
 type Middleware struct {
 	client types.KeycloakClient
 	config *types.MiddlewareConfig
+	
+	// Shared utilities for common functionality
+	tokenExtractor     *common.TokenExtractor
+	userFactory        *common.UserFactory
+	pathMatcher        *common.PathMatcher
+	roleValidator      *common.RoleValidator
+	trustValidator     *common.TrustLevelValidator
+	errorHandler       common.FrameworkErrorHandler
+	auditLogger        *common.SecurityAuditLogger
 }
 
 // NewMiddleware creates a new Gin middleware instance
@@ -30,17 +40,25 @@ func NewMiddleware(client types.KeycloakClient, config *types.MiddlewareConfig) 
 		}
 	}
 	
+	// Initialize shared utilities
 	return &Middleware{
-		client: client,
-		config: config,
+		client:         client,
+		config:         config,
+		tokenExtractor: common.NewTokenExtractor(config.TokenHeader),
+		userFactory:    common.NewUserFactory(),
+		pathMatcher:    common.NewPathMatcher(config.SkipPaths),
+		roleValidator:  common.NewRoleValidator(),
+		trustValidator: common.NewTrustLevelValidator(),
+		errorHandler:   common.NewFrameworkErrorHandler(config.ErrorHandler),
+		auditLogger:    common.NewSecurityAuditLogger(true), // Enable audit logging
 	}
 }
 
 // Authenticate provides basic authentication middleware
 func (m *Middleware) Authenticate() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Skip authentication for configured paths
-		if m.shouldSkipPath(c.Request.URL.Path) {
+		// Skip authentication for configured paths using shared path matcher
+		if m.pathMatcher.ShouldSkip(c.Request.URL.Path) {
 			c.Next()
 			return
 		}
@@ -49,8 +67,8 @@ func (m *Middleware) Authenticate() gin.HandlerFunc {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), m.config.RequestTimeout)
 		defer cancel()
 
-		// Extract token from header
-		token := m.extractToken(c)
+		// Extract token using shared extractor
+		token := m.tokenExtractor.ExtractFromGinContext(c)
 		if token == "" {
 			m.handleAuthError(c, types.ErrMissingToken)
 			return
@@ -59,12 +77,25 @@ func (m *Middleware) Authenticate() gin.HandlerFunc {
 		// Validate token
 		claims, err := m.client.ValidateToken(ctx, token)
 		if err != nil {
+			m.auditLogger.LogAuthenticationFailure(ctx, "token_validation_failed", map[string]interface{}{
+				"error": err.Error(),
+				"path":  c.Request.URL.Path,
+			})
 			m.handleAuthError(c, err)
 			return
 		}
 
-		// Create authenticated user and set in context
-		user := m.createAuthenticatedUser(claims)
+		// Validate claims and create authenticated user using shared factory
+		if err := m.userFactory.ValidateUserClaims(claims); err != nil {
+			m.auditLogger.LogAuthenticationFailure(ctx, "invalid_claims", map[string]interface{}{
+				"error": err.Error(),
+				"user_id": claims.UserID,
+			})
+			m.handleAuthError(c, err)
+			return
+		}
+
+		user := m.userFactory.CreateAuthenticatedUser(claims)
 		c.Set(m.config.ContextUserKey, user)
 
 		c.Next()
@@ -79,28 +110,19 @@ func (m *Middleware) RequireAuth() gin.HandlerFunc {
 // RequireRole requires the user to have a specific role
 func (m *Middleware) RequireRole(requiredRole string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		user, exists := c.Get(m.config.ContextUserKey)
-		if !exists {
+		user := m.GetCurrentUser(c)
+		if user == nil {
 			m.handleAuthError(c, types.ErrMissingToken)
 			return
 		}
 
-		authUser, ok := user.(*types.AuthenticatedUser)
-		if !ok {
-			m.handleAuthError(c, types.ErrInvalidToken)
-			return
-		}
-
-		// Check if user has the required role
-		hasRole := false
-		for _, role := range authUser.Roles {
-			if role == requiredRole {
-				hasRole = true
-				break
-			}
-		}
-
-		if !hasRole {
+		// Use shared role validator for optimized O(1) lookup
+		if !m.roleValidator.HasRole(user, requiredRole) {
+			m.auditLogger.LogAuthorizationFailure(c.Request.Context(), user.UserID, "role", requiredRole, map[string]interface{}{
+				"required_role": requiredRole,
+				"user_roles":    user.Roles,
+				"path":          c.Request.URL.Path,
+			})
 			m.handleAuthError(c, types.ErrInsufficientRole)
 			return
 		}
@@ -112,33 +134,19 @@ func (m *Middleware) RequireRole(requiredRole string) gin.HandlerFunc {
 // RequireAnyRole requires the user to have at least one of the specified roles
 func (m *Middleware) RequireAnyRole(roles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		user, exists := c.Get(m.config.ContextUserKey)
-		if !exists {
+		user := m.GetCurrentUser(c)
+		if user == nil {
 			m.handleAuthError(c, types.ErrMissingToken)
 			return
 		}
 
-		authUser, ok := user.(*types.AuthenticatedUser)
-		if !ok {
-			m.handleAuthError(c, types.ErrInvalidToken)
-			return
-		}
-
-		// Check if user has any of the required roles
-		hasRole := false
-		for _, userRole := range authUser.Roles {
-			for _, requiredRole := range roles {
-				if userRole == requiredRole {
-					hasRole = true
-					break
-				}
-			}
-			if hasRole {
-				break
-			}
-		}
-
-		if !hasRole {
+		// Use shared role validator for optimized lookup
+		if !m.roleValidator.HasAnyRole(user, roles) {
+			m.auditLogger.LogAuthorizationFailure(c.Request.Context(), user.UserID, "roles", strings.Join(roles, ","), map[string]interface{}{
+				"required_roles": roles,
+				"user_roles":     user.Roles,
+				"path":           c.Request.URL.Path,
+			})
 			m.handleAuthError(c, types.ErrInsufficientRole)
 			return
 		}
@@ -150,23 +158,24 @@ func (m *Middleware) RequireAnyRole(roles ...string) gin.HandlerFunc {
 // RequireTrustLevel requires a minimum trust level
 func (m *Middleware) RequireTrustLevel(minTrustLevel int) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		user, exists := c.Get(m.config.ContextUserKey)
-		if !exists {
+		user := m.GetCurrentUser(c)
+		if user == nil {
 			m.handleAuthError(c, types.ErrMissingToken)
 			return
 		}
 
-		authUser, ok := user.(*types.AuthenticatedUser)
-		if !ok {
-			m.handleAuthError(c, types.ErrInvalidToken)
-			return
-		}
-
-		if authUser.TrustLevel < minTrustLevel {
+		// Use shared trust level validator
+		if !m.trustValidator.ValidateTrustLevel(user, minTrustLevel) {
+			m.auditLogger.LogAuthorizationFailure(c.Request.Context(), user.UserID, "trust_level", strconv.Itoa(minTrustLevel), map[string]interface{}{
+				"required_trust_level": minTrustLevel,
+				"current_trust_level":  user.TrustLevel,
+				"trust_category":       m.trustValidator.GetTrustLevelCategory(user.TrustLevel),
+				"path":                 c.Request.URL.Path,
+			})
 			m.handleAuthError(c, &types.AuthError{
 				Code:    types.ErrCodeInsufficientTrust,
 				Message: "insufficient trust level",
-				Details: "required: " + strconv.Itoa(minTrustLevel) + ", current: " + strconv.Itoa(authUser.TrustLevel),
+				Details: "required: " + strconv.Itoa(minTrustLevel) + ", current: " + strconv.Itoa(user.TrustLevel),
 			})
 			return
 		}
@@ -178,19 +187,19 @@ func (m *Middleware) RequireTrustLevel(minTrustLevel int) gin.HandlerFunc {
 // RequireDeviceVerification requires device verification
 func (m *Middleware) RequireDeviceVerification() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		user, exists := c.Get(m.config.ContextUserKey)
-		if !exists {
+		user := m.GetCurrentUser(c)
+		if user == nil {
 			m.handleAuthError(c, types.ErrMissingToken)
 			return
 		}
 
-		authUser, ok := user.(*types.AuthenticatedUser)
-		if !ok {
-			m.handleAuthError(c, types.ErrInvalidToken)
-			return
-		}
-
-		if !authUser.DeviceVerified {
+		// Use shared trust level validator for device verification
+		if !m.trustValidator.ValidateDeviceVerification(user, true) {
+			m.auditLogger.LogAuthorizationFailure(c.Request.Context(), user.UserID, "device_verification", "required", map[string]interface{}{
+				"device_id":       user.DeviceID,
+				"device_verified": user.DeviceVerified,
+				"path":            c.Request.URL.Path,
+			})
 			m.handleAuthError(c, types.ErrDeviceNotVerified)
 			return
 		}
@@ -283,116 +292,21 @@ func (m *Middleware) GetCurrentTenant(c *gin.Context) string {
 
 // Helper methods
 
-// shouldSkipPath checks if the path should skip authentication
-func (m *Middleware) shouldSkipPath(path string) bool {
-	for _, skipPath := range m.config.SkipPaths {
-		if path == skipPath || strings.HasPrefix(path, skipPath) {
-			return true
-		}
-	}
-	return false
-}
+// Note: shouldSkipPath, extractToken, and createAuthenticatedUser methods
+// have been replaced with shared utilities in pkg/middleware/common/
 
-// extractToken extracts the JWT token from the request
-func (m *Middleware) extractToken(c *gin.Context) string {
-	// Try header first
-	authHeader := c.GetHeader(m.config.TokenHeader)
-	if authHeader != "" {
-		// Remove "Bearer " prefix if present
-		if strings.HasPrefix(authHeader, "Bearer ") {
-			return strings.TrimPrefix(authHeader, "Bearer ")
-		}
-		return authHeader
-	}
-
-	// Try query parameter as fallback
-	token := c.Query("token")
-	if token != "" {
-		return token
-	}
-
-	// Try cookie as last resort
-	cookie, err := c.Cookie("access_token")
-	if err == nil && cookie != "" {
-		return cookie
-	}
-
-	return ""
-}
-
-// createAuthenticatedUser creates an AuthenticatedUser from claims
-func (m *Middleware) createAuthenticatedUser(claims *types.ZeroTrustClaims) *types.AuthenticatedUser {
-	user := &types.AuthenticatedUser{
-		UserID:           claims.UserID,
-		Email:            claims.Email,
-		Username:         claims.PreferredUsername,
-		FirstName:        claims.GivenName,
-		LastName:         claims.FamilyName,
-		Roles:            claims.Roles,
-		TrustLevel:       claims.TrustLevel,
-		DeviceID:         claims.DeviceID,
-		DeviceVerified:   claims.DeviceVerified,
-		LastVerification: claims.LastVerification,
-		SessionState:     claims.SessionState,
-		RiskScore:        claims.RiskScore,
-		LocationInfo:     claims.LocationInfo,
-	}
-
-	// Set expiration time
-	if claims.ExpiresAt != nil {
-		user.ExpiresAt = claims.ExpiresAt.Time
-	}
-
-	return user
-}
-
-// handleAuthError handles authentication errors consistently
+// handleAuthError handles authentication errors consistently using shared error handler
 func (m *Middleware) handleAuthError(c *gin.Context, err error) {
-	// If a custom error handler is configured, use it
-	if m.config.ErrorHandler != nil {
-		if handledErr := m.config.ErrorHandler(c.Request.Context(), err); handledErr != nil {
-			err = handledErr
-		}
+	// Use shared error handler to create standardized error response
+	errorResp := m.errorHandler.HandleAuthError(c.Request.Context(), err)
+	
+	// Add request ID if available
+	if requestID := c.GetHeader("X-Request-ID"); requestID != "" {
+		errorResp.WithRequestID(requestID)
 	}
-
-	// Determine HTTP status code based on error type
-	var statusCode int
-	var response gin.H
-
-	if authErr, ok := err.(*types.AuthError); ok {
-		switch authErr.Code {
-		case types.ErrCodeUnauthorized, types.ErrCodeInvalidToken, types.ErrCodeExpiredToken:
-			statusCode = http.StatusUnauthorized
-		case types.ErrCodeForbidden, types.ErrCodeInsufficientTrust, types.ErrCodeInsufficientRole, types.ErrCodeDeviceNotVerified:
-			statusCode = http.StatusForbidden
-		case types.ErrCodeConnectionError, types.ErrCodeConfigurationError:
-			statusCode = http.StatusInternalServerError
-		default:
-			statusCode = http.StatusUnauthorized
-		}
-
-		response = gin.H{
-			"error": gin.H{
-				"code":    authErr.Code,
-				"message": authErr.Message,
-			},
-		}
-
-		if authErr.Details != "" {
-			response["error"].(gin.H)["details"] = authErr.Details
-		}
-	} else {
-		// Generic error
-		statusCode = http.StatusUnauthorized
-		response = gin.H{
-			"error": gin.H{
-				"code":    "AUTHENTICATION_ERROR",
-				"message": err.Error(),
-			},
-		}
-	}
-
-	c.AbortWithStatusJSON(statusCode, response)
+	
+	// Use framework-specific error handler
+	m.errorHandler.HandleGinError(c, errorResp)
 }
 
 // Extension methods for the main client
