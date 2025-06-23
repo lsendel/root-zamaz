@@ -1,0 +1,50 @@
+module {{ .ModuleName }}
+
+go {{ .GoVersion }}
+
+require (
+	github.com/gin-gonic/gin v1.10.0
+	github.com/caarlos0/env/v9 v9.0.0
+	github.com/swaggo/files v1.0.1
+	github.com/swaggo/gin-swagger v1.6.0
+	github.com/swaggo/swag v1.16.3
+{{- range .RequiredDeps }}
+	{{ .Name }} {{ .Version }}
+{{- end }}
+)
+
+{{- if .IndirectDeps }}
+
+require (
+{{- range .IndirectDeps }}
+	{{ .Name }} {{ .Version }} // indirect
+{{- end }}
+)
+{{- end }}
+
+{{- if .Replaces }}
+
+replace (
+{{- range .Replaces }}
+	{{ .Old }} => {{ .New }}
+{{- end }}
+)
+{{- end }}
+
+{{- if .Excludes }}
+
+exclude (
+{{- range .Excludes }}
+	{{ .Name }} {{ .Version }}
+{{- end }}
+)
+{{- end }}
+
+{{- if .Retracts }}
+
+retract (
+{{- range .Retracts }}
+	{{ .Version }} // {{ .Reason }}
+{{- end }}
+)
+{{- end }}

@@ -1,0 +1,56 @@
+{
+  "registry": "github.com/yourorg/",
+  "namespace": "yourorg",
+  "components": [
+    {
+      "name": "core",
+      "version": "1.0.0",
+      "description": "Zero Trust core component",
+      "tags": ["zero-trust", "authentication", "core"],
+      "install": {
+        "go": "go get github.com/yourorg//components/core@v1.0.0",
+        "container": "docker pull ghcr.io/yourorg/zerotrust-core:1.0.0",
+        "script": "./scripts/component-cli.sh install core 1.0.0"
+      },
+      "updated": "2025-06-22T15:46:19Z"
+    }
+,
+    {
+      "name": "middleware",
+      "version": "1.0.0",
+      "description": "Zero Trust middleware component",
+      "tags": ["zero-trust", "authentication", "middleware"],
+      "install": {
+        "go": "go get github.com/yourorg//components/middleware@v1.0.0",
+        "container": "docker pull ghcr.io/yourorg/zerotrust-middleware:1.0.0",
+        "script": "./scripts/component-cli.sh install middleware 1.0.0"
+      },
+      "updated": "2025-06-22T15:46:19Z"
+    }
+,
+    {
+      "name": "clients",
+      "version": "1.0.0",
+      "description": "Zero Trust clients component",
+      "tags": ["zero-trust", "authentication", "clients"],
+      "install": {
+        "go": "go get github.com/yourorg//components/clients@v1.0.0",
+        "container": "docker pull ghcr.io/yourorg/zerotrust-clients:1.0.0",
+        "script": "./scripts/component-cli.sh install clients 1.0.0"
+      },
+      "updated": "2025-06-22T15:46:19Z"
+    }
+,
+    {
+      "name": "examples",
+      "version": "1.0.0",
+      "description": "Zero Trust examples component",
+      "tags": ["zero-trust", "authentication", "examples"],
+      "install": {
+        "go": "go get github.com/yourorg//components/examples@v1.0.0",
+        "container": "docker pull ghcr.io/yourorg/zerotrust-examples:1.0.0",
+        "script": "./scripts/component-cli.sh install examples 1.0.0"
+      },
+      "updated": "2025-06-22T15:46:19Z"
+    }
+]}

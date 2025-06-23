@@ -1,0 +1,19 @@
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: opa-zero-trust-policy
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: impl-zamaz-app
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/default/sa/impl-zamaz-app"]
+  - to:
+    - operation:
+        methods: ["GET", "POST", "PUT", "DELETE"]
+  - when:
+    - key: custom.opa_decision
+      values: ["allow"]

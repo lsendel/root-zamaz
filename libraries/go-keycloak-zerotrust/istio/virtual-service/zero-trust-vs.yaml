@@ -1,0 +1,31 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: zero-trust-app
+  namespace: default
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - zero-trust-gateway
+  http:
+  - match:
+    - uri:
+        prefix: "/api/"
+    route:
+    - destination:
+        host: impl-zamaz-app
+        port:
+          number: 8080
+    headers:
+      request:
+        add:
+          x-opa-authz: "enabled"
+    fault:
+      delay:
+        percentage:
+          value: 0.1
+        fixedDelay: 5s
+    retries:
+      attempts: 3
+      perTryTimeout: 2s

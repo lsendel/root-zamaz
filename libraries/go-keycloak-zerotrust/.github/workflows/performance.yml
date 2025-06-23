@@ -1,0 +1,575 @@
+name: Performance Monitoring
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run performance tests daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+env:
+  GO_VERSION: "1.21"
+
+jobs:
+  # Benchmark Tests
+  benchmark:
+    name: Benchmark Tests
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+    
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+    
+    - name: Install dependencies
+      run: go mod download
+    
+    - name: Run comprehensive benchmarks
+      run: |
+        # Run benchmarks multiple times for statistical significance
+        echo "Running benchmarks..."
+        go test -bench=. -benchmem -count=5 -run=^$ ./test/benchmark/... | tee benchmark-results.txt
+        
+        # Extract key metrics
+        echo "Extracting metrics..."
+        grep -E "Benchmark.*-.*ns/op" benchmark-results.txt > benchmark-summary.txt
+    
+    - name: Analyze performance
+      run: |
+        # Create performance analysis script
+        cat > analyze_performance.go << 'EOF'
+        package main
+        
+        import (
+            "bufio"
+            "fmt"
+            "os"
+            "regexp"
+            "strconv"
+            "strings"
+        )
+        
+        type BenchmarkResult struct {
+            Name        string
+            NsPerOp     float64
+            AllocsPerOp int
+            BytesPerOp  int
+        }
+        
+        func main() {
+            file, err := os.Open("benchmark-summary.txt")
+            if err != nil {
+                fmt.Printf("Error opening file: %v\n", err)
+                return
+            }
+            defer file.Close()
+            
+            // Regex to parse benchmark results
+            re := regexp.MustCompile(`Benchmark(\w+).*?(\d+\.?\d*)\s+ns/op.*?(\d+)\s+B/op.*?(\d+)\s+allocs/op`)
+            
+            scanner := bufio.NewScanner(file)
+            var results []BenchmarkResult
+            
+            for scanner.Scan() {
+                line := scanner.Text()
+                matches := re.FindStringSubmatch(line)
+                if len(matches) >= 5 {
+                    nsPerOp, _ := strconv.ParseFloat(matches[2], 64)
+                    bytesPerOp, _ := strconv.Atoi(matches[3])
+                    allocsPerOp, _ := strconv.Atoi(matches[4])
+                    
+                    results = append(results, BenchmarkResult{
+                        Name:        matches[1],
+                        NsPerOp:     nsPerOp,
+                        AllocsPerOp: allocsPerOp,
+                        BytesPerOp:  bytesPerOp,
+                    })
+                }
+            }
+            
+            // Generate performance report
+            fmt.Println("# Performance Report")
+            fmt.Println()
+            fmt.Println("| Benchmark | ns/op | B/op | allocs/op | ops/sec |")
+            fmt.Println("|-----------|-------|------|-----------|---------|")
+            
+            for _, result := range results {
+                opsPerSec := 1e9 / result.NsPerOp
+                fmt.Printf("| %s | %.2f | %d | %d | %.0f |\n",
+                    result.Name, result.NsPerOp, result.BytesPerOp, 
+                    result.AllocsPerOp, opsPerSec)
+            }
+            
+            // Performance thresholds
+            fmt.Println()
+            fmt.Println("## Performance Analysis")
+            
+            for _, result := range results {
+                if strings.Contains(result.Name, "TokenValidation") && result.NsPerOp > 1000000 {
+                    fmt.Printf("⚠️ WARNING: %s is slow (%.2f ms)\n", result.Name, result.NsPerOp/1e6)
+                }
+                if strings.Contains(result.Name, "DeviceAttestation") && result.NsPerOp > 5000000 {
+                    fmt.Printf("⚠️ WARNING: %s is slow (%.2f ms)\n", result.Name, result.NsPerOp/1e6)
+                }
+                if result.AllocsPerOp > 100 {
+                    fmt.Printf("🔧 INFO: %s has high allocations (%d allocs/op)\n", result.Name, result.AllocsPerOp)
+                }
+            }
+        }
+        EOF
+        
+        go run analyze_performance.go > performance-report.md
+    
+    - name: Store benchmark result
+      uses: benchmark-action/github-action-benchmark@v1
+      with:
+        tool: 'go'
+        output-file-path: benchmark-results.txt
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        auto-push: true
+        comment-on-alert: true
+        alert-threshold: '150%'
+        fail-on-alert: true
+    
+    - name: Upload performance report
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-report
+        path: |
+          performance-report.md
+          benchmark-results.txt
+
+  # Load Testing
+  load-test:
+    name: Load Testing
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || contains(github.event.head_commit.message, '[load-test]')
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+    
+    - name: Install k6
+      run: |
+        sudo gpg -k
+        sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+        echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+        sudo apt-get update
+        sudo apt-get install k6
+    
+    - name: Build test server
+      run: |
+        go build -o test-server ./test/loadtest/server/main.go
+    
+    - name: Start test server
+      run: |
+        ./test-server &
+        sleep 5
+        curl -f http://localhost:8080/health || exit 1
+    
+    - name: Create load test script
+      run: |
+        cat > loadtest.js << 'EOF'
+        import http from 'k6/http';
+        import { check, sleep } from 'k6';
+        import { Rate } from 'k6/metrics';
+        
+        export let errorRate = new Rate('errors');
+        
+        export let options = {
+          stages: [
+            { duration: '2m', target: 100 }, // Ramp up to 100 users
+            { duration: '5m', target: 100 }, // Stay at 100 users
+            { duration: '2m', target: 200 }, // Ramp up to 200 users
+            { duration: '5m', target: 200 }, // Stay at 200 users
+            { duration: '2m', target: 0 },   // Ramp down to 0 users
+          ],
+          thresholds: {
+            http_req_duration: ['p(99)<1000'], // 99% of requests must complete below 1s
+            http_req_failed: ['rate<0.1'],     // Error rate must be below 10%
+            errors: ['rate<0.1'],              // Custom error rate
+          },
+        };
+        
+        const BASE_URL = 'http://localhost:8080';
+        
+        export default function () {
+          let responses = http.batch([
+            {
+              method: 'GET',
+              url: `${BASE_URL}/health`,
+            },
+            {
+              method: 'POST',
+              url: `${BASE_URL}/api/v1/validate`,
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                token: 'test-token-' + Math.random(),
+              }),
+            },
+            {
+              method: 'POST',
+              url: `${BASE_URL}/api/v1/device/attest`,
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                device_id: 'device-' + Math.random(),
+                platform: 'web',
+                fingerprint: 'fp-' + Math.random(),
+              }),
+            },
+          ]);
+          
+          for (let response of responses) {
+            check(response, {
+              'status is 200': (r) => r.status === 200,
+              'response time < 500ms': (r) => r.timings.duration < 500,
+            }) || errorRate.add(1);
+          }
+          
+          sleep(1);
+        }
+        
+        export function handleSummary(data) {
+          return {
+            'load-test-results.json': JSON.stringify(data, null, 2),
+            'load-test-summary.txt': textSummary(data, { indent: ' ', enableColors: false }),
+          };
+        }
+        EOF
+    
+    - name: Run load test
+      run: |
+        k6 run --out json=load-test-results.json loadtest.js
+    
+    - name: Analyze load test results
+      run: |
+        cat > analyze_loadtest.py << 'EOF'
+        import json
+        import sys
+        
+        with open('load-test-results.json', 'r') as f:
+            data = json.load(f)
+        
+        metrics = data['metrics']
+        
+        # Extract key performance indicators
+        avg_duration = metrics['http_req_duration']['values']['avg']
+        p95_duration = metrics['http_req_duration']['values']['p(95)']
+        p99_duration = metrics['http_req_duration']['values']['p(99)']
+        error_rate = metrics['http_req_failed']['values']['rate']
+        rps = metrics['http_reqs']['values']['rate']
+        
+        print("# Load Test Results")
+        print()
+        print(f"**Average Response Time:** {avg_duration:.2f}ms")
+        print(f"**95th Percentile:** {p95_duration:.2f}ms")
+        print(f"**99th Percentile:** {p99_duration:.2f}ms")
+        print(f"**Error Rate:** {error_rate:.2%}")
+        print(f"**Requests per Second:** {rps:.2f}")
+        print()
+        
+        # Performance evaluation
+        if p99_duration > 1000:
+            print("❌ FAIL: 99th percentile response time exceeds 1000ms")
+            sys.exit(1)
+        
+        if error_rate > 0.01:
+            print("❌ FAIL: Error rate exceeds 1%")
+            sys.exit(1)
+        
+        if rps < 50:
+            print("⚠️ WARNING: Request rate is below 50 RPS")
+        
+        print("✅ PASS: Load test performance is acceptable")
+        EOF
+        
+        python analyze_loadtest.py > load-test-analysis.md
+    
+    - name: Upload load test results
+      uses: actions/upload-artifact@v3
+      with:
+        name: load-test-results
+        path: |
+          load-test-results.json
+          load-test-analysis.md
+          load-test-summary.txt
+
+  # Memory Profiling
+  memory-profile:
+    name: Memory Profiling
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+    
+    - name: Install profiling tools
+      run: |
+        go install github.com/google/pprof@latest
+    
+    - name: Build test binary
+      run: |
+        go build -o profile-test ./test/profile/main.go
+    
+    - name: Run memory profiling
+      run: |
+        # Run with memory profiling
+        ./profile-test -cpuprofile=cpu.prof -memprofile=mem.prof -duration=30s
+        
+        # Generate memory profile report
+        go tool pprof -text mem.prof > memory-profile.txt
+        go tool pprof -top mem.prof > memory-top.txt
+        
+        # Generate CPU profile report
+        go tool pprof -text cpu.prof > cpu-profile.txt
+        go tool pprof -top cpu.prof > cpu-top.txt
+    
+    - name: Analyze memory usage
+      run: |
+        cat > analyze_memory.sh << 'EOF'
+        #!/bin/bash
+        
+        echo "# Memory Profile Analysis"
+        echo ""
+        
+        # Extract total allocations
+        total_alloc=$(grep -E "Total.*MB" memory-profile.txt | head -1)
+        echo "**Total Allocations:** $total_alloc"
+        
+        # Extract heap size
+        heap_size=$(grep -E "Heap.*MB" memory-profile.txt | head -1)
+        echo "**Heap Size:** $heap_size"
+        
+        echo ""
+        echo "## Top Memory Consumers"
+        echo ""
+        head -10 memory-top.txt
+        
+        echo ""
+        echo "## Top CPU Consumers"
+        echo ""
+        head -10 cpu-top.txt
+        
+        # Check for memory leaks
+        if grep -q "growing" memory-profile.txt; then
+            echo ""
+            echo "⚠️ WARNING: Potential memory leak detected"
+        fi
+        
+        # Check for excessive allocations
+        alloc_mb=$(echo "$total_alloc" | grep -oE "[0-9]+\.?[0-9]*" | head -1)
+        if (( $(echo "$alloc_mb > 100" | bc -l) )); then
+            echo ""
+            echo "⚠️ WARNING: High memory allocation ($alloc_mb MB)"
+        fi
+        EOF
+        
+        chmod +x analyze_memory.sh
+        ./analyze_memory.sh > memory-analysis.md
+    
+    - name: Upload profiling results
+      uses: actions/upload-artifact@v3
+      with:
+        name: profiling-results
+        path: |
+          *.prof
+          *-profile.txt
+          *-top.txt
+          memory-analysis.md
+
+  # Database Performance
+  db-performance:
+    name: Database Performance
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: zerotrust
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: zerotrust_perf
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+    
+    - name: Install pgbench
+      run: |
+        sudo apt-get update
+        sudo apt-get install postgresql-client
+    
+    - name: Run database performance tests
+      run: |
+        # Initialize pgbench
+        PGPASSWORD=testpass pgbench -h localhost -U zerotrust -d zerotrust_perf -i
+        
+        # Run performance test
+        PGPASSWORD=testpass pgbench -h localhost -U zerotrust -d zerotrust_perf \
+          -c 50 -j 2 -T 60 -r > db-performance.txt
+        
+        # Custom application-specific DB tests
+        go test -v -run=^TestDB ./test/db-performance/...
+    
+    - name: Analyze database performance
+      run: |
+        cat > analyze_db.py << 'EOF'
+        import re
+        
+        with open('db-performance.txt', 'r') as f:
+            content = f.read()
+        
+        # Extract TPS
+        tps_match = re.search(r'tps = ([\d.]+)', content)
+        if tps_match:
+            tps = float(tps_match.group(1))
+            print(f"**Transactions per Second:** {tps:.2f}")
+            
+            if tps < 100:
+                print("⚠️ WARNING: Database TPS is below 100")
+            elif tps > 500:
+                print("✅ EXCELLENT: Database performance is very good")
+            else:
+                print("✅ GOOD: Database performance is acceptable")
+        
+        # Extract latency
+        latency_match = re.search(r'latency average = ([\d.]+) ms', content)
+        if latency_match:
+            latency = float(latency_match.group(1))
+            print(f"**Average Latency:** {latency:.2f}ms")
+            
+            if latency > 50:
+                print("⚠️ WARNING: Database latency is high")
+            else:
+                print("✅ GOOD: Database latency is acceptable")
+        EOF
+        
+        python analyze_db.py > db-analysis.md
+    
+    - name: Upload database performance results
+      uses: actions/upload-artifact@v3
+      with:
+        name: db-performance-results
+        path: |
+          db-performance.txt
+          db-analysis.md
+
+  # Performance Report
+  performance-report:
+    name: Generate Performance Report
+    runs-on: ubuntu-latest
+    needs: [benchmark, load-test, memory-profile, db-performance]
+    if: always()
+    
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+    
+    - name: Combine performance reports
+      run: |
+        cat > combined-report.md << 'EOF'
+        # Performance Test Report
+        
+        **Date:** $(date)
+        **Commit:** ${{ github.sha }}
+        **Branch:** ${{ github.ref_name }}
+        
+        ## Summary
+        
+        This report contains comprehensive performance test results including:
+        - Benchmark tests
+        - Load testing
+        - Memory profiling
+        - Database performance
+        
+        EOF
+        
+        # Add benchmark results if available
+        if [ -f performance-report/performance-report.md ]; then
+            echo "" >> combined-report.md
+            echo "## Benchmark Results" >> combined-report.md
+            cat performance-report/performance-report.md >> combined-report.md
+        fi
+        
+        # Add load test results if available
+        if [ -f load-test-results/load-test-analysis.md ]; then
+            echo "" >> combined-report.md
+            echo "## Load Test Results" >> combined-report.md
+            cat load-test-results/load-test-analysis.md >> combined-report.md
+        fi
+        
+        # Add memory profile results if available
+        if [ -f profiling-results/memory-analysis.md ]; then
+            echo "" >> combined-report.md
+            echo "## Memory Profile Analysis" >> combined-report.md
+            cat profiling-results/memory-analysis.md >> combined-report.md
+        fi
+        
+        # Add database performance results if available
+        if [ -f db-performance-results/db-analysis.md ]; then
+            echo "" >> combined-report.md
+            echo "## Database Performance" >> combined-report.md
+            cat db-performance-results/db-analysis.md >> combined-report.md
+        fi
+    
+    - name: Comment on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const report = fs.readFileSync('combined-report.md', 'utf8');
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: report
+          });
+    
+    - name: Upload combined report
+      uses: actions/upload-artifact@v3
+      with:
+        name: combined-performance-report
+        path: combined-report.md

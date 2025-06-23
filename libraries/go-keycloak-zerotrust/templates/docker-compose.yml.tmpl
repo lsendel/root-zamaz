@@ -1,0 +1,147 @@
+version: "3.8"
+
+services:
+  app:
+    build: .
+    container_name: {{ .ServiceName }}-app
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    environment:
+      # Keycloak Configuration
+      - KEYCLOAK_BASE_URL=${KEYCLOAK_BASE_URL:-http://keycloak:8080}
+      - KEYCLOAK_REALM=${KEYCLOAK_REALM:-zerotrust-test}
+      - KEYCLOAK_CLIENT_ID=${KEYCLOAK_CLIENT_ID:-zerotrust-client}
+      - KEYCLOAK_CLIENT_SECRET=${KEYCLOAK_CLIENT_SECRET:-zerotrust-secret-12345}
+      
+      # Database Configuration
+      - DATABASE_URL=postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres_password}@postgres:5432/${POSTGRES_DB:-postgres}
+      
+      # Redis Configuration
+      - REDIS_URL=redis://redis:6379
+      
+      # Zero Trust Configuration
+      - ZEROTRUST_TRUST_LEVEL_READ=${ZEROTRUST_TRUST_LEVEL_READ:-25}
+      - ZEROTRUST_TRUST_LEVEL_WRITE=${ZEROTRUST_TRUST_LEVEL_WRITE:-50}
+      - ZEROTRUST_TRUST_LEVEL_ADMIN=${ZEROTRUST_TRUST_LEVEL_ADMIN:-75}
+      - ZEROTRUST_TRUST_LEVEL_DELETE=${ZEROTRUST_TRUST_LEVEL_DELETE:-90}
+      
+      # Security Configuration
+      - DEVICE_ATTESTATION_ENABLED=${DEVICE_ATTESTATION_ENABLED:-true}
+      - RISK_ASSESSMENT_ENABLED=${RISK_ASSESSMENT_ENABLED:-true}
+      - CONTINUOUS_VERIFICATION=${CONTINUOUS_VERIFICATION:-true}
+    env_file:
+      - .env
+    depends_on:
+      - keycloak
+      - redis
+      - postgres
+    restart: unless-stopped
+    networks:
+      - {{ .NetworkName }}-network
+    volumes:
+      - ./frontend/build:/app/frontend/build:ro
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:22.0.5
+    container_name: {{ .ServiceName }}-keycloak
+    command: start-dev
+    environment:
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
+      - KC_HTTP_PORT=8080
+      - KC_HEALTH_ENABLED=true
+      - KC_METRICS_ENABLED=true
+      {{- if .DatabaseEnabled }}
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://postgres:5432/keycloak
+      - KC_DB_USERNAME=keycloak
+      - KC_DB_PASSWORD=keycloak_password
+      {{- end }}
+    ports:
+      - "${KEYCLOAK_PORT:-8082}:8080"
+    volumes:
+      - ./keycloak/imports:/opt/keycloak/data/import:ro
+    env_file:
+      - .env
+    {{- if .DatabaseEnabled }}
+    depends_on:
+      - postgres
+    {{- end }}
+    restart: unless-stopped
+    networks:
+      - {{ .NetworkName }}-network
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: {{ .ServiceName }}-postgres
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-postgres}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    env_file:
+      - .env
+    restart: unless-stopped
+    networks:
+      - {{ .NetworkName }}-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    container_name: {{ .ServiceName }}-redis
+    ports:
+      - "${REDIS_PORT:-6380}:6379"
+    env_file:
+      - .env
+    restart: unless-stopped
+    networks:
+      - {{ .NetworkName }}-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  {{- if .MonitoringEnabled }}
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: {{ .ServiceName }}-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+      - {{ .NetworkName }}-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: {{ .ServiceName }}-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    networks:
+      - {{ .NetworkName }}-network
+  {{- end }}
+
+volumes:
+  postgres_data:
+  {{- if .MonitoringEnabled }}
+  grafana_data:
+  {{- end }}
+
+networks:
+  {{ .NetworkName }}-network:
+    driver: bridge

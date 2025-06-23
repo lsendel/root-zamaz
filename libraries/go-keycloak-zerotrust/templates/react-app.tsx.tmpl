@@ -1,0 +1,311 @@
+import React, { useState, useEffect } from 'react';
+import './App.css';
+
+interface User {
+  id: string;
+  username: string;
+  email: string;
+  roles: string[];
+}
+
+interface TrustScore {
+  overall: number;
+  factors: {
+    identity: number;
+    device: number;
+    behavior: number;
+    location: number;
+    risk: number;
+  };
+}
+
+interface Service {
+  name: string;
+  url: string;
+  status: 'healthy' | 'unhealthy' | 'unknown';
+  trust_level: number;
+}
+
+const App: React.FC = () => {
+  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+  const [user, setUser] = useState<User | null>(null);
+  const [trustScore, setTrustScore] = useState<TrustScore | null>(null);
+  const [services, setServices] = useState<Service[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const API_BASE = '{{ .APIBaseURL }}';
+
+  useEffect(() => {
+    if (token) {
+      fetchTrustScore();
+      fetchServices();
+    }
+  }, [token]);
+
+  const login = async (username: string, password: string) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Login failed');
+      }
+
+      const data = await response.json();
+      setToken(data.access_token);
+      localStorage.setItem('token', data.access_token);
+      setUser(data.user);
+      setTrustScore({
+        overall: data.trust_score,
+        factors: {
+          identity: 30,
+          device: 20,
+          behavior: 18,
+          location: 12,
+          risk: 8,
+        },
+      });
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await fetch(`${API_BASE}/api/v1/auth/logout`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
+    
+    setToken(null);
+    setUser(null);
+    setTrustScore(null);
+    localStorage.removeItem('token');
+  };
+
+  const fetchTrustScore = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/trust-score`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setTrustScore({
+          overall: data.overall,
+          factors: data.factors,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to fetch trust score:', err);
+    }
+  };
+
+  const fetchServices = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/discovery/services`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setServices(data.services);
+      }
+    } catch (err) {
+      console.error('Failed to fetch services:', err);
+    }
+  };
+
+  const canAccessService = (requiredTrust: number): boolean => {
+    return trustScore ? trustScore.overall >= requiredTrust : false;
+  };
+
+  if (!token) {
+    return <LoginForm onLogin={login} loading={loading} error={error} />;
+  }
+
+  return (
+    <div className="app">
+      <header className="app-header">
+        <h1>🔐 {{ .ServiceName }} Dashboard</h1>
+        <div className="header-actions">
+          <button onClick={fetchTrustScore} className="refresh-btn">
+            🔄 Refresh
+          </button>
+          <button onClick={logout} className="logout-btn">
+            Logout
+          </button>
+        </div>
+      </header>
+
+      <div className="container">
+        {/* User Info */}
+        <div className="card">
+          <h2>👤 User Information</h2>
+          {user && (
+            <div className="user-info">
+              <p><strong>Username:</strong> {user.username}</p>
+              <p><strong>Email:</strong> {user.email}</p>
+              <p><strong>Roles:</strong> {user.roles.join(', ')}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Trust Score */}
+        <div className="card">
+          <h2>📊 Trust Score</h2>
+          {trustScore && (
+            <div className="trust-score">
+              <div className="overall-score">
+                <div className="score-circle" style={{ 
+                  background: `conic-gradient(#4CAF50 ${trustScore.overall * 3.6}deg, #e0e0e0 0deg)` 
+                }}>
+                  <span>{trustScore.overall}</span>
+                </div>
+              </div>
+              <div className="factors">
+                <h3>Trust Factors:</h3>
+                {Object.entries(trustScore.factors).map(([key, value]) => (
+                  <div key={key} className="factor">
+                    <span>🔐 {key.charAt(0).toUpperCase() + key.slice(1)}</span>
+                    <div className="progress">
+                      <div className="progress-bar" style={{ width: `${(value / getMaxScore(key)) * 100}%` }}></div>
+                    </div>
+                    <span>{value}/{getMaxScore(key)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Service Discovery */}
+        <div className="card">
+          <h2>🔍 Service Discovery</h2>
+          <div className="services">
+            {services.map((service) => (
+              <div key={service.name} className={`service ${!canAccessService(service.trust_level) ? 'locked' : ''}`}>
+                <div className="service-header">
+                  <h3>{service.name}</h3>
+                  <span className={`status ${service.status}`}>
+                    {service.status === 'healthy' ? '✅' : '❌'} {service.status}
+                  </span>
+                </div>
+                <p className="service-url">{service.url}</p>
+                <p className="trust-requirement">
+                  Required Trust: {service.trust_level}
+                  {!canAccessService(service.trust_level) && (
+                    <span className="access-denied"> 🔒 Access Denied</span>
+                  )}
+                </p>
+                {canAccessService(service.trust_level) && (
+                  <button 
+                    className="access-btn"
+                    onClick={() => window.open(service.url, '_blank')}
+                  >
+                    Access Service
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* API Documentation */}
+        <div className="card">
+          <h2>📚 API Documentation</h2>
+          <div className="api-docs">
+            <p>Interactive API documentation with Zero Trust authentication:</p>
+            <button 
+              className="swagger-btn"
+              onClick={() => window.open(`${API_BASE}/swagger/index.html`, '_blank')}
+            >
+              Open Swagger UI
+            </button>
+            <div className="api-info">
+              <h4>Authentication:</h4>
+              <p>1. Click "Authorize" button in Swagger UI</p>
+              <p>2. Enter: Bearer {token ? `${token.substring(0, 20)}...` : '<your-token>'}</p>
+              <p>3. Click "Authorize" to set the token</p>
+              <p>4. Try out the authenticated endpoints!</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Helper function to get max score for trust factors
+const getMaxScore = (factor: string): number => {
+  const maxScores: { [key: string]: number } = {
+    identity: 30,
+    device: 25,
+    behavior: 20,
+    location: 15,
+    risk: 10,
+  };
+  return maxScores[factor] || 100;
+};
+
+// Login Form Component
+const LoginForm: React.FC<{
+  onLogin: (username: string, password: string) => void;
+  loading: boolean;
+  error: string | null;
+}> = ({ onLogin, loading, error }) => {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onLogin(username, password);
+  };
+
+  return (
+    <div className="login-container">
+      <div className="login-card">
+        <h1>🔐 {{ .ServiceName }}</h1>
+        <p>Zero Trust Authentication</p>
+        <form onSubmit={handleSubmit}>
+          <input
+            type="text"
+            placeholder="Username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            required
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+          {error && <p className="error">{error}</p>}
+          <button type="submit" disabled={loading}>
+            {loading ? 'Logging in...' : 'Login'}
+          </button>
+        </form>
+        <div className="demo-info">
+          <p>Demo credentials:</p>
+          <p>Username: admin | Password: admin</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default App;

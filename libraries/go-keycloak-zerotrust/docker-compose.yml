@@ -1,0 +1,62 @@
+version: '3.8'
+
+networks:
+  zerotrust-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+
+services:
+  # Placeholder for existing services
+  placeholder:
+    image: busybox
+    command: "echo 'This will be replaced by existing services'"
+    networks:
+      - zerotrust-network
+
+  # Open Policy Agent for Zero Trust Authorization
+  opa:
+    image: openpolicyagent/opa:latest-envoy
+    container_name: impl-zamaz-opa
+    ports:
+      - "8181:8181"
+    command: 
+      - "run"
+      - "--server" 
+      - "--addr=0.0.0.0:8181"
+      - "--diagnostic-addr=0.0.0.0:8282"
+      - "--set=plugins.envoy_ext_authz_grpc.addr=:9191"
+      - "--set=plugins.envoy_ext_authz_grpc.enable_reflection=true"
+      - "--set=decision_logs.console=true"
+      - "--config-file=/config/opa-config.yaml"
+      - "/policies"
+    volumes:
+      - ./opa/policies:/policies
+      - ./opa/data:/data
+      - ./opa/config:/config
+    environment:
+      - OPA_LOG_LEVEL=debug
+    networks:
+      - zerotrust-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8181/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Envoy proxy for OPA integration
+  envoy:
+    image: envoyproxy/envoy:v1.28-latest
+    container_name: impl-zamaz-envoy
+    ports:
+      - "10000:10000"
+      - "9901:9901"
+    volumes:
+      - ./envoy/envoy.yaml:/etc/envoy/envoy.yaml
+    networks:
+      - zerotrust-network
+    depends_on:
+      - opa
+    restart: unless-stopped

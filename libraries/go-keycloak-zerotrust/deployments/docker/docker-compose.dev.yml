@@ -1,0 +1,233 @@
+# Go Keycloak Zero Trust - Development Docker Compose
+# This configuration provides a complete development environment
+
+version: '3.8'
+
+services:
+  # ==================================================
+  # PostgreSQL Database
+  # ==================================================
+  postgres:
+    container_name: keycloak-zerotrust-db
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: keycloak_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - zerotrust-network
+
+  # ==================================================
+  # Redis Cache
+  # ==================================================
+  redis:
+    container_name: keycloak-zerotrust-redis
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ""
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - zerotrust-network
+
+  # ==================================================
+  # Keycloak Identity Provider
+  # ==================================================
+  keycloak:
+    container_name: keycloak-zerotrust-kc
+    image: quay.io/keycloak/keycloak:22.0
+    restart: unless-stopped
+    command: start-dev --import-realm
+    environment:
+      # Database configuration
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak_password
+      KC_DB_SCHEMA: public
+      
+      # Keycloak configuration
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_PORT: 8080
+      KC_HOSTNAME_STRICT: false
+      KC_HOSTNAME_STRICT_HTTPS: false
+      KC_HTTP_ENABLED: true
+      KC_PROXY: edge
+      
+      # Admin user
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      
+      # Logging and metrics
+      KC_LOG_LEVEL: INFO
+      KC_LOG_CONSOLE_OUTPUT: default
+      KC_METRICS_ENABLED: true
+      KC_HEALTH_ENABLED: true
+      
+      # Performance tuning
+      KC_CACHE: ispn
+      KC_CACHE_STACK: tcp
+      
+      # Development settings
+      KC_FEATURES: preview
+    ports:
+      - "8080:8080"
+      - "9000:9000"  # Debug port
+    volumes:
+      - keycloak_data:/opt/keycloak/data
+      - ./keycloak/imports:/opt/keycloak/data/import:ro
+      - ./keycloak/themes:/opt/keycloak/themes:ro
+      - ./keycloak/providers:/opt/keycloak/providers:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health/ready || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    networks:
+      - zerotrust-network
+
+  # ==================================================
+  # Prometheus (Optional - for monitoring)
+  # ==================================================
+  prometheus:
+    container_name: keycloak-zerotrust-prometheus
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      - keycloak
+    networks:
+      - zerotrust-network
+    profiles:
+      - monitoring
+
+  # ==================================================
+  # Grafana (Optional - for monitoring)
+  # ==================================================
+  grafana:
+    container_name: keycloak-zerotrust-grafana
+    image: grafana/grafana:latest
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_INSTALL_PLUGINS: grafana-piechart-panel
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    networks:
+      - zerotrust-network
+    profiles:
+      - monitoring
+
+  # ==================================================
+  # Jaeger (Optional - for distributed tracing)
+  # ==================================================
+  jaeger:
+    container_name: keycloak-zerotrust-jaeger
+    image: jaegertracing/all-in-one:latest
+    restart: unless-stopped
+    environment:
+      COLLECTOR_OTLP_ENABLED: true
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14268:14268"  # Jaeger collector HTTP
+      - "14250:14250"  # Jaeger collector gRPC
+      - "6831:6831/udp"  # Jaeger agent UDP
+    networks:
+      - zerotrust-network
+    profiles:
+      - monitoring
+
+  # ==================================================
+  # Test Application (Optional - for testing)
+  # ==================================================
+  test-app:
+    container_name: keycloak-zerotrust-testapp
+    build:
+      context: ../../
+      dockerfile: deployments/docker/Dockerfile.testapp
+    restart: unless-stopped
+    environment:
+      KEYCLOAK_BASE_URL: http://keycloak:8080
+      KEYCLOAK_REALM: zerotrust-test
+      KEYCLOAK_CLIENT_ID: zerotrust-client
+      KEYCLOAK_CLIENT_SECRET: test-secret
+      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgres://keycloak:keycloak_password@postgres:5432/keycloak?sslmode=disable
+    ports:
+      - "8081:8080"
+    depends_on:
+      keycloak:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - zerotrust-network
+    profiles:
+      - testing
+
+# ==================================================
+# Networks
+# ==================================================
+networks:
+  zerotrust-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# ==================================================
+# Volumes
+# ==================================================
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  keycloak_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local

@@ -1,0 +1,320 @@
+# {{ .ServiceName }} - Zero Trust Service Makefile
+# Generated from Zero Trust component template
+
+# ================================
+# Configuration
+# ================================
+
+# Go configuration
+GO_VERSION := {{ .GoVersion }}
+GOCMD := go
+GOBUILD := $(GOCMD) build
+GOTEST := $(GOCMD) test
+GOGET := $(GOCMD) get
+GOMOD := $(GOCMD) mod
+GORUN := $(GOCMD) run
+
+# Project configuration
+PROJECT_NAME := {{ .ServiceName }}
+MAIN_PATH := ./cmd/server
+BUILD_DIR := ./build
+TEST_TIMEOUT := 5m
+
+# Docker configuration
+DOCKER_COMPOSE := docker-compose
+APP_CONTAINER := {{ .ServiceName }}-app
+KEYCLOAK_CONTAINER := {{ .ServiceName }}-keycloak
+POSTGRES_CONTAINER := {{ .ServiceName }}-postgres
+REDIS_CONTAINER := {{ .ServiceName }}-redis
+
+# Frontend configuration
+FRONTEND_DIR := ./frontend
+FRONTEND_BUILD_DIR := $(FRONTEND_DIR)/build
+
+# Environment files
+ENV_FILE := .env
+ENV_TEMPLATE := .env.template
+
+# Colors for output
+RED := \\033[0;31m
+GREEN := \\033[0;32m
+YELLOW := \\033[0;33m
+BLUE := \\033[0;34m
+PURPLE := \\033[0;35m
+CYAN := \\033[0;36m
+NC := \\033[0m # No Color
+BOLD := \\033[1m
+
+# ================================
+# Help Documentation
+# ================================
+
+.PHONY: help
+help: ## 📚 Show this help message
+	@echo "$(CYAN)$(BOLD){{ .ServiceName }} - Zero Trust Service$(NC)"
+	@echo "$(CYAN)================================$(NC)"
+	@echo ""
+	@echo "$(YELLOW)Available commands:$(NC)"
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  $(CYAN)%-20s$(NC) %s\\n", $$1, $$2}' $(MAKEFILE_LIST)
+
+# ================================
+# Environment Setup
+# ================================
+
+.PHONY: setup-env
+setup-env: ## ⚙️ Setup environment configuration
+	@echo "$(BLUE)Setting up environment configuration...$(NC)"
+	@if [ ! -f "$(ENV_FILE)" ]; then \
+		echo "$(YELLOW)Creating .env file...$(NC)"; \
+		cp $(ENV_TEMPLATE) $(ENV_FILE) 2>/dev/null || \
+		cat > $(ENV_FILE) << 'EOF'; \
+# Application Configuration\
+APP_PORT=8080\
+\
+# Keycloak Configuration\
+KEYCLOAK_BASE_URL=http://localhost:8082\
+KEYCLOAK_REALM=zerotrust-test\
+KEYCLOAK_CLIENT_ID=zerotrust-client\
+KEYCLOAK_CLIENT_SECRET=zerotrust-secret-12345\
+KEYCLOAK_PORT=8082\
+\
+# Database Configuration\
+POSTGRES_PORT=5433\
+POSTGRES_DB=postgres\
+POSTGRES_USER=postgres\
+POSTGRES_PASSWORD=postgres_password\
+\
+# Cache Configuration\
+REDIS_PORT=6380\
+REDIS_URL=redis://localhost:6380\
+\
+# Zero Trust Configuration\
+ZEROTRUST_TRUST_LEVEL_READ=25\
+ZEROTRUST_TRUST_LEVEL_WRITE=50\
+ZEROTRUST_TRUST_LEVEL_ADMIN=75\
+ZEROTRUST_TRUST_LEVEL_DELETE=90\
+\
+# Security Configuration\
+DEVICE_ATTESTATION_ENABLED=true\
+RISK_ASSESSMENT_ENABLED=true\
+CONTINUOUS_VERIFICATION=true\
+EOF\
+	fi
+
+# ================================
+# Development
+# ================================
+
+.PHONY: deps
+deps: ## 📦 Download dependencies
+	@echo "$(BLUE)Downloading Go dependencies...$(NC)"
+	@$(GOMOD) download
+	@$(GOMOD) tidy
+
+.PHONY: build
+build: deps ## 🔨 Build the application
+	@echo "$(BLUE)Building application...$(NC)"
+	@mkdir -p $(BUILD_DIR)
+	@$(GOBUILD) -o $(BUILD_DIR)/$(PROJECT_NAME) $(MAIN_PATH)
+	@echo "$(GREEN)✅ Build completed$(NC)"
+
+.PHONY: run
+run: ## 🚀 Run the application locally
+	@echo "$(BLUE)Running application...$(NC)"
+	@$(GORUN) $(MAIN_PATH)
+
+.PHONY: swagger
+swagger: ## 📚 Generate Swagger documentation
+	@echo "$(BLUE)Generating Swagger documentation...$(NC)"
+	@which swag >/dev/null || go install github.com/swaggo/swag/cmd/swag@latest
+	@swag init -g $(MAIN_PATH)/main.go -o ./docs
+	@echo "$(GREEN)✅ Swagger docs generated$(NC)"
+
+# ================================
+# Frontend
+# ================================
+
+.PHONY: frontend-deps
+frontend-deps: ## 📦 Install frontend dependencies
+	@echo "$(BLUE)Installing frontend dependencies...$(NC)"
+	@cd $(FRONTEND_DIR) && npm install
+
+.PHONY: frontend-build
+frontend-build: frontend-deps ## 🔨 Build React frontend
+	@echo "$(BLUE)Building React frontend...$(NC)"
+	@cd $(FRONTEND_DIR) && npm run build
+	@echo "$(GREEN)✅ Frontend built$(NC)"
+
+.PHONY: frontend-dev
+frontend-dev: ## 🚀 Start frontend development server
+	@echo "$(BLUE)Starting frontend development server...$(NC)"
+	@cd $(FRONTEND_DIR) && npm start
+
+# ================================
+# Docker & Services
+# ================================
+
+.PHONY: docker-build
+docker-build: ## 🐳 Build Docker image
+	@echo "$(BLUE)Building Docker image...$(NC)"
+	@docker build -t $(PROJECT_NAME):latest .
+
+.PHONY: services-start
+services-start: setup-env ## 🚀 Start all services
+	@echo "$(BLUE)Starting all services...$(NC)"
+	@$(DOCKER_COMPOSE) up -d
+	@echo "$(YELLOW)⏳ Waiting for services to be ready...$(NC)"
+	@sleep 30
+	@$(MAKE) --no-print-directory services-status
+
+.PHONY: services-stop
+services-stop: ## 🛑 Stop all services
+	@echo "$(BLUE)Stopping all services...$(NC)"
+	@$(DOCKER_COMPOSE) down
+
+.PHONY: services-restart
+services-restart: services-stop services-start ## 🔄 Restart all services
+
+.PHONY: services-status
+services-status: ## 📊 Show service status
+	@echo ""
+	@echo "$(CYAN)$(BOLD)Service Status:$(NC)"
+	@echo "$(CYAN)==============$(NC)"
+	@$(DOCKER_COMPOSE) ps
+	@echo ""
+	@echo "$(CYAN)$(BOLD)Service URLs:$(NC)"
+	@echo "$(CYAN)==============$(NC)"
+	@echo "🌐 Application:      http://localhost:8080"
+	@echo "📊 Application Info: http://localhost:8080/info"
+	@echo "📚 Swagger UI:       http://localhost:8080/swagger/index.html"
+	@echo "🔍 Service Discovery: http://localhost:8080/api/v1/discovery/services"
+	@echo "🔐 Keycloak Admin:   http://localhost:8082/admin"
+	@echo "🗄️  PostgreSQL:      localhost:5433"
+	@echo "🔴 Redis:           localhost:6380"
+
+.PHONY: logs
+logs: ## 📜 Show logs from all services
+	@$(DOCKER_COMPOSE) logs -f
+
+.PHONY: logs-app
+logs-app: ## 📜 Show application logs
+	@$(DOCKER_COMPOSE) logs -f app
+
+# ================================
+# Testing
+# ================================
+
+.PHONY: test
+test: ## 🧪 Run tests
+	@echo "$(BLUE)Running tests...$(NC)"
+	@$(GOTEST) -v ./...
+
+.PHONY: test-coverage
+test-coverage: ## 📊 Run tests with coverage
+	@echo "$(BLUE)Running tests with coverage...$(NC)"
+	@$(GOTEST) -v -coverprofile=coverage.out ./...
+	@go tool cover -html=coverage.out -o coverage.html
+	@echo "$(GREEN)✅ Coverage report: coverage.html$(NC)"
+
+.PHONY: test-e2e
+test-e2e: ## 🎯 Run end-to-end tests
+	@echo "$(BLUE)Running end-to-end tests...$(NC)"
+	@$(GOTEST) -v -tags=e2e ./test/e2e/...
+
+# ================================
+# Quality & Security
+# ================================
+
+.PHONY: lint
+lint: ## 🔍 Run linter
+	@echo "$(BLUE)Running linter...$(NC)"
+	@which golangci-lint >/dev/null || go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	@golangci-lint run
+
+.PHONY: security
+security: ## 🛡️ Run security scan
+	@echo "$(BLUE)Running security scan...$(NC)"
+	@which gosec >/dev/null || go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+	@gosec ./...
+
+.PHONY: format
+format: ## 🎨 Format code
+	@echo "$(BLUE)Formatting code...$(NC)"
+	@go fmt ./...
+	@which goimports >/dev/null || go install golang.org/x/tools/cmd/goimports@latest
+	@goimports -w .
+
+# ================================
+# Database
+# ================================
+
+.PHONY: db-migrate
+db-migrate: ## 🗄️ Run database migrations
+	@echo "$(BLUE)Running database migrations...$(NC)"
+	@# TODO: Implement database migrations
+
+.PHONY: db-seed
+db-seed: ## 🌱 Seed database with test data
+	@echo "$(BLUE)Seeding database...$(NC)"
+	@# TODO: Implement database seeding
+
+# ================================
+# Monitoring
+# ================================
+
+.PHONY: monitoring-start
+monitoring-start: ## 📊 Start monitoring stack (Prometheus & Grafana)
+	@echo "$(BLUE)Starting monitoring stack...$(NC)"
+	@$(DOCKER_COMPOSE) -f docker-compose.monitoring.yml up -d
+	@echo "$(GREEN)✅ Monitoring available at:$(NC)"
+	@echo "📈 Prometheus: http://localhost:9090"
+	@echo "📊 Grafana: http://localhost:3001 (admin/admin)"
+
+# ================================
+# Cleanup
+# ================================
+
+.PHONY: clean
+clean: ## 🧹 Clean build artifacts
+	@echo "$(BLUE)Cleaning build artifacts...$(NC)"
+	@rm -rf $(BUILD_DIR)
+	@rm -f coverage.out coverage.html
+	@$(GOCMD) clean -cache -testcache
+
+.PHONY: clean-docker
+clean-docker: services-stop ## 🧹 Clean Docker resources
+	@echo "$(BLUE)Cleaning Docker resources...$(NC)"
+	@$(DOCKER_COMPOSE) down -v --remove-orphans
+	@docker system prune -f
+
+# ================================
+# Development Workflows
+# ================================
+
+.PHONY: dev
+dev: setup-env services-start ## 🚀 Start development environment
+	@echo "$(GREEN)✅ Development environment ready!$(NC)"
+	@echo ""
+	@echo "$(YELLOW)Available endpoints:$(NC)"
+	@echo "  🌐 Application: http://localhost:8080"
+	@echo "  📚 Swagger UI: http://localhost:8080/swagger/index.html" 
+	@echo "  🔐 Keycloak: http://localhost:8082/admin"
+
+.PHONY: full-build
+full-build: swagger frontend-build build ## 🔨 Full build (docs + frontend + backend)
+
+.PHONY: full-test
+full-test: lint security test test-e2e ## 🧪 Run all tests and checks
+
+.PHONY: demo
+demo: ## 🎬 Run demo workflow
+	@echo "$(CYAN)$(BOLD)🎬 {{ .ServiceName }} Demo$(NC)"
+	@echo "$(CYAN)========================$(NC)"
+	@echo ""
+	@echo "$(YELLOW)Testing endpoints:$(NC)"
+	@curl -s http://localhost:8080/ | jq . || echo "Service not available"
+	@echo ""
+	@curl -s http://localhost:8080/health | jq . || echo "Health endpoint not available"
+
+# Default target
+.DEFAULT_GOAL := help

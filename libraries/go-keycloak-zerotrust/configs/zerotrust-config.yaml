@@ -1,0 +1,410 @@
+# Zero Trust Configuration
+# This file provides comprehensive configuration for the Keycloak Zero Trust library
+
+# Keycloak Configuration
+keycloak:
+  base_url: "https://keycloak.company.com"
+  realm: "company"
+  client_id: "api-service"
+  client_secret: "${KEYCLOAK_CLIENT_SECRET}"
+  admin_username: "${KEYCLOAK_ADMIN_USERNAME}"
+  admin_password: "${KEYCLOAK_ADMIN_PASSWORD}"
+
+# Zero Trust Settings
+zero_trust:
+  # Enable/disable Zero Trust features
+  enable_device_attestation: true
+  enable_risk_assessment: true
+  enable_continuous_auth: true
+  enable_geolocation: true
+  enable_behavior_analysis: true
+
+  # Trust Level Thresholds (0-100)
+  trust_level_thresholds:
+    read: 25      # Minimum trust for read operations
+    write: 50     # Minimum trust for write operations
+    admin: 75     # Minimum trust for admin operations
+    delete: 90    # Minimum trust for delete operations
+
+  # Risk Score Thresholds (0-100)
+  risk_thresholds:
+    low: 25       # Low risk threshold
+    medium: 50    # Medium risk threshold
+    high: 75      # High risk threshold
+    critical: 90  # Critical risk threshold
+
+  # Time-based settings
+  device_verification_ttl: "24h"     # How long device verification is valid
+  trust_decay_interval: "1h"         # How often trust scores decay
+  session_max_duration: "8h"         # Maximum session duration
+  continuous_verification_interval: "30m"  # Continuous verification interval
+
+  # Device Attestation Settings
+  device_attestation:
+    # Supported platforms
+    supported_platforms:
+      - "android"
+      - "ios"
+      - "windows"
+      - "macos"
+      - "linux"
+      - "web"
+
+    # Platform-specific settings
+    android:
+      require_safetynet: true
+      require_play_protect: true
+      allow_unlocked_bootloader: false
+      min_security_patch_days: 90
+
+    ios:
+      require_devicecheck: true
+      require_secure_enclave: true
+      allow_jailbroken: false
+      min_ios_version: "15.0"
+
+    web:
+      require_webauthn: false
+      fingerprinting_enabled: true
+      require_secure_context: true
+      max_trust_score: 60  # Web has inherently lower trust
+
+    # Hardware requirements
+    hardware_requirements:
+      require_tpm: false          # Require TPM for Windows
+      require_secure_boot: false  # Require secure boot
+      require_biometric: false    # Require biometric capability
+
+  # Risk Assessment Settings
+  risk_assessment:
+    # Behavior analysis
+    behavior_analysis:
+      enable_typing_patterns: true
+      enable_mouse_patterns: true
+      enable_usage_patterns: true
+      baseline_learning_period: "30d"
+      anomaly_threshold: 0.7
+
+    # Geolocation settings
+    geolocation:
+      enable_ip_geolocation: true
+      enable_gps_verification: true
+      geolocation_api: "ipapi"    # Options: ipapi, maxmind, custom
+      geolocation_api_key: "${GEOLOCATION_API_KEY}"
+      max_distance_km: 1000       # Max distance from typical location
+      
+      # High-risk countries (ISO country codes)
+      high_risk_countries:
+        - "CN"  # China
+        - "RU"  # Russia
+        - "IR"  # Iran
+        - "KP"  # North Korea
+        - "CU"  # Cuba
+        - "SY"  # Syria
+
+    # Threat intelligence
+    threat_intelligence:
+      enable_ip_reputation: true
+      enable_user_agent_analysis: true
+      enable_threat_feeds: true
+      
+      # Threat feed providers
+      providers:
+        - name: "abuse_ch"
+          enabled: true
+          api_key: "${ABUSE_CH_API_KEY}"
+        - name: "virustotal"
+          enabled: true
+          api_key: "${VIRUSTOTAL_API_KEY}"
+
+    # Network analysis
+    network_analysis:
+      detect_vpn: true
+      detect_tor: true
+      detect_proxy: true
+      allow_vpn: false          # Whether to allow VPN connections
+      allow_tor: false          # Whether to allow Tor connections
+
+  # Trust Engine Settings
+  trust_engine:
+    # Trust factors and their weights
+    trust_factors:
+      device_trust:
+        weight: 1.5
+        enabled: true
+
+      biometric_trust:
+        weight: 2.0
+        enabled: true
+
+      behavior_trust:
+        weight: 1.2
+        enabled: true
+
+      location_trust:
+        weight: 1.0
+        enabled: true
+
+      auth_method_trust:
+        weight: 1.3
+        enabled: true
+
+      historical_trust:
+        weight: 0.8
+        enabled: true
+
+    # Trust decay rules
+    trust_decay:
+      time_based:
+        enabled: true
+        decay_rate: 1  # Points per hour of inactivity
+        minimum_score: 25
+
+      activity_based:
+        enabled: true
+        idle_threshold: "2h"
+        decay_multiplier: 1.5
+
+      security_event_based:
+        enabled: true
+        failed_login_penalty: 10
+        suspicious_activity_penalty: 20
+
+    # Adaptive policies
+    adaptive_policies:
+      high_risk:
+        enabled: true
+        trigger_risk_score: 75
+        trigger_trust_level: 25
+        actions:
+          - "require_mfa"
+          - "increase_verification_frequency"
+          - "limit_access_scope"
+
+      low_trust:
+        enabled: true
+        trigger_trust_level: 50
+        actions:
+          - "require_additional_verification"
+
+      compliance:
+        enabled: true
+        actions:
+          - "compliance_verification"
+
+# Caching Configuration
+cache:
+  # Cache type: memory, redis, or external
+  type: "redis"
+  
+  # Redis configuration (if type is redis)
+  redis:
+    host: "localhost"
+    port: 6379
+    password: "${REDIS_PASSWORD}"
+    database: 0
+    pool_size: 10
+
+  # Cache TTL settings
+  ttl:
+    user_info: "15m"
+    token_validation: "5m"
+    device_info: "1h"
+    location_info: "1h"
+    risk_assessment: "10m"
+
+# Database Configuration
+database:
+  # Database type: postgres, mysql, sqlite
+  type: "postgres"
+  
+  # Connection settings
+  connection:
+    host: "localhost"
+    port: 5432
+    database: "zerotrust"
+    username: "zerotrust_user"
+    password: "${DATABASE_PASSWORD}"
+    ssl_mode: "require"
+    
+  # Connection pool settings
+  pool:
+    max_open_connections: 25
+    max_idle_connections: 10
+    connection_max_lifetime: "30m"
+
+# Observability Configuration
+observability:
+  # Metrics
+  metrics:
+    enabled: true
+    endpoint: "/metrics"
+    include_sensitive_data: false
+
+  # Logging
+  logging:
+    level: "info"           # trace, debug, info, warn, error
+    format: "json"          # json, text
+    output: "stdout"        # stdout, file, syslog
+    
+    # File output settings (if output is file)
+    file:
+      path: "/var/log/zerotrust/app.log"
+      max_size_mb: 100
+      max_backups: 5
+      max_age_days: 30
+      compress: true
+
+  # Tracing
+  tracing:
+    enabled: true
+    service_name: "keycloak-zerotrust"
+    jaeger_endpoint: "http://localhost:14268/api/traces"
+    sample_rate: 0.1
+
+  # Audit logging
+  audit:
+    enabled: true
+    include_requests: true
+    include_responses: false
+    sensitive_fields:
+      - "password"
+      - "token"
+      - "secret"
+    destinations:
+      - type: "file"
+        path: "/var/log/zerotrust/audit.log"
+      - type: "syslog"
+        facility: "auth"
+
+# Security Configuration
+security:
+  # TLS settings
+  tls:
+    min_version: "1.2"
+    cipher_suites:
+      - "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"
+      - "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
+
+  # Rate limiting
+  rate_limiting:
+    enabled: true
+    requests_per_minute: 100
+    burst_size: 50
+    
+    # Per-endpoint limits
+    endpoints:
+      "/auth/validate": 1000
+      "/auth/refresh": 100
+      "/device/attest": 50
+
+  # CORS settings
+  cors:
+    enabled: true
+    allowed_origins:
+      - "https://app.company.com"
+      - "https://admin.company.com"
+    allowed_methods:
+      - "GET"
+      - "POST"
+      - "PUT"
+      - "DELETE"
+    allowed_headers:
+      - "Authorization"
+      - "Content-Type"
+      - "X-Device-ID"
+    expose_headers:
+      - "X-Trust-Level"
+      - "X-Risk-Score"
+
+# Integration Settings
+integrations:
+  # SPIRE/SPIFFE integration
+  spire:
+    enabled: false
+    socket_path: "/tmp/spire-agent/public/api.sock"
+    trust_domain: "company.com"
+
+  # External services
+  external_services:
+    # User directory service
+    user_directory:
+      type: "ldap"      # ldap, active_directory, api
+      url: "ldap://directory.company.com"
+      bind_dn: "cn=service,dc=company,dc=com"
+      bind_password: "${LDAP_BIND_PASSWORD}"
+
+    # Notification service
+    notifications:
+      type: "webhook"   # webhook, email, slack
+      webhook_url: "${NOTIFICATION_WEBHOOK_URL}"
+      
+# Development/Testing Configuration
+development:
+  # Mock services for testing
+  mock_services:
+    enabled: false
+    mock_keycloak: false
+    mock_device_attestation: false
+    mock_threat_intelligence: false
+
+  # Debug settings
+  debug:
+    enabled: false
+    log_tokens: false       # WARNING: Never enable in production
+    log_device_data: false  # WARNING: Never enable in production
+    skip_verification: false
+
+# Environment-specific overrides
+# These can be overridden by environment variables or separate config files
+
+# Production settings
+production:
+  zero_trust:
+    trust_level_thresholds:
+      admin: 85
+      delete: 95
+    continuous_verification_interval: "15m"
+  
+  security:
+    rate_limiting:
+      requests_per_minute: 500
+      burst_size: 100
+  
+  observability:
+    logging:
+      level: "warn"
+    tracing:
+      sample_rate: 0.05
+
+# Staging settings
+staging:
+  zero_trust:
+    trust_level_thresholds:
+      admin: 70
+      delete: 85
+  
+  observability:
+    logging:
+      level: "debug"
+    tracing:
+      sample_rate: 0.5
+
+# Development settings
+dev:
+  zero_trust:
+    trust_level_thresholds:
+      read: 10
+      write: 25
+      admin: 50
+      delete: 75
+  
+  development:
+    debug:
+      enabled: true
+  
+  observability:
+    logging:
+      level: "debug"
+    tracing:
+      sample_rate: 1.0

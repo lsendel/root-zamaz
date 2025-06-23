@@ -1,0 +1,375 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [ created ]
+
+env:
+  GO_VERSION: "1.21"
+  PYTHON_VERSION: "3.11"
+  JAVA_VERSION: "17"
+  NODE_VERSION: "18"
+
+jobs:
+  # Go Testing
+  go-test:
+    name: Go Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: zerotrust
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: zerotrust_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+    
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+    
+    - name: Install dependencies
+      run: |
+        go mod download
+        go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+        go install github.com/securego/gosec/v2/cmd/gosec@latest
+        go install golang.org/x/vuln/cmd/govulncheck@latest
+    
+    - name: Run linters
+      run: |
+        golangci-lint run --timeout=5m
+        gosec -fmt sarif -out gosec.sarif ./...
+        govulncheck ./...
+    
+    - name: Upload SARIF file
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: gosec.sarif
+    
+    - name: Run unit tests
+      run: |
+        go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+      env:
+        POSTGRES_HOST: localhost
+        POSTGRES_PORT: 5432
+        POSTGRES_USER: zerotrust
+        POSTGRES_PASSWORD: testpass
+        POSTGRES_DB: zerotrust_test
+        REDIS_HOST: localhost
+        REDIS_PORT: 6379
+    
+    - name: Run integration tests
+      run: |
+        go test -v -tags=integration ./test/integration/...
+      env:
+        TEST_KEYCLOAK_URL: http://localhost:8080
+        TEST_KEYCLOAK_REALM: test
+        TEST_KEYCLOAK_CLIENT_ID: test-client
+        TEST_KEYCLOAK_CLIENT_SECRET: test-secret
+    
+    - name: Run E2E tests
+      run: |
+        go test -v -tags=e2e ./test/e2e/...
+    
+    - name: Run benchmarks
+      run: |
+        go test -bench=. -benchmem -run=^$ ./test/benchmark/... | tee benchmark.txt
+    
+    - name: Upload coverage
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.out
+        flags: unittests
+        name: codecov-umbrella
+    
+    - name: Store benchmark results
+      uses: benchmark-action/github-action-benchmark@v1
+      with:
+        tool: 'go'
+        output-file-path: benchmark.txt
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        auto-push: true
+
+  # Java Client Testing
+  java-test:
+    name: Java Client Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up JDK
+      uses: actions/setup-java@v3
+      with:
+        java-version: ${{ env.JAVA_VERSION }}
+        distribution: 'temurin'
+    
+    - name: Cache Maven dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+        restore-keys: |
+          ${{ runner.os }}-maven-
+    
+    - name: Run Java tests
+      run: |
+        cd clients/java
+        mvn clean test
+        mvn jacoco:report
+    
+    - name: Upload Java coverage
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./clients/java/target/site/jacoco/jacoco.xml
+        flags: java
+        name: java-coverage
+
+  # Python Client Testing
+  python-test:
+    name: Python Client Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11"]
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Cache pip
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install dependencies
+      run: |
+        cd clients/python
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+    
+    - name: Run linters
+      run: |
+        cd clients/python
+        black --check keycloak_zerotrust tests
+        mypy keycloak_zerotrust
+        flake8 keycloak_zerotrust tests
+    
+    - name: Run Python tests
+      run: |
+        cd clients/python
+        pytest tests/ -v --cov=keycloak_zerotrust --cov-report=xml
+    
+    - name: Upload Python coverage
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./clients/python/coverage.xml
+        flags: python
+        name: python-coverage
+
+  # Security Scanning
+  security-scan:
+    name: Security Scanning
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+    
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: 'trivy-results.sarif'
+    
+    - name: Run Snyk security scan
+      uses: snyk/actions/golang@master
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        args: --severity-threshold=high
+
+  # Documentation Build
+  docs-build:
+    name: Documentation Build
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+    
+    - name: Install MkDocs
+      run: |
+        pip install mkdocs mkdocs-material mkdocs-mermaid2-plugin
+    
+    - name: Build documentation
+      run: |
+        mkdocs build --strict
+    
+    - name: Upload docs artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: documentation
+        path: site/
+
+  # Build and Push Docker Images
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v2
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v2
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+    
+    - name: Build and push Go service
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: |
+          ${{ secrets.DOCKER_USERNAME }}/keycloak-zerotrust:latest
+          ${{ secrets.DOCKER_USERNAME }}/keycloak-zerotrust:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  # Release
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    needs: [go-test, java-test, python-test, security-scan, docs-build]
+    if: github.event_name == 'release'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: ${{ env.GO_VERSION }}
+    
+    - name: Build release binaries
+      run: |
+        # Build for multiple platforms
+        GOOS=linux GOARCH=amd64 go build -o dist/keycloak-zerotrust-linux-amd64 ./cmd/server
+        GOOS=linux GOARCH=arm64 go build -o dist/keycloak-zerotrust-linux-arm64 ./cmd/server
+        GOOS=darwin GOARCH=amd64 go build -o dist/keycloak-zerotrust-darwin-amd64 ./cmd/server
+        GOOS=darwin GOARCH=arm64 go build -o dist/keycloak-zerotrust-darwin-arm64 ./cmd/server
+        GOOS=windows GOARCH=amd64 go build -o dist/keycloak-zerotrust-windows-amd64.exe ./cmd/server
+    
+    - name: Create checksums
+      run: |
+        cd dist
+        sha256sum * > checksums.txt
+    
+    - name: Upload release assets
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          dist/*
+          LICENSE
+          README.md
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Publish Go module
+      run: |
+        GOPROXY=proxy.golang.org go list -m github.com/yourorg/go-keycloak-zerotrust@${{ github.event.release.tag_name }}
+    
+    - name: Publish Java client to Maven Central
+      run: |
+        cd clients/java
+        mvn clean deploy -P release
+      env:
+        MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+        MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+        MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+    
+    - name: Publish Python client to PyPI
+      run: |
+        cd clients/python
+        pip install build twine
+        python -m build
+        python -m twine upload dist/*
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+
+  # Notify on failure
+  notify:
+    name: Notify
+    runs-on: ubuntu-latest
+    needs: [go-test, java-test, python-test, security-scan]
+    if: failure()
+    
+    steps:
+    - name: Send Slack notification
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        text: 'CI/CD Pipeline failed for ${{ github.repository }}'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}

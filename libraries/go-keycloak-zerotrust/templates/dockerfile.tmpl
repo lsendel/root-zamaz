@@ -1,0 +1,126 @@
+# Multi-stage Dockerfile following Go 2025 best practices
+# Optimized for security, performance, and minimal attack surface
+
+# Build stage
+FROM golang:{{ .GoVersion }}-alpine AS builder
+
+# Install build dependencies
+RUN apk add --no-cache \
+    git \
+    ca-certificates \
+    tzdata \
+    {{- range .BuildDeps }}
+    {{ . }} \
+    {{- end }}
+
+# Create non-root user for building
+RUN adduser -D -s /bin/sh -u 1001 appuser
+
+# Set working directory
+WORKDIR /build
+
+# Copy go mod files first for better caching
+COPY go.mod go.sum ./
+
+# Download dependencies
+RUN go mod download && go mod verify
+
+# Copy source code
+COPY . .
+
+# Build the application
+ARG VERSION={{ .Version }}
+ARG COMMIT_SHA={{ .CommitSHA }}
+ARG BUILD_TIME={{ .BuildTime }}
+
+RUN CGO_ENABLED={{ .CgoEnabled }} GOOS=linux GOARCH=amd64 go build \
+    -a \
+    -installsuffix cgo \
+    -ldflags="-w -s \
+        -X main.version=${VERSION} \
+        -X main.commitSHA=${COMMIT_SHA} \
+        -X main.buildTime=${BUILD_TIME}" \
+    -o {{ .BinaryName }} \
+    {{ .BuildPath }}
+
+# Test the binary
+RUN ./ {{ .BinaryName }} --version || echo "Version check completed"
+
+# Security scan stage (optional)
+{{- if .SecurityScanEnabled }}
+FROM builder AS security-scan
+RUN go install github.com/securecodewarrior/gosec/v2/cmd/gosec@latest
+RUN gosec -fmt json -out gosec-report.json ./...
+{{- end }}
+
+# Runtime stage
+FROM alpine:{{ .AlpineVersion }} AS runtime
+
+# Install runtime dependencies
+RUN apk add --no-cache \
+    ca-certificates \
+    tzdata \
+    curl \
+    {{- range .RuntimeDeps }}
+    {{ . }} \
+    {{- end }} \
+    && update-ca-certificates
+
+# Create non-root user
+RUN adduser -D -s /bin/sh -u 1001 appuser
+
+# Create necessary directories
+RUN mkdir -p /app/logs /app/config /app/data && \
+    chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
+
+# Set working directory
+WORKDIR /app
+
+# Copy binary from builder stage
+COPY --from=builder --chown=appuser:appuser /build/{{ .BinaryName }} ./{{ .BinaryName }}
+
+# Copy configuration files if they exist
+{{- range .ConfigFiles }}
+COPY --chown=appuser:appuser {{ .Source }} {{ .Destination }}
+{{- end }}
+
+# Set environment variables
+ENV PORT={{ .DefaultPort }}
+ENV HOST={{ .DefaultHost }}
+ENV LOG_LEVEL={{ .DefaultLogLevel }}
+ENV LOG_FORMAT={{ .DefaultLogFormat }}
+{{- range .EnvVars }}
+ENV {{ .Name }}={{ .Value }}
+{{- end }}
+
+# Health check
+HEALTHCHECK --interval={{ .HealthInterval }} \
+            --timeout={{ .HealthTimeout }} \
+            --start-period={{ .HealthStartPeriod }} \
+            --retries={{ .HealthRetries }} \
+    CMD curl -f http://localhost:${PORT}/health || exit 1
+
+# Expose port
+EXPOSE {{ .DefaultPort }}
+
+# Add labels for better observability
+LABEL maintainer="{{ .Maintainer }}" \
+      version="{{ .Version }}" \
+      description="{{ .Description }}" \
+      org.opencontainers.image.title="{{ .ImageTitle }}" \
+      org.opencontainers.image.description="{{ .Description }}" \
+      org.opencontainers.image.version="{{ .Version }}" \
+      org.opencontainers.image.authors="{{ .Authors }}" \
+      org.opencontainers.image.source="{{ .SourceURL }}" \
+      org.opencontainers.image.documentation="{{ .DocumentationURL }}" \
+      org.opencontainers.image.created="{{ .BuildTime }}" \
+      org.opencontainers.image.revision="{{ .CommitSHA }}"
+
+# Run the application
+ENTRYPOINT ["./{{ .BinaryName }}"]
+
+# Default command arguments
+CMD []

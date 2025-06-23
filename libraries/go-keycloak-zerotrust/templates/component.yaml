@@ -1,0 +1,260 @@
+# Component Definition Template
+# Following Go 2025 best practices and Maven-style component management
+apiVersion: v1
+kind: ComponentDefinition
+metadata:
+  name: "{{ .ComponentName }}"
+  version: "{{ .Version }}"
+  description: "{{ .Description }}"
+  author: "{{ .Author }}"
+  created: "{{ .CreatedDate }}"
+  updated: "{{ .UpdatedDate }}"
+  
+spec:
+  # Component Type (library, service, middleware, client, example)
+  type: "{{ .ComponentType }}"
+  
+  # Go Module Information
+  module:
+    name: "{{ .ModuleName }}"
+    path: "{{ .ModulePath }}"
+    version: "{{ .ModuleVersion }}"
+    goVersion: "{{ .GoVersion }}"
+    
+  # Dependencies
+  dependencies:
+    required:
+      {{- range .RequiredDeps }}
+      - name: "{{ .Name }}"
+        version: "{{ .Version }}"
+        type: "{{ .Type }}"
+      {{- end }}
+    optional:
+      {{- range .OptionalDeps }}
+      - name: "{{ .Name }}"
+        version: "{{ .Version }}"
+        type: "{{ .Type }}"
+        condition: "{{ .Condition }}"
+      {{- end }}
+      
+  # Build Configuration
+  build:
+    # Build tags for conditional compilation
+    tags:
+      {{- range .BuildTags }}
+      - "{{ . }}"
+      {{- end }}
+    
+    # Environment variables needed during build
+    env:
+      {{- range .BuildEnv }}
+      {{ .Key }}: "{{ .Value }}"
+      {{- end }}
+    
+    # CGO settings
+    cgo:
+      enabled: {{ .CgoEnabled }}
+      {{- if .CgoEnabled }}
+      flags:
+        {{- range .CgoFlags }}
+        - "{{ . }}"
+        {{- end }}
+      {{- end }}
+      
+  # Runtime Configuration
+  runtime:
+    # Required environment variables
+    environment:
+      {{- range .RuntimeEnv }}
+      - name: "{{ .Name }}"
+        description: "{{ .Description }}"
+        required: {{ .Required }}
+        default: "{{ .Default }}"
+        type: "{{ .Type }}"
+      {{- end }}
+      
+    # Resource requirements
+    resources:
+      cpu: "{{ .ResourcesCPU }}"
+      memory: "{{ .ResourcesMemory }}"
+      
+    # Health check configuration
+    health:
+      endpoint: "{{ .HealthEndpoint }}"
+      interval: "{{ .HealthInterval }}"
+      timeout: "{{ .HealthTimeout }}"
+      
+  # Security Configuration
+  security:
+    # Required permissions
+    permissions:
+      {{- range .Permissions }}
+      - "{{ . }}"
+      {{- end }}
+      
+    # Security scanning
+    scan:
+      enabled: {{ .SecurityScanEnabled }}
+      tools:
+        {{- range .SecurityTools }}
+        - "{{ . }}"
+        {{- end }}
+        
+    # Vulnerability management
+    vulnerabilities:
+      policy: "{{ .VulnerabilityPolicy }}"
+      
+  # Testing Configuration
+  testing:
+    # Unit tests
+    unit:
+      coverage:
+        minimum: {{ .UnitTestCoverage }}
+        target: {{ .UnitTestTarget }}
+      timeout: "{{ .UnitTestTimeout }}"
+      
+    # Integration tests
+    integration:
+      enabled: {{ .IntegrationTestsEnabled }}
+      dependencies:
+        {{- range .IntegrationTestDeps }}
+        - "{{ . }}"
+        {{- end }}
+      timeout: "{{ .IntegrationTestTimeout }}"
+      
+    # End-to-end tests
+    e2e:
+      enabled: {{ .E2ETestsEnabled }}
+      environment: "{{ .E2ETestEnvironment }}"
+      timeout: "{{ .E2ETestTimeout }}"
+      
+  # Documentation
+  documentation:
+    # API documentation
+    api:
+      format: "{{ .APIDocFormat }}"
+      output: "{{ .APIDocOutput }}"
+      
+    # User documentation
+    user:
+      readme: "{{ .UserDocReadme }}"
+      examples: "{{ .UserDocExamples }}"
+      
+    # Developer documentation
+    developer:
+      architecture: "{{ .DevDocArchitecture }}"
+      contributing: "{{ .DevDocContributing }}"
+      
+  # Deployment Configuration
+  deployment:
+    # Container configuration
+    container:
+      registry: "{{ .ContainerRegistry }}"
+      image: "{{ .ContainerImage }}"
+      tag: "{{ .ContainerTag }}"
+      
+    # Kubernetes configuration
+    kubernetes:
+      namespace: "{{ .K8sNamespace }}"
+      resources: "{{ .K8sResources }}"
+      
+    # Service mesh integration
+    serviceMesh:
+      enabled: {{ .ServiceMeshEnabled }}
+      type: "{{ .ServiceMeshType }}"
+      
+  # Observability
+  observability:
+    # Metrics
+    metrics:
+      enabled: {{ .MetricsEnabled }}
+      endpoint: "{{ .MetricsEndpoint }}"
+      format: "{{ .MetricsFormat }}"
+      
+    # Logging
+    logging:
+      level: "{{ .LogLevel }}"
+      format: "{{ .LogFormat }}"
+      destination: "{{ .LogDestination }}"
+      
+    # Tracing
+    tracing:
+      enabled: {{ .TracingEnabled }}
+      sampler: "{{ .TracingSampler }}"
+      endpoint: "{{ .TracingEndpoint }}"
+      
+  # Lifecycle Hooks
+  lifecycle:
+    # Pre-build hooks
+    preBuild:
+      {{- range .PreBuildHooks }}
+      - command: "{{ .Command }}"
+        args: [{{ range .Args }}"{{ . }}"{{ if not (last $.Args) }}, {{ end }}{{ end }}]
+        workingDir: "{{ .WorkingDir }}"
+      {{- end }}
+      
+    # Post-build hooks
+    postBuild:
+      {{- range .PostBuildHooks }}
+      - command: "{{ .Command }}"
+        args: [{{ range .Args }}"{{ . }}"{{ if not (last $.Args) }}, {{ end }}{{ end }}]
+        workingDir: "{{ .WorkingDir }}"
+      {{- end }}
+      
+    # Pre-deploy hooks
+    preDeploy:
+      {{- range .PreDeployHooks }}
+      - command: "{{ .Command }}"
+        args: [{{ range .Args }}"{{ . }}"{{ if not (last $.Args) }}, {{ end }}{{ end }}]
+        workingDir: "{{ .WorkingDir }}"
+      {{- end }}
+      
+    # Post-deploy hooks
+    postDeploy:
+      {{- range .PostDeployHooks }}
+      - command: "{{ .Command }}"
+        args: [{{ range .Args }}"{{ . }}"{{ if not (last $.Args) }}, {{ end }}{{ end }}]
+        workingDir: "{{ .WorkingDir }}"
+      {{- end }}
+      
+  # Quality Gates
+  quality:
+    # Code quality
+    code:
+      linting:
+        enabled: {{ .LintingEnabled }}
+        tools:
+          {{- range .LintingTools }}
+          - "{{ . }}"
+          {{- end }}
+          
+      formatting:
+        enabled: {{ .FormattingEnabled }}
+        tool: "{{ .FormattingTool }}"
+        
+      complexity:
+        enabled: {{ .ComplexityEnabled }}
+        threshold: {{ .ComplexityThreshold }}
+        
+    # Security quality
+    security:
+      staticAnalysis:
+        enabled: {{ .StaticAnalysisEnabled }}
+        tools:
+          {{- range .StaticAnalysisTools }}
+          - "{{ . }}"
+          {{- end }}
+          
+      dependencyScanning:
+        enabled: {{ .DependencyScanningEnabled }}
+        policy: "{{ .DependencyScanningPolicy }}"
+        
+    # Performance quality
+    performance:
+      benchmarking:
+        enabled: {{ .BenchmarkingEnabled }}
+        threshold: "{{ .BenchmarkingThreshold }}"
+        
+      profiling:
+        enabled: {{ .ProfilingEnabled }}
+        type: "{{ .ProfilingType }}"

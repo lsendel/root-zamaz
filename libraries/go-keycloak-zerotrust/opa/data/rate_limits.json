@@ -1,0 +1,14 @@
+{
+    "rate_limits": {
+        "user1": {
+            "count": 5,
+            "limit": 100,
+            "window": 3600
+        },
+        "user2": {
+            "count": 150,
+            "limit": 100,
+            "window": 3600
+        }
+    }
+}

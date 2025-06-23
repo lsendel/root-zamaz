@@ -1,0 +1,262 @@
+apiVersion: v1
+kind: ComponentDefinition
+metadata:
+  name: "zerotrust-service"
+  version: "1.0.0"
+  description: "Zero Trust authentication service with modern Go practices"
+  author: "Zero Trust Team"
+  created: "2025-06-22T00:00:00Z"
+  updated: "2025-06-22T00:00:00Z"
+  
+spec:
+  # Component Type
+  type: "service"
+  
+  # Go Module Information
+  module:
+    name: "github.com/lsendel/zerotrust-service"
+    path: "./cmd/server"
+    version: "1.0.0"
+    goVersion: "1.21"
+    
+  # Frontend Configuration
+  frontend:
+    enabled: true
+    framework: "react"
+    typescript: true
+    build_dir: "./frontend/build"
+    
+  # Dependencies
+  dependencies:
+    required:
+      - name: "github.com/gin-gonic/gin"
+        version: "v1.10.1"
+        type: "framework"
+      - name: "github.com/golang-jwt/jwt/v5"
+        version: "v5.2.1"
+        type: "auth"
+      - name: "github.com/redis/go-redis/v9"
+        version: "v9.5.1"
+        type: "cache"
+      - name: "github.com/lib/pq"
+        version: "v1.10.9"
+        type: "database"
+      - name: "github.com/caarlos0/env/v9"
+        version: "v9.0.0"
+        type: "config"
+      - name: "github.com/prometheus/client_golang"
+        version: "v1.19.0"
+        type: "metrics"
+      - name: "github.com/swaggo/files"
+        version: "v1.0.1"
+        type: "swagger"
+      - name: "github.com/swaggo/gin-swagger"
+        version: "v1.6.0"
+        type: "swagger"
+      - name: "github.com/swaggo/swag"
+        version: "v1.16.3"
+        type: "swagger"
+    optional:
+      - name: "github.com/stretchr/testify"
+        version: "v1.9.0"
+        type: "testing"
+        condition: "testing"
+      
+  # Build Configuration
+  build:
+    tags:
+      - "json1"
+      - "fts5"
+    env:
+      CGO_ENABLED: "0"
+      GOOS: "linux"
+      GOARCH: "amd64"
+    cgo:
+      enabled: false
+      
+  # Runtime Configuration
+  runtime:
+    environment:
+      - name: "PORT"
+        description: "HTTP server port"
+        required: false
+        default: "8080"
+        type: "int"
+      - name: "HOST"
+        description: "HTTP server host"
+        required: false
+        default: "0.0.0.0"
+        type: "string"
+      - name: "LOG_LEVEL"
+        description: "Logging level"
+        required: false
+        default: "info"
+        type: "string"
+      - name: "DATABASE_URL"
+        description: "PostgreSQL connection string"
+        required: true
+        default: "postgres://user:pass@localhost:5432/db"
+        type: "string"
+      - name: "REDIS_URL"
+        description: "Redis connection string"
+        required: true
+        default: "redis://localhost:6379"
+        type: "string"
+      - name: "JWT_SECRET"
+        description: "JWT signing secret"
+        required: true
+        default: ""
+        type: "string"
+        
+    resources:
+      cpu: "100m"
+      memory: "128Mi"
+      
+    health:
+      endpoint: "/health"
+      interval: "30s"
+      timeout: "5s"
+      
+  # Security Configuration
+  security:
+    permissions:
+      - "read:users"
+      - "write:sessions"
+      - "admin:tokens"
+      
+    scan:
+      enabled: true
+      tools:
+        - "gosec"
+        - "nancy"
+        
+    vulnerabilities:
+      policy: "strict"
+      
+  # Testing Configuration
+  testing:
+    unit:
+      coverage:
+        minimum: 80
+        target: 90
+      timeout: "5m"
+      
+    integration:
+      enabled: true
+      dependencies:
+        - "postgres"
+        - "redis"
+      timeout: "10m"
+      
+    e2e:
+      enabled: true
+      environment: "docker-compose"
+      timeout: "15m"
+      
+  # Documentation
+  documentation:
+    api:
+      format: "openapi"
+      output: "./docs/api.yaml"
+      
+    user:
+      readme: "./README.md"
+      examples: "./examples/"
+      
+    developer:
+      architecture: "./docs/architecture.md"
+      contributing: "./CONTRIBUTING.md"
+      
+  # Deployment Configuration
+  deployment:
+    container:
+      registry: "ghcr.io"
+      image: "lsendel/zerotrust-service"
+      tag: "latest"
+      
+    kubernetes:
+      namespace: "zerotrust"
+      resources: "./deployments/k8s/"
+      
+    serviceMesh:
+      enabled: true
+      type: "istio"
+      
+  # Observability
+  observability:
+    metrics:
+      enabled: true
+      endpoint: "/metrics"
+      format: "prometheus"
+      
+    logging:
+      level: "info"
+      format: "json"
+      destination: "stdout"
+      
+    tracing:
+      enabled: true
+      sampler: "probabilistic:0.1"
+      endpoint: "http://jaeger:14268/api/traces"
+      
+  # Lifecycle Hooks
+  lifecycle:
+    preBuild:
+      - command: "go"
+        args: ["mod", "tidy"]
+        workingDir: "."
+      - command: "go"
+        args: ["fmt", "./..."]
+        workingDir: "."
+        
+    postBuild:
+      - command: "go"
+        args: ["test", "./..."]
+        workingDir: "."
+        
+    preDeploy:
+      - command: "docker"
+        args: ["build", "-t", "zerotrust-service", "."]
+        workingDir: "."
+        
+    postDeploy:
+      - command: "curl"
+        args: ["-f", "http://localhost:8080/health"]
+        workingDir: "."
+        
+  # Quality Gates
+  quality:
+    code:
+      linting:
+        enabled: true
+        tools:
+          - "golangci-lint"
+          - "staticcheck"
+          
+      formatting:
+        enabled: true
+        tool: "gofmt"
+        
+      complexity:
+        enabled: true
+        threshold: 10
+        
+    security:
+      staticAnalysis:
+        enabled: true
+        tools:
+          - "gosec"
+          - "semgrep"
+          
+      dependencyScanning:
+        enabled: true
+        policy: "moderate"
+        
+    performance:
+      benchmarking:
+        enabled: true
+        threshold: "1ms"
+        
+      profiling:
+        enabled: true
+        type: "cpu"

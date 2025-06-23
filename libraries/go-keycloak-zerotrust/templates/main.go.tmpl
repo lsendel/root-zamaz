@@ -1,0 +1,572 @@
+// Package {{ .PackageName }} provides {{ .Description }}
+//
+// This package follows Go 2025 best practices including:
+// - Structured logging with slog
+// - Context-aware operations
+// - Graceful shutdown handling
+// - Health check endpoints
+// - Metrics collection
+// - Configuration management
+// - Error handling with proper wrapping
+//
+// Example usage:
+//
+//	package main
+//
+//	import (
+//		"context"
+//		"log/slog"
+//		"os"
+//
+//		"{{ .ModuleName }}"
+//	)
+//
+//	func main() {
+//		ctx := context.Background()
+//		cfg := {{ .PackageName }}.LoadConfig()
+//		
+//		app, err := {{ .PackageName }}.New(cfg)
+//		if err != nil {
+//			slog.Error("failed to create application", "error", err)
+//			os.Exit(1)
+//		}
+//		
+//		if err := app.Run(ctx); err != nil {
+//			slog.Error("application failed", "error", err)
+//			os.Exit(1)
+//		}
+//	}
+package main
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/caarlos0/env/v9"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+	
+{{- range .Imports }}
+	{{ .Alias }} "{{ .Path }}"
+{{- end }}
+)
+
+// Application represents the main application instance
+type Application struct {
+	config *Config
+	server *http.Server
+	logger *slog.Logger
+	{{- range .Fields }}
+	{{ .Name }} {{ .Type }}
+	{{- end }}
+}
+
+// Config holds all application configuration
+type Config struct {
+	// Server configuration
+	Port         int    `env:"PORT" envDefault:"{{ .DefaultPort }}"`
+	Host         string `env:"HOST" envDefault:"{{ .DefaultHost }}"`
+	ReadTimeout  time.Duration `env:"READ_TIMEOUT" envDefault:"{{ .DefaultReadTimeout }}"`
+	WriteTimeout time.Duration `env:"WRITE_TIMEOUT" envDefault:"{{ .DefaultWriteTimeout }}"`
+	
+	// Logging configuration
+	LogLevel  string `env:"LOG_LEVEL" envDefault:"{{ .DefaultLogLevel }}"`
+	LogFormat string `env:"LOG_FORMAT" envDefault:"{{ .DefaultLogFormat }}"`
+	
+	{{- range .ConfigFields }}
+	// {{ .Comment }}
+	{{ .Name }} {{ .Type }} `env:"{{ .EnvVar }}" envDefault:"{{ .Default }}"`
+	{{- end }}
+}
+
+// LoadConfig loads configuration from environment variables
+func LoadConfig() *Config {
+	cfg := &Config{}
+	
+	// Load environment variables into config struct
+	if err := env.Parse(cfg); err != nil {
+		slog.Error("failed to parse config", "error", err)
+		os.Exit(1)
+	}
+	
+	return cfg
+}
+
+// New creates a new Application instance
+func New(config *Config) (*Application, error) {
+	// Setup structured logging
+	var handler slog.Handler
+	switch config.LogFormat {
+	case "json":
+		handler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+			Level: parseLogLevel(config.LogLevel),
+		})
+	default:
+		handler = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+			Level: parseLogLevel(config.LogLevel),
+		})
+	}
+	
+	logger := slog.New(handler)
+	slog.SetDefault(logger)
+	
+	app := &Application{
+		config: config,
+		logger: logger,
+	}
+	
+	// Initialize HTTP server
+	mux := http.NewServeMux()
+	app.setupRoutes(mux)
+	
+	app.server = &http.Server{
+		Addr:         fmt.Sprintf("%s:%d", config.Host, config.Port),
+		Handler:      mux,
+		ReadTimeout:  config.ReadTimeout,
+		WriteTimeout: config.WriteTimeout,
+		ErrorLog:     slog.NewLogLogger(logger.Handler(), slog.LevelError),
+	}
+	
+	return app, nil
+}
+
+// Run starts the application and handles graceful shutdown
+func (a *Application) Run(ctx context.Context) error {
+	// Create context that listens for interrupt signal
+	ctx, cancel := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+	
+	// Start server in a goroutine
+	serverErr := make(chan error, 1)
+	go func() {
+		a.logger.Info("starting server", 
+			"addr", a.server.Addr,
+			"version", "{{ .Version }}",
+		)
+		
+		if err := a.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			serverErr <- fmt.Errorf("server failed to start: %w", err)
+		}
+	}()
+	
+	// Wait for interrupt signal or server error
+	select {
+	case err := <-serverErr:
+		return err
+	case <-ctx.Done():
+		a.logger.Info("shutting down server gracefully")
+		
+		// Create shutdown context with timeout
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer shutdownCancel()
+		
+		// Attempt graceful shutdown
+		if err := a.server.Shutdown(shutdownCtx); err != nil {
+			return fmt.Errorf("server shutdown failed: %w", err)
+		}
+		
+		a.logger.Info("server shutdown complete")
+		return nil
+	}
+}
+
+// setupRoutes configures HTTP routes
+func (a *Application) setupRoutes(mux *http.ServeMux) {
+	// Create Gin router
+	r := gin.Default()
+	
+	// CORS middleware for frontend
+	r.Use(func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Authorization")
+		
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+		c.Next()
+	})
+	
+	// Root endpoint
+	r.GET("/", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"service":     "{{ .ServiceName }}",
+			"status":      "running",
+			"message":     "Welcome to {{ .Description }}",
+			"endpoints": gin.H{
+				"health":     "/health - Service health check",
+				"info":       "/info - Service information",
+				"swagger":    "/swagger/index.html - API documentation",
+				"discovery":  "/api/v1/discovery - Service discovery",
+			},
+		})
+	})
+	
+	// Health check endpoints
+	r.GET("/health", a.handleHealthGin)
+	r.GET("/ready", a.handleReadyGin)
+	r.GET("/info", a.handleInfoGin)
+	
+	// Swagger documentation
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	r.GET("/api-docs", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"swagger": "/swagger/index.html",
+			"title":   "{{ .ServiceName }} API",
+			"version": "{{ .Version }}",
+		})
+	})
+	
+	// API v1 routes
+	v1 := r.Group("/api/v1")
+	{
+		// Authentication endpoints
+		auth := v1.Group("/auth")
+		{
+			auth.POST("/login", a.handleLogin)
+			auth.POST("/refresh", a.handleRefresh)
+			auth.POST("/logout", a.handleLogout)
+		}
+		
+		// Service discovery
+		discovery := v1.Group("/discovery")
+		{
+			discovery.GET("/services", a.handleListServices)
+			discovery.GET("/services/:name", a.handleGetService)
+			discovery.POST("/services", a.handleRegisterService)
+		}
+		
+		// Trust score endpoints
+		v1.GET("/trust-score", a.handleTrustScore)
+		
+		// Protected endpoints
+		{{- range .Endpoints }}
+		v1.{{ .Method }}("{{ .Path }}", a.{{ .Handler }})
+		{{- end }}
+	}
+	
+	// Metrics endpoint (if enabled)
+	{{- if .MetricsEnabled }}
+	r.GET("/metrics", gin.WrapH(promhttp.Handler()))
+	{{- end }}
+	
+	// Serve static files for React frontend
+	r.Static("/static", "./frontend/build/static")
+	r.StaticFile("/favicon.ico", "./frontend/build/favicon.ico")
+	r.StaticFile("/manifest.json", "./frontend/build/manifest.json")
+	
+	// Serve React app for all other routes (SPA routing)
+	r.NoRoute(func(c *gin.Context) {
+		// Don't serve React for API routes
+		if strings.HasPrefix(c.Request.URL.Path, "/api") || 
+		   strings.HasPrefix(c.Request.URL.Path, "/swagger") ||
+		   strings.HasPrefix(c.Request.URL.Path, "/health") {
+			c.JSON(404, gin.H{"error": "API endpoint not found"})
+			return
+		}
+		c.File("./frontend/build/index.html")
+	})
+	
+	// Mount Gin router to http.ServeMux
+	mux.Handle("/", r)
+}
+
+// handleHealth handles health check requests
+func (a *Application) handleHealth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	
+	response := map[string]interface{}{
+		"status":    "healthy",
+		"service":   "{{ .ServiceName }}",
+		"version":   "{{ .Version }}",
+		"timestamp": time.Now().UTC(),
+	}
+	
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		a.logger.Error("failed to encode health response", "error", err)
+	}
+}
+
+// handleReady handles readiness check requests
+func (a *Application) handleReady(w http.ResponseWriter, r *http.Request) {
+	// Add readiness checks here (database connectivity, external services, etc.)
+	ready := true
+	
+	{{- range .ReadinessChecks }}
+	if err := a.{{ .CheckFunction }}(r.Context()); err != nil {
+		a.logger.Error("readiness check failed", "check", "{{ .Name }}", "error", err)
+		ready = false
+	}
+	{{- end }}
+	
+	w.Header().Set("Content-Type", "application/json")
+	
+	if ready {
+		w.WriteHeader(http.StatusOK)
+	} else {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}
+	
+	response := map[string]interface{}{
+		"ready":     ready,
+		"service":   "{{ .ServiceName }}",
+		"timestamp": time.Now().UTC(),
+	}
+	
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		a.logger.Error("failed to encode ready response", "error", err)
+	}
+}
+
+// Gin handlers for modern web API
+
+// handleHealthGin handles health check requests with Gin
+func (a *Application) handleHealthGin(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"status":    "healthy",
+		"service":   "{{ .ServiceName }}",
+		"version":   "{{ .Version }}",
+		"timestamp": time.Now().UTC(),
+	})
+}
+
+// handleReadyGin handles readiness check requests with Gin
+func (a *Application) handleReadyGin(c *gin.Context) {
+	ready := true
+	
+	{{- range .ReadinessChecks }}
+	if err := a.{{ .CheckFunction }}(c.Request.Context()); err != nil {
+		a.logger.Error("readiness check failed", "check", "{{ .Name }}", "error", err)
+		ready = false
+	}
+	{{- end }}
+	
+	status := http.StatusOK
+	if !ready {
+		status = http.StatusServiceUnavailable
+	}
+	
+	c.JSON(status, gin.H{
+		"ready":     ready,
+		"service":   "{{ .ServiceName }}",
+		"timestamp": time.Now().UTC(),
+	})
+}
+
+// handleInfoGin provides service information
+func (a *Application) handleInfoGin(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"name":        "{{ .ServiceName }}",
+		"description": "{{ .Description }}",
+		"version":     "{{ .Version }}",
+		"features": []string{
+			"Zero Trust Authentication",
+			"Service Discovery", 
+			"Swagger Documentation",
+			"React Frontend",
+			"JWT Token Validation",
+			"Trust Level Authorization",
+		},
+		"endpoints": gin.H{
+			"swagger":    "/swagger/index.html",
+			"health":     "/health",
+			"discovery":  "/api/v1/discovery/services",
+			"auth":       "/api/v1/auth/login",
+		},
+	})
+}
+
+// Authentication handlers
+
+// handleLogin processes user login
+func (a *Application) handleLogin(c *gin.Context) {
+	var req struct {
+		Username string `json:"username" binding:"required"`
+		Password string `json:"password" binding:"required"`
+	}
+	
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
+		return
+	}
+	
+	// TODO: Implement Keycloak authentication
+	// For now, return mock response
+	c.JSON(http.StatusOK, gin.H{
+		"access_token":  "mock-jwt-token",
+		"refresh_token": "mock-refresh-token",
+		"expires_in":    300,
+		"token_type":    "Bearer",
+		"user": gin.H{
+			"id":       "123",
+			"username": req.Username,
+			"email":    req.Username + "@example.com",
+			"roles":    []string{"user"},
+		},
+		"trust_score": 88,
+	})
+}
+
+// handleRefresh refreshes JWT token
+func (a *Application) handleRefresh(c *gin.Context) {
+	// TODO: Implement token refresh logic
+	c.JSON(http.StatusOK, gin.H{
+		"access_token": "new-mock-jwt-token",
+		"expires_in":   300,
+	})
+}
+
+// handleLogout processes user logout
+func (a *Application) handleLogout(c *gin.Context) {
+	// TODO: Implement logout logic (token blacklisting)
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Successfully logged out",
+	})
+}
+
+// Service discovery handlers
+
+// handleListServices returns all discovered services
+func (a *Application) handleListServices(c *gin.Context) {
+	// TODO: Implement actual service discovery
+	services := []gin.H{
+		{
+			"name":         "{{ .ServiceName }}",
+			"url":          "http://localhost:8080",
+			"status":       "healthy",
+			"trust_level":  0,
+			"endpoints":    []string{"/health", "/api/v1"},
+		},
+		{
+			"name":         "keycloak",
+			"url":          "http://localhost:8082",
+			"status":       "healthy", 
+			"trust_level":  0,
+			"endpoints":    []string{"/admin", "/realms"},
+		},
+	}
+	
+	c.JSON(http.StatusOK, gin.H{
+		"services": services,
+		"count":    len(services),
+		"timestamp": time.Now().UTC(),
+	})
+}
+
+// handleGetService returns specific service info
+func (a *Application) handleGetService(c *gin.Context) {
+	serviceName := c.Param("name")
+	
+	// TODO: Implement actual service lookup
+	service := gin.H{
+		"name":         serviceName,
+		"url":          "http://localhost:8080",
+		"status":       "healthy",
+		"trust_level":  0,
+		"last_checked": time.Now().UTC(),
+	}
+	
+	c.JSON(http.StatusOK, service)
+}
+
+// handleRegisterService registers a new service
+func (a *Application) handleRegisterService(c *gin.Context) {
+	var service struct {
+		Name       string `json:"name" binding:"required"`
+		URL        string `json:"url" binding:"required"`
+		TrustLevel int    `json:"trust_level"`
+	}
+	
+	if err := c.ShouldBindJSON(&service); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
+		return
+	}
+	
+	// TODO: Implement service registration
+	c.JSON(http.StatusCreated, gin.H{
+		"status":  "registered",
+		"name":    service.Name,
+		"message": "Service registered successfully",
+	})
+}
+
+// handleTrustScore returns current trust score
+func (a *Application) handleTrustScore(c *gin.Context) {
+	// TODO: Calculate actual trust score
+	c.JSON(http.StatusOK, gin.H{
+		"user_id":  "123",
+		"overall":  88,
+		"factors": gin.H{
+			"identity": 30,
+			"device":   20,
+			"behavior": 18,
+			"location": 12,
+			"risk":     8,
+		},
+		"timestamp": time.Now().UTC(),
+		"next_check": time.Now().Add(5 * time.Minute).UTC(),
+	})
+}
+
+{{- range .Handlers }}
+
+// {{ .Name }} handles {{ .Description }}
+func (a *Application) {{ .Name }}(c *gin.Context) {
+	// Add request logging
+	a.logger.Info("handling request",
+		"method", c.Request.Method,
+		"path", c.Request.URL.Path,
+		"remote_addr", c.ClientIP(),
+	)
+	
+	// TODO: Implement {{ .Name }} logic
+	c.JSON(http.StatusOK, gin.H{
+		"message": "{{ .ResponseMessage }}",
+		"endpoint": c.Request.URL.Path,
+		"timestamp": time.Now().UTC(),
+	})
+}
+{{- end }}
+
+// parseLogLevel converts string to slog.Level
+func parseLogLevel(level string) slog.Level {
+	switch level {
+	case "debug":
+		return slog.LevelDebug
+	case "info":
+		return slog.LevelInfo
+	case "warn", "warning":
+		return slog.LevelWarn
+	case "error":
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
+}
+
+// main is the application entry point
+func main() {
+	ctx := context.Background()
+	config := LoadConfig()
+	
+	app, err := New(config)
+	if err != nil {
+		slog.Error("failed to create application", "error", err)
+		os.Exit(1)
+	}
+	
+	if err := app.Run(ctx); err != nil {
+		slog.Error("application failed", "error", err)
+		os.Exit(1)
+	}
+}

@@ -1,0 +1,488 @@
+# GitHub Component Repository - Automated Component Versioning and Release
+name: Component Repository Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'components/**'
+      - 'pkg/**'
+      - 'clients/**'
+      - 'middleware/**'
+  release:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      component:
+        description: 'Component to release (all, core, middleware, clients, examples)'
+        required: false
+        default: 'all'
+      version_bump:
+        description: 'Version bump type (patch, minor, major)'
+        required: false
+        default: 'patch'
+
+env:
+  REGISTRY: ghcr.io
+  NAMESPACE: ${{ github.repository_owner }}
+
+jobs:
+  detect-changes:
+    name: Detect Component Changes
+    runs-on: ubuntu-latest
+    outputs:
+      components: ${{ steps.changes.outputs.components }}
+      core_changed: ${{ steps.changes.outputs.core }}
+      middleware_changed: ${{ steps.changes.outputs.middleware }}
+      clients_changed: ${{ steps.changes.outputs.clients }}
+      examples_changed: ${{ steps.changes.outputs.examples }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect component changes
+        id: changes
+        uses: dorny/paths-filter@v2
+        with:
+          filters: |
+            core:
+              - 'pkg/zerotrust/**'
+              - 'pkg/config/**'
+              - 'pkg/cache/**'
+              - 'components/core/**'
+            middleware:
+              - 'middleware/**'
+              - 'components/middleware/**'
+            clients:
+              - 'clients/**'
+              - 'components/clients/**'
+            examples:
+              - 'examples/**'
+              - 'components/examples/**'
+
+      - name: Set component list
+        id: component-list
+        run: |
+          COMPONENTS=()
+          if [[ "${{ steps.changes.outputs.core }}" == "true" ]]; then
+            COMPONENTS+=("core")
+          fi
+          if [[ "${{ steps.changes.outputs.middleware }}" == "true" ]]; then
+            COMPONENTS+=("middleware")
+          fi
+          if [[ "${{ steps.changes.outputs.clients }}" == "true" ]]; then
+            COMPONENTS+=("clients")
+          fi
+          if [[ "${{ steps.changes.outputs.examples }}" == "true" ]]; then
+            COMPONENTS+=("examples")
+          fi
+          
+          # Convert array to JSON
+          COMPONENTS_JSON=$(printf '%s\n' "${COMPONENTS[@]}" | jq -R . | jq -s .)
+          echo "components=$COMPONENTS_JSON" >> $GITHUB_OUTPUT
+
+  version-components:
+    name: Version and Package Components
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.components != '[]' && needs.detect-changes.outputs.components != '' }}
+    strategy:
+      matrix:
+        component: ${{ fromJSON(needs.detect-changes.outputs.components) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install semantic-release
+        run: |
+          npm install -g semantic-release @semantic-release/changelog @semantic-release/git
+          npm install -g @semantic-release/exec @semantic-release/github
+
+      - name: Get current version
+        id: current-version
+        run: |
+          COMPONENT="${{ matrix.component }}"
+          VERSION_FILE="components/${COMPONENT}/VERSION"
+          
+          if [[ -f "$VERSION_FILE" ]]; then
+            CURRENT_VERSION=$(cat "$VERSION_FILE")
+          else
+            CURRENT_VERSION="0.1.0"
+            mkdir -p "components/${COMPONENT}"
+            echo "$CURRENT_VERSION" > "$VERSION_FILE"
+          fi
+          
+          echo "current=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "version_file=$VERSION_FILE" >> $GITHUB_OUTPUT
+
+      - name: Calculate next version
+        id: next-version
+        run: |
+          CURRENT_VERSION="${{ steps.current-version.outputs.current }}"
+          BUMP_TYPE="${{ github.event.inputs.version_bump || 'patch' }}"
+          
+          IFS='.' read -ra VERSION_PARTS <<< "$CURRENT_VERSION"
+          MAJOR=${VERSION_PARTS[0]}
+          MINOR=${VERSION_PARTS[1]}
+          PATCH=${VERSION_PARTS[2]}
+          
+          case $BUMP_TYPE in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            minor)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            patch)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+          
+          NEXT_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          echo "next=$NEXT_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Package component
+        id: package
+        run: |
+          COMPONENT="${{ matrix.component }}"
+          VERSION="${{ steps.next-version.outputs.next }}"
+          PACKAGE_DIR="dist/components/${COMPONENT}"
+          
+          mkdir -p "$PACKAGE_DIR"
+          
+          # Create component package structure
+          case $COMPONENT in
+            core)
+              # Package core Go modules
+              cp -r pkg/zerotrust "$PACKAGE_DIR/"
+              cp -r pkg/config "$PACKAGE_DIR/"
+              cp -r pkg/cache "$PACKAGE_DIR/"
+              
+              # Create component manifest
+              cat > "$PACKAGE_DIR/component.yaml" << EOF
+          apiVersion: component.github.com/v1alpha1
+          kind: Component
+          metadata:
+            name: go-keycloak-zerotrust-core
+            version: ${VERSION}
+            description: Core Zero Trust authentication library
+          spec:
+            type: library
+            language: go
+            dependencies:
+              - golang.org/x/crypto
+              - github.com/golang-jwt/jwt/v5
+              - github.com/go-redis/redis/v8
+            provides:
+              - zerotrust.Client
+              - zerotrust.Config
+              - zerotrust.Cache
+          EOF
+              ;;
+              
+            middleware)
+              # Package middleware modules
+              cp -r middleware "$PACKAGE_DIR/"
+              
+              cat > "$PACKAGE_DIR/component.yaml" << EOF
+          apiVersion: component.github.com/v1alpha1
+          kind: Component
+          metadata:
+            name: go-keycloak-zerotrust-middleware
+            version: ${VERSION}
+            description: Framework middleware for Zero Trust authentication
+          spec:
+            type: middleware
+            language: go
+            dependencies:
+              - github.com/gin-gonic/gin
+              - github.com/labstack/echo/v4
+              - github.com/gofiber/fiber/v2
+              - google.golang.org/grpc
+            requires:
+              - go-keycloak-zerotrust-core
+          EOF
+              ;;
+              
+            clients)
+              # Package client SDKs
+              cp -r clients "$PACKAGE_DIR/"
+              
+              cat > "$PACKAGE_DIR/component.yaml" << EOF
+          apiVersion: component.github.com/v1alpha1
+          kind: Component
+          metadata:
+            name: go-keycloak-zerotrust-clients
+            version: ${VERSION}
+            description: Multi-language client SDKs
+          spec:
+            type: sdk
+            languages: [go, java, python]
+            provides:
+              - java: com.yourorg.zerotrust.Client
+              - python: zerotrust.Client
+              - go: zerotrust.Client
+          EOF
+              ;;
+              
+            examples)
+              # Package examples and templates
+              cp -r examples "$PACKAGE_DIR/"
+              
+              cat > "$PACKAGE_DIR/component.yaml" << EOF
+          apiVersion: component.github.com/v1alpha1
+          kind: Component
+          metadata:
+            name: go-keycloak-zerotrust-examples
+            version: ${VERSION}
+            description: Example implementations and templates
+          spec:
+            type: examples
+            provides:
+              - gin-example
+              - echo-example
+              - grpc-example
+              - integration-templates
+          EOF
+              ;;
+          esac
+          
+          # Create Go mod for Go components
+          if [[ "$COMPONENT" == "core" || "$COMPONENT" == "middleware" ]]; then
+            cd "$PACKAGE_DIR"
+            go mod init "github.com/${GITHUB_REPOSITORY}/components/${COMPONENT}"
+            go mod tidy
+            cd -
+          fi
+          
+          # Create archive
+          tar -czf "$PACKAGE_DIR.tar.gz" -C "dist/components" "$COMPONENT"
+          
+          echo "package_path=$PACKAGE_DIR.tar.gz" >> $GITHUB_OUTPUT
+          echo "component_dir=$PACKAGE_DIR" >> $GITHUB_OUTPUT
+
+      - name: Generate component documentation
+        run: |
+          COMPONENT="${{ matrix.component }}"
+          VERSION="${{ steps.next-version.outputs.next }}"
+          PACKAGE_DIR="${{ steps.package.outputs.component_dir }}"
+          
+          # Generate README for component
+          cat > "$PACKAGE_DIR/README.md" << EOF
+          # ${COMPONENT^} Component - v${VERSION}
+          
+          Zero Trust authentication component for ${COMPONENT} functionality.
+          
+          ## Installation
+          
+          ### Go Module
+          \`\`\`bash
+          go get github.com/${GITHUB_REPOSITORY}/components/${COMPONENT}@v${VERSION}
+          \`\`\`
+          
+          ### GitHub Component Registry
+          \`\`\`bash
+          gh extension install github/gh-component
+          gh component install ${GITHUB_REPOSITORY_OWNER}/${COMPONENT}@${VERSION}
+          \`\`\`
+          
+          ## Usage
+          
+          See [examples](examples/) directory for usage examples.
+          
+          ## Version History
+          
+          - v${VERSION}: $(date +%Y-%m-%d) - Latest release
+          
+          ## Dependencies
+          
+          See \`component.yaml\` for complete dependency information.
+          EOF
+
+      - name: Update version file
+        run: |
+          VERSION="${{ steps.next-version.outputs.next }}"
+          VERSION_FILE="${{ steps.current-version.outputs.version_file }}"
+          
+          echo "$VERSION" > "$VERSION_FILE"
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add "$VERSION_FILE"
+
+      - name: Create component release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          COMPONENT="${{ matrix.component }}"
+          VERSION="${{ steps.next-version.outputs.next }}"
+          PACKAGE_PATH="${{ steps.package.outputs.package_path }}"
+          
+          # Create Git tag for component
+          TAG_NAME="${COMPONENT}-v${VERSION}"
+          git tag "$TAG_NAME"
+          git push origin "$TAG_NAME"
+          
+          # Create GitHub release
+          gh release create "$TAG_NAME" \
+            --title "${COMPONENT^} Component v${VERSION}" \
+            --notes "Automated release of ${COMPONENT} component v${VERSION}" \
+            --target main \
+            "$PACKAGE_PATH"
+
+      - name: Upload to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push component container
+        run: |
+          COMPONENT="${{ matrix.component }}"
+          VERSION="${{ steps.next-version.outputs.next }}"
+          PACKAGE_DIR="${{ steps.package.outputs.component_dir }}"
+          
+          # Create Dockerfile for component
+          cat > "$PACKAGE_DIR/Dockerfile" << EOF
+          FROM scratch
+          COPY . /component/
+          LABEL org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}
+          LABEL org.opencontainers.image.description="${COMPONENT^} component for Zero Trust authentication"
+          LABEL org.opencontainers.image.version=${VERSION}
+          EOF
+          
+          # Build and push container
+          IMAGE_NAME="${{ env.REGISTRY }}/${{ env.NAMESPACE }}/zerotrust-${COMPONENT}"
+          docker build -t "${IMAGE_NAME}:${VERSION}" -t "${IMAGE_NAME}:latest" "$PACKAGE_DIR"
+          docker push "${IMAGE_NAME}:${VERSION}"
+          docker push "${IMAGE_NAME}:latest"
+
+  generate-registry-index:
+    name: Generate Component Registry Index
+    runs-on: ubuntu-latest
+    needs: version-components
+    if: always() && (needs.version-components.result == 'success' || needs.version-components.result == 'skipped')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate component registry index
+        run: |
+          mkdir -p registry
+          
+          # Create registry index
+          cat > registry/index.yaml << EOF
+          apiVersion: component.github.com/v1alpha1
+          kind: ComponentRegistry
+          metadata:
+            name: go-keycloak-zerotrust-registry
+            namespace: ${{ github.repository_owner }}
+          spec:
+            components:
+          EOF
+          
+          # Add each component to registry
+          for component in core middleware clients examples; do
+            if [[ -f "components/${component}/VERSION" ]]; then
+              VERSION=$(cat "components/${component}/VERSION")
+              cat >> registry/index.yaml << EOF
+              - name: ${component}
+                version: ${VERSION}
+                source: ghcr.io/${{ env.NAMESPACE }}/zerotrust-${component}:${VERSION}
+                manifest: components/${component}/component.yaml
+                updated: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+          EOF
+            fi
+          done
+          
+          # Create component discovery file
+          cat > registry/components.json << EOF
+          {
+            "registry": "github.com/${{ github.repository }}",
+            "namespace": "${{ github.repository_owner }}",
+            "components": [
+          EOF
+          
+          FIRST=true
+          for component in core middleware clients examples; do
+            if [[ -f "components/${component}/VERSION" ]]; then
+              VERSION=$(cat "components/${component}/VERSION")
+              if [[ "$FIRST" == "false" ]]; then
+                echo "," >> registry/components.json
+              fi
+              cat >> registry/components.json << EOF
+              {
+                "name": "${component}",
+                "version": "${VERSION}",
+                "description": "Zero Trust ${component} component",
+                "tags": ["zero-trust", "authentication", "${component}"],
+                "install": {
+                  "go": "go get github.com/${{ github.repository }}/components/${component}@v${VERSION}",
+                  "container": "docker pull ghcr.io/${{ env.NAMESPACE }}/zerotrust-${component}:${VERSION}",
+                  "gh": "gh component install ${{ github.repository_owner }}/${component}@${VERSION}"
+                }
+              }
+          EOF
+              FIRST=false
+            fi
+          done
+          
+          echo "]}" >> registry/components.json
+
+      - name: Commit registry updates
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add registry/
+          git add components/*/VERSION
+          
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update component registry index [skip ci]"
+            git push
+          fi
+
+  notify-slack:
+    name: Notify Team
+    runs-on: ubuntu-latest
+    needs: [version-components, generate-registry-index]
+    if: always() && needs.version-components.result == 'success'
+    steps:
+      - name: Notify Slack
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: |
+            🚀 **Component Release Complete**
+            
+            Repository: `${{ github.repository }}`
+            Components updated: ${{ needs.detect-changes.outputs.components }}
+            
+            📦 **Registry**: https://github.com/${{ github.repository }}/packages
+            📚 **Documentation**: https://github.com/${{ github.repository }}/tree/main/registry
+            
+            Install with:
+            ```bash
+            gh component install ${{ github.repository_owner }}/core@latest
+            ```
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

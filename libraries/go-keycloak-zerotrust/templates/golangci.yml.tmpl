@@ -1,0 +1,354 @@
+# GolangCI-Lint Configuration Template for Zero Trust Security
+# Generated from root-zamaz component system
+# Enhanced security-focused linting rules for {{ .ServiceName }}
+
+run:
+  timeout: 5m
+  issues-exit-code: 1
+  tests: true
+  skip-dirs:
+    - vendor
+    - .git
+    - bin
+    - build
+    - dist
+  skip-files:
+    - ".*\\.pb\\.go$"
+    - ".*_generated\\.go$"
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+  uniq-by-line: true
+  sort-results: true
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+    exclude-functions:
+      - io/ioutil.ReadFile
+      - io.Copy(*bytes.Buffer)
+      - io.Copy(os.Stdout)
+
+  exhaustive:
+    check-generated: false
+    default-signifies-exhaustive: false
+
+  funlen:
+    lines: 80
+    statements: 40
+
+  gci:
+    local-prefixes: {{ .ModuleName }}
+
+  goconst:
+    min-len: 3
+    min-occurrences: 3
+
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+      - security
+    disabled-checks:
+      - dupImport
+      - ifElseChain
+      - octalLiteral
+      - whyNoLint
+    settings:
+      captLocal:
+        paramsOnly: true
+      rangeValCopy:
+        sizeThreshold: 32
+
+  gocyclo:
+    min-complexity: 15
+
+  godot:
+    scope: declarations
+    capital: false
+
+  goimports:
+    local-prefixes: {{ .ModuleName }}
+
+  gomnd:
+    settings:
+      mnd:
+        checks:
+          - argument
+          - case
+          - condition
+          - operation
+          - return
+          - assign
+        ignored-numbers: 0,1,2,3
+        ignored-functions: strings.SplitN
+
+  govet:
+    check-shadowing: true
+    settings:
+      printf:
+        funcs:
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Infof
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Warnf
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
+
+  lll:
+    line-length: 120
+
+  misspell:
+    locale: US
+
+  nolintlint:
+    allow-leading-space: true
+    allow-unused: false
+    require-explanation: false
+    require-specific: false
+
+  revive:
+    min-confidence: 0
+    rules:
+      - name: atomic
+      - name: line-length-limit
+        arguments: [120]
+      - name: argument-limit
+        arguments: [8]
+      - name: cyclomatic
+        arguments: [15]
+      - name: max-public-structs
+        arguments: [10]
+      - name: file-header
+        disabled: true
+
+  staticcheck:
+    go: "{{ .GoVersion }}"
+    checks: ["all"]
+
+  stylecheck:
+    go: "{{ .GoVersion }}"
+    checks: ["all", "-ST1000", "-ST1003", "-ST1016", "-ST1020", "-ST1021", "-ST1022"]
+
+  unparam:
+    check-exported: false
+
+  unused:
+    go: "{{ .GoVersion }}"
+
+  whitespace:
+    multi-if: false
+    multi-func: false
+
+  wrapcheck:
+    ignoreSigs:
+      - .Errorf(
+      - errors.New(
+      - errors.Unwrap(
+      - .Wrap(
+      - .Wrapf(
+
+  # Security-focused linters configuration
+  gosec:
+    severity: medium
+    confidence: medium
+    excludes:
+      - G204  # Subprocess launched with variable (may need for dynamic commands)
+    config:
+      G301: "0750"  # File permissions
+      G302: "0600"  # File permissions  
+      G306: "0600"  # File permissions
+
+linters:
+  enable:
+    # Default linters (essential)
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - typecheck
+    - unused
+    
+    # Security-focused linters (critical for Zero Trust)
+    - gosec          # Security vulnerability scanner
+    - bodyclose      # Resource leak detection
+    - contextcheck   # Context usage validation
+    - errorlint      # Error handling validation
+    - forcetypeassert # Type assertion safety
+    
+    # Code quality linters
+    - asciicheck
+    - bidichk
+    - containedctx
+    - cyclop
+    - dupl
+    - durationcheck
+    - errname
+    - exhaustive
+    - exportloopref
+    - funlen
+    - gci
+    - gochecknoinits
+    - gocognit
+    - goconst
+    - gocritic
+    - gocyclo
+    - godot
+    - gofmt
+    - gofumpt
+    - goheader
+    - goimports
+    - gomnd
+    - gomoddirectives
+    - gomodguard
+    - goprintffuncname
+    - grouper
+    - importas
+    - lll
+    - makezero
+    - misspell
+    - nakedret
+    - nestif
+    - nilerr
+    - nilnil
+    - noctx
+    - nolintlint
+    - prealloc
+    - predeclared
+    - promlinter
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - stylecheck
+    - tenv
+    - testpackage
+    - thelper
+    - tparallel
+    - unconvert
+    - unparam
+    - wastedassign
+    - whitespace
+    - wrapcheck
+
+  disable:
+    # Deprecated linters
+    - deadcode
+    - exhaustivestruct
+    - golint
+    - ifshort
+    - interfacer
+    - maligned
+    - nosnakecase
+    - scopelint
+    - structcheck
+    - varcheck
+
+issues:
+  max-issues-per-linter: 50
+  max-same-issues: 10
+  new: false
+
+  exclude-rules:
+    # Exclude some linters from running on tests files
+    - path: _test\.go
+      linters:
+        - gomnd
+        - funlen
+        - goconst
+        - dupl
+        - lll
+
+    # Exclude known linters from generated files
+    - path: ".*\\.pb\\.go"
+      linters:
+        - gomnd
+        - goconst
+        - gocritic
+
+    # Security-specific exclusions (be very careful here)
+    # Only exclude if you're certain the pattern is safe
+    - text: "weak cryptographic primitive"
+      linters:
+        - gosec
+      source: "md5|sha1"
+      # Note: Only exclude if using for non-cryptographic purposes
+
+    # Allow long lines in comments
+    - source: "^//.*$"
+      linters:
+        - lll
+
+    # Exclude some staticcheck messages
+    - linters:
+        - staticcheck
+      text: "SA9003:"
+
+    # Exclude some gocritic messages for external libraries
+    - linters:
+        - gocritic
+      text: "unnecessaryDefer:"
+
+    # Zero Trust specific exclusions
+    # Trust score calculations may have complex logic
+    - path: "trust.*\\.go"
+      linters:
+        - gocyclo
+        - cyclop
+      text: "cognitive complexity"
+
+    # Authentication middleware may have longer functions
+    - path: "middleware.*\\.go"
+      linters:
+        - funlen
+      text: "function.*too long"
+
+  exclude:
+    # errcheck: Most programs ignore errors on these functions and in most cases it's ok
+    - Error return value of .((os\.)?std(out|err)\..*|.*Close|.*Flush|os\.Remove(All)?|.*print.*|os\.(Un)?Setenv). is not checked
+    
+    # golint: False positive when used with //nolint
+    - (comment on exported (method|function|type|const)|should have( a package)? comment|comment should be of the form)
+    
+    # govet: Common false positives
+    - (possible misuse of unsafe.Pointer|should have signature)
+    
+    # staticcheck: C-style switch statements are acceptable
+    - ineffective break statement. Did you mean to break out of the outer loop
+
+severity:
+  default-severity: error
+  case-sensitive: false
+  rules:
+    # Security issues are always errors
+    - linters:
+        - gosec
+      severity: error
+    # Code quality issues are warnings
+    - linters:
+        - gocritic
+        - goconst
+        - dupl
+      severity: warning
+    # Style issues are info
+    - linters:
+        - revive
+        - stylecheck
+      severity: info
+
+# Zero Trust specific configuration
+# Custom rules for authentication and security patterns
+custom:
+  zero-trust-patterns:
+    # Ensure JWT tokens are validated properly
+    jwt-validation: true
+    # Require trust score checks for sensitive operations
+    trust-score-enforcement: true
+    # Validate input sanitization
+    input-validation: true
+    # Check for proper error handling in security code
+    security-error-handling: true

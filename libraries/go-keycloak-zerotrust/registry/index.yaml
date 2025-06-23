@@ -1,0 +1,27 @@
+apiVersion: component.github.com/v1alpha1
+kind: ComponentRegistry
+metadata:
+  name: go-keycloak-zerotrust-registry
+  namespace: yourorg
+spec:
+  components:
+    - name: core
+      version: 1.0.0
+      source: ghcr.io/yourorg/zerotrust-core:1.0.0
+      manifest: components/core/component.yaml
+      updated: 2025-06-22T15:46:19Z
+    - name: middleware
+      version: 1.0.0
+      source: ghcr.io/yourorg/zerotrust-middleware:1.0.0
+      manifest: components/middleware/component.yaml
+      updated: 2025-06-22T15:46:19Z
+    - name: clients
+      version: 1.0.0
+      source: ghcr.io/yourorg/zerotrust-clients:1.0.0
+      manifest: components/clients/component.yaml
+      updated: 2025-06-22T15:46:19Z
+    - name: examples
+      version: 1.0.0
+      source: ghcr.io/yourorg/zerotrust-examples:1.0.0
+      manifest: components/examples/component.yaml
+      updated: 2025-06-22T15:46:19Z
